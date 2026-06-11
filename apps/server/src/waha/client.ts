@@ -156,6 +156,30 @@ export class WahaClient {
     return this.request<WahaSession>("GET", `/api/sessions/${name}`);
   }
 
+  /** Deletes a session entirely (used by admin tenant purge). */
+  async deleteSession(name: string): Promise<void> {
+    await this.request<void>("DELETE", `/api/sessions/${name}`);
+  }
+
+  /** Re-points a session's webhook config (used by admin-fix-webhook). */
+  async setWebhook(
+    name: string,
+    webhookUrl: string,
+    events: string[],
+    hmacSecret?: string,
+  ): Promise<WahaSession> {
+    const config = {
+      webhooks: [
+        {
+          url: webhookUrl,
+          events,
+          ...(hmacSecret ? { hmac: { key: hmacSecret } } : {}),
+        },
+      ],
+    };
+    return this.request<WahaSession>("PUT", `/api/sessions/${name}`, { config });
+  }
+
   async logout(name: string): Promise<void> {
     await this.request<void>("POST", `/api/sessions/${name}/logout`, {});
   }
