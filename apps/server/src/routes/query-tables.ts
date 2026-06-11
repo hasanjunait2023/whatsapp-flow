@@ -13,6 +13,22 @@ import {
   messageTemplates,
   tenantDailyStats,
   notifications,
+  usageCounters,
+  plans,
+  payments,
+  categories,
+  products,
+  productVariants,
+  orders,
+  orderItems,
+  facebookPages,
+  fbContacts,
+  fbMessages,
+  agentSouls,
+  soulSources,
+  llmUsageEvents,
+  agentConfigs,
+  agentRuns,
 } from "../db/schema.js";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 
@@ -79,6 +95,31 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
   message_templates: { table: messageTemplates, tenantColumn: null, mutability: "tenant" },
   tenant_daily_stats: { table: tenantDailyStats, tenantColumn: "tenant_id", mutability: "tenant" },
   notifications: { table: notifications, tenantColumn: "tenant_id", mutability: "tenant" },
+  // Usage counters are incremented only by the messaging/webhook server paths
+  // (via the repo layer), never mutated through the generic /api/query endpoint.
+  usage_counters: { table: usageCounters, tenantColumn: "tenant_id", mutability: "readonly" },
+  // Global pricing catalog: readable by every authenticated user, admin-managed.
+  plans: { table: plans, tenantColumn: null, mutability: "admin" },
+  // Payment records are written only by server payment flows (gateway webhooks,
+  // admin verification); tenants may read their own history.
+  payments: { table: payments, tenantColumn: "tenant_id", mutability: "readonly" },
+  categories: { table: categories, tenantColumn: "tenant_id", mutability: "tenant" },
+  products: { table: products, tenantColumn: "tenant_id", mutability: "tenant" },
+  product_variants: { table: productVariants, tenantColumn: "tenant_id", mutability: "tenant" },
+  orders: { table: orders, tenantColumn: "tenant_id", mutability: "tenant" },
+  order_items: { table: orderItems, tenantColumn: "tenant_id", mutability: "tenant" },
+  facebook_pages: { table: facebookPages, tenantColumn: "tenant_id", mutability: "tenant" },
+  fb_contacts: { table: fbContacts, tenantColumn: "tenant_id", mutability: "tenant" },
+  fb_messages: { table: fbMessages, tenantColumn: "tenant_id", mutability: "tenant" },
+  // Soul lifecycle is driven by the soul-* fn handlers; the UI only reads state.
+  agent_souls: { table: agentSouls, tenantColumn: "tenant_id", mutability: "readonly" },
+  soul_sources: { table: soulSources, tenantColumn: "tenant_id", mutability: "readonly" },
+  // LLM usage events power the Billing usage widget; written by llm/usage.ts only.
+  llm_usage_events: { table: llmUsageEvents, tenantColumn: "tenant_id", mutability: "readonly" },
+  // Agent behavior config (enable/disable, delays, keywords) is tenant-managed.
+  agent_configs: { table: agentConfigs, tenantColumn: "tenant_id", mutability: "tenant" },
+  // Run history is observability data; written by the agent orchestrator only.
+  agent_runs: { table: agentRuns, tenantColumn: "tenant_id", mutability: "readonly" },
 };
 
 export function isAllowedTable(name: string): boolean {

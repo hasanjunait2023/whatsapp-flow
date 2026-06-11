@@ -11,6 +11,11 @@ import { rpcRoute } from "./routes/rpc.js";
 import { fnRoute } from "./routes/fn.js";
 import { mediaRoute } from "./routes/media.js";
 import { realtimeRoute } from "./realtime/sse.js";
+import { llmSettingsRoute } from "./routes/llm-settings.js";
+import { wahaWebhookRoute } from "./routes/waha/webhook.js";
+import { startScheduler, stopScheduler } from "./jobs/scheduler.js";
+import { registerSoulJobs } from "./services/soul/index.js";
+import { registerHermesPipeline } from "./services/hermes/pipeline.js";
 import { PORT, IS_PRODUCTION, WEB_DIST_DIR } from "./lib/env.js";
 
 const app = new Hono();
@@ -38,6 +43,10 @@ app.get("/healthz", (c) => {
 // --- auth (better-auth mounts its own handler under /api/auth) ---------------
 app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
+// --- WAHA webhook (machine caller; no session middleware) --------------------
+// Authenticated by instance id + optional HMAC, not by a user session.
+app.route("/api/waha/webhook", wahaWebhookRoute);
+
 // --- authed API --------------------------------------------------------------
 const api = new Hono();
 api.use("*", tenantMiddleware);
@@ -46,6 +55,7 @@ api.route("/rpc", rpcRoute);
 api.route("/fn", fnRoute);
 api.route("/media", mediaRoute);
 api.route("/realtime", realtimeRoute);
+api.route("/llm-settings", llmSettingsRoute);
 app.route("/api", api);
 
 // --- static SPA in production ------------------------------------------------
@@ -64,7 +74,12 @@ if (IS_PRODUCTION && existsSync(WEB_DIST_DIR)) {
 
 const server = serve({ fetch: app.fetch, port: PORT });
 
+registerSoulJobs();
+registerHermesPipeline();
+startScheduler();
+
 function shutdown(signal: string): void {
+  stopScheduler();
   server.close(() => {
     try {
       sqlite.close();

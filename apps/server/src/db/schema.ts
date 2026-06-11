@@ -3,6 +3,7 @@ import {
   sqliteTable,
   text,
   integer,
+  real,
   index,
   uniqueIndex,
   primaryKey,
@@ -19,6 +20,8 @@ import {
  *   jsonb       -> text ({ mode: "json" })
  *   bool        -> integer ({ mode: "boolean" })
  *   numeric     -> text
+ *   numeric money (price/amount/total) -> real (generated types expose number;
+ *     UI does arithmetic on these, so text would break row-shape parity)
  *   text[]      -> text ({ mode: "json" })
  */
 
@@ -419,6 +422,582 @@ export const adminAuditLogs = sqliteTable(
   }),
 );
 
+// ---------------------------------------------------------------------------
+// usage_counters (per-tenant per-period message counters)
+// ---------------------------------------------------------------------------
+export const usageCounters = sqliteTable(
+  "usage_counters",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    ai_messages: integer("ai_messages").default(0).notNull(),
+    created_at: text("created_at").default(nowIso).notNull(),
+    messages_received: integer("messages_received").default(0).notNull(),
+    messages_sent: integer("messages_sent").default(0).notNull(),
+    period_end: text("period_end").notNull(),
+    period_start: text("period_start").notNull(),
+    tenant_id: text("tenant_id").notNull(),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+  },
+  (t) => ({
+    tenantPeriodUnq: uniqueIndex("usage_counters_tenant_period_unq").on(
+      t.tenant_id,
+      t.period_start,
+    ),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// webhook_events_log (raw inbound webhook audit + replay)
+// ---------------------------------------------------------------------------
+export const webhookEventsLog = sqliteTable(
+  "webhook_events_log",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    created_at: text("created_at").default(nowIso).notNull(),
+    error: text("error"),
+    event_type: text("event_type").notNull(),
+    instance_id: text("instance_id"),
+    payload: text("payload", { mode: "json" }).notNull(),
+    processed: integer("processed", { mode: "boolean" }).default(false).notNull(),
+    tenant_id: text("tenant_id"),
+  },
+  (t) => ({
+    instanceIdx: index("webhook_events_log_instance_id_idx").on(t.instance_id),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// message_raw_payloads (raw provider payload keyed by our message id)
+// ---------------------------------------------------------------------------
+export const messageRawPayloads = sqliteTable("message_raw_payloads", {
+  message_id: text("message_id").primaryKey(),
+  created_at: text("created_at").default(nowIso).notNull(),
+  provider_metadata: text("provider_metadata", { mode: "json" }),
+  raw_payload: text("raw_payload", { mode: "json" }),
+});
+
+// ---------------------------------------------------------------------------
+// plans (global pricing catalog; not tenant-scoped)
+// ---------------------------------------------------------------------------
+export const plans = sqliteTable("plans", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  ai_enabled: integer("ai_enabled", { mode: "boolean" }).default(false).notNull(),
+  business_type_id: text("business_type_id"),
+  created_at: text("created_at").default(nowIso).notNull(),
+  description: text("description"),
+  features: text("features", { mode: "json" }),
+  is_active: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+  max_agents: integer("max_agents").default(1).notNull(),
+  max_instances: integer("max_instances").default(1).notNull(),
+  max_messages_per_month: integer("max_messages_per_month").default(1000).notNull(),
+  name: text("name").notNull(),
+  price_monthly: real("price_monthly").default(0).notNull(),
+  price_yearly: real("price_yearly"),
+  tier: text("tier"),
+  tier_order: integer("tier_order"),
+  updated_at: text("updated_at").default(nowIso).notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// payments (manual + gateway payment records; written by server flows only)
+// ---------------------------------------------------------------------------
+export const payments = sqliteTable(
+  "payments",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    amount: real("amount").notNull(),
+    created_at: text("created_at").default(nowIso).notNull(),
+    currency: text("currency").default("BDT").notNull(),
+    gateway_response: text("gateway_response", { mode: "json" }),
+    notes: text("notes"),
+    payment_gateway: text("payment_gateway"),
+    payment_method: text("payment_method").notNull(),
+    status: text("status").default("pending").notNull(),
+    subscription_id: text("subscription_id"),
+    tenant_id: text("tenant_id").notNull(),
+    transaction_id: text("transaction_id"),
+    uddoktapay_invoice_id: text("uddoktapay_invoice_id"),
+    verified_at: text("verified_at"),
+    verified_by: text("verified_by"),
+  },
+  (t) => ({
+    tenantIdx: index("payments_tenant_id_idx").on(t.tenant_id),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// categories (product categories)
+// ---------------------------------------------------------------------------
+export const categories = sqliteTable(
+  "categories",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    created_at: text("created_at").default(nowIso).notNull(),
+    description: text("description"),
+    image_url: text("image_url"),
+    is_active: integer("is_active", { mode: "boolean" }).default(true),
+    name: text("name").notNull(),
+    parent_id: text("parent_id"),
+    sort_order: integer("sort_order").default(0),
+    tenant_id: text("tenant_id").notNull(),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+    woo_category_id: integer("woo_category_id"),
+  },
+  (t) => ({
+    tenantIdx: index("categories_tenant_id_idx").on(t.tenant_id),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// products
+// ---------------------------------------------------------------------------
+export const products = sqliteTable(
+  "products",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    category_id: text("category_id"),
+    compare_at_price: real("compare_at_price"),
+    cost_price: real("cost_price"),
+    created_at: text("created_at").default(nowIso).notNull(),
+    description: text("description"),
+    images: text("images", { mode: "json" }),
+    is_active: integer("is_active", { mode: "boolean" }).default(true),
+    low_stock_threshold: integer("low_stock_threshold").default(5),
+    name: text("name").notNull(),
+    price: real("price").default(0).notNull(),
+    sku: text("sku"),
+    stock_quantity: integer("stock_quantity").default(0),
+    tags: text("tags", { mode: "json" }),
+    tenant_id: text("tenant_id").notNull(),
+    track_inventory: integer("track_inventory", { mode: "boolean" }).default(true),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+    variant_options: text("variant_options", { mode: "json" }),
+    variants: text("variants", { mode: "json" }),
+    woo_last_synced_at: text("woo_last_synced_at"),
+    woo_product_id: integer("woo_product_id"),
+  },
+  (t) => ({
+    tenantIdx: index("products_tenant_id_idx").on(t.tenant_id),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// product_variants
+// ---------------------------------------------------------------------------
+export const productVariants = sqliteTable(
+  "product_variants",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    compare_at_price: real("compare_at_price"),
+    cost_price: real("cost_price"),
+    created_at: text("created_at").default(nowIso),
+    images: text("images", { mode: "json" }),
+    is_active: integer("is_active", { mode: "boolean" }).default(true),
+    low_stock_threshold: integer("low_stock_threshold").default(5),
+    name: text("name").notNull(),
+    options: text("options", { mode: "json" }),
+    position: integer("position").default(0),
+    price: real("price"),
+    product_id: text("product_id").notNull(),
+    sku: text("sku"),
+    stock_quantity: integer("stock_quantity").default(0),
+    tenant_id: text("tenant_id").notNull(),
+    updated_at: text("updated_at").default(nowIso),
+    woo_variant_id: integer("woo_variant_id"),
+  },
+  (t) => ({
+    tenantIdx: index("product_variants_tenant_id_idx").on(t.tenant_id),
+    productIdx: index("product_variants_product_id_idx").on(t.product_id),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// orders
+// ---------------------------------------------------------------------------
+export const orders = sqliteTable(
+  "orders",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    billing_address: text("billing_address", { mode: "json" }),
+    cancelled_at: text("cancelled_at"),
+    contact_id: text("contact_id"),
+    courier: text("courier"),
+    created_at: text("created_at").default(nowIso).notNull(),
+    created_by: text("created_by"),
+    currency: text("currency").default("USD").notNull(),
+    customer_email: text("customer_email"),
+    customer_name: text("customer_name"),
+    customer_phone: text("customer_phone"),
+    delivered_at: text("delivered_at"),
+    discount_amount: real("discount_amount").default(0),
+    internal_notes: text("internal_notes"),
+    notes: text("notes"),
+    order_number: text("order_number").notNull(),
+    payment_status: text("payment_status").default("unpaid").notNull(),
+    shipped_at: text("shipped_at"),
+    shipping_address: text("shipping_address", { mode: "json" }),
+    shipping_amount: real("shipping_amount").default(0),
+    source: text("source"),
+    status: text("status").default("pending").notNull(),
+    subtotal: real("subtotal").default(0).notNull(),
+    tax_amount: real("tax_amount").default(0),
+    tenant_id: text("tenant_id").notNull(),
+    total: real("total").default(0).notNull(),
+    tracking_number: text("tracking_number"),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+    woo_order_id: integer("woo_order_id"),
+  },
+  (t) => ({
+    tenantIdx: index("orders_tenant_id_idx").on(t.tenant_id),
+    contactIdx: index("orders_contact_id_idx").on(t.contact_id),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// order_items
+// tenant_id is NOT in the Postgres source (legacy scoped via the orders join);
+// added here so the generic /api/query tenant scoping covers this table too.
+// Inserts through the query API get it stamped by forceTenantOnRow.
+// ---------------------------------------------------------------------------
+export const orderItems = sqliteTable(
+  "order_items",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    created_at: text("created_at").default(nowIso).notNull(),
+    discount_amount: real("discount_amount").default(0),
+    notes: text("notes"),
+    order_id: text("order_id").notNull(),
+    product_id: text("product_id"),
+    product_name: text("product_name").notNull(),
+    product_sku: text("product_sku"),
+    quantity: integer("quantity").default(1).notNull(),
+    tenant_id: text("tenant_id").notNull(),
+    total: real("total").notNull(),
+    unit_price: real("unit_price").notNull(),
+    variant_id: text("variant_id"),
+    variant_name: text("variant_name"),
+  },
+  (t) => ({
+    orderIdx: index("order_items_order_id_idx").on(t.order_id),
+    tenantIdx: index("order_items_tenant_id_idx").on(t.tenant_id),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// facebook_pages (connected Messenger pages; token used by Graph API calls)
+// ---------------------------------------------------------------------------
+export const facebookPages = sqliteTable(
+  "facebook_pages",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    app_secret: text("app_secret"),
+    created_at: text("created_at").default(nowIso).notNull(),
+    is_default: integer("is_default", { mode: "boolean" }).default(false).notNull(),
+    last_connected_at: text("last_connected_at"),
+    page_access_token: text("page_access_token").notNull(),
+    page_id: text("page_id").notNull(),
+    page_name: text("page_name").notNull(),
+    profile_picture_url: text("profile_picture_url"),
+    status: text("status").default("disconnected").notNull(),
+    tenant_id: text("tenant_id").notNull(),
+    token_expires_at: text("token_expires_at"),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+    webhook_verify_token: text("webhook_verify_token")
+      .notNull()
+      .$defaultFn(() => crypto.randomUUID().replace(/-/g, "")),
+  },
+  (t) => ({
+    tenantIdx: index("facebook_pages_tenant_id_idx").on(t.tenant_id),
+    tenantPageUnq: uniqueIndex("facebook_pages_tenant_page_unq").on(t.tenant_id, t.page_id),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// fb_contacts (Messenger conversations, keyed by page-scoped PSID)
+// ---------------------------------------------------------------------------
+export const fbContacts = sqliteTable(
+  "fb_contacts",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    assigned_to: text("assigned_to"),
+    created_at: text("created_at").default(nowIso).notNull(),
+    handoff_at: text("handoff_at"),
+    handoff_reason: text("handoff_reason"),
+    is_archived: integer("is_archived", { mode: "boolean" }).default(false).notNull(),
+    is_blocked: integer("is_blocked", { mode: "boolean" }).default(false).notNull(),
+    last_message_at: text("last_message_at"),
+    locale: text("locale"),
+    name: text("name"),
+    needs_handoff: integer("needs_handoff", { mode: "boolean" }).default(false).notNull(),
+    page_id: text("page_id").notNull(),
+    profile_pic_synced_at: text("profile_pic_synced_at"),
+    profile_pic_url: text("profile_pic_url"),
+    psid: text("psid").notNull(),
+    tags: text("tags", { mode: "json" }),
+    tenant_id: text("tenant_id").notNull(),
+    typing_at: text("typing_at"),
+    unread_count: integer("unread_count").default(0).notNull(),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+  },
+  (t) => ({
+    tenantIdx: index("fb_contacts_tenant_id_idx").on(t.tenant_id),
+    pagePsidUnq: uniqueIndex("fb_contacts_page_psid_unq").on(t.page_id, t.psid),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// fb_messages
+// ---------------------------------------------------------------------------
+export const fbMessages = sqliteTable(
+  "fb_messages",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    attachment_id: text("attachment_id"),
+    contact_id: text("contact_id").notNull(),
+    content: text("content"),
+    content_type: text("content_type").default("text").notNull(),
+    created_at: text("created_at").default(nowIso).notNull(),
+    delivered_at: text("delivered_at"),
+    direction: text("direction").notNull(),
+    error_message: text("error_message"),
+    is_from_ai: integer("is_from_ai", { mode: "boolean" }).default(false).notNull(),
+    media_filename: text("media_filename"),
+    media_mime_type: text("media_mime_type"),
+    media_url: text("media_url"),
+    mid: text("mid"),
+    original_media_url: text("original_media_url"),
+    page_id: text("page_id").notNull(),
+    quick_reply_payload: text("quick_reply_payload"),
+    read_at: text("read_at"),
+    reply_to_id: text("reply_to_id"),
+    retry_count: integer("retry_count").default(0).notNull(),
+    sent_at: text("sent_at").default(nowIso).notNull(),
+    sent_by_user_id: text("sent_by_user_id"),
+    status: text("status").default("pending").notNull(),
+    tenant_id: text("tenant_id").notNull(),
+    text_preview: text("text_preview"),
+  },
+  (t) => ({
+    tenantIdx: index("fb_messages_tenant_id_idx").on(t.tenant_id),
+    midUnq: uniqueIndex("fb_messages_mid_unq").on(t.mid),
+    contactCreatedIdx: index("fb_messages_contact_id_created_at_idx").on(
+      t.contact_id,
+      t.created_at,
+    ),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// llm_settings (per-tenant LLM provider config; api_key_encrypted is sensitive —
+// NEVER expose this table via the generic /api/query allowlist)
+// ---------------------------------------------------------------------------
+export const llmSettings = sqliteTable(
+  "llm_settings",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    api_key_encrypted: text("api_key_encrypted"),
+    created_at: text("created_at").default(nowIso).notNull(),
+    is_byok: integer("is_byok", { mode: "boolean" }).default(false).notNull(),
+    model: text("model"),
+    monthly_token_budget: integer("monthly_token_budget"),
+    provider: text("provider"),
+    temperature: real("temperature"),
+    tenant_id: text("tenant_id").notNull(),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+  },
+  (t) => ({
+    tenantUnq: uniqueIndex("llm_settings_tenant_unq").on(t.tenant_id),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// llm_usage_events (per-call token usage for billing/budget enforcement)
+// ---------------------------------------------------------------------------
+export const llmUsageEvents = sqliteTable(
+  "llm_usage_events",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    completion_tokens: integer("completion_tokens").default(0).notNull(),
+    cost_usd: real("cost_usd").default(0).notNull(),
+    created_at: text("created_at").default(nowIso).notNull(),
+    feature: text("feature").notNull(),
+    model: text("model").notNull(),
+    prompt_tokens: integer("prompt_tokens").default(0).notNull(),
+    provider: text("provider").notNull(),
+    tenant_id: text("tenant_id").notNull(),
+  },
+  (t) => ({
+    tenantCreatedIdx: index("llm_usage_events_tenant_created_idx").on(
+      t.tenant_id,
+      t.created_at,
+    ),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// agent_souls (AI persona auto-built from the tenant's FB page + website)
+// ---------------------------------------------------------------------------
+export const agentSouls = sqliteTable(
+  "agent_souls",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    approved_at: text("approved_at"),
+    business_profile: text("business_profile", { mode: "json" }),
+    created_at: text("created_at").default(nowIso).notNull(),
+    error_message: text("error_message"),
+    faqs: text("faqs", { mode: "json" }),
+    hours: text("hours", { mode: "json" }),
+    languages: text("languages", { mode: "json" }),
+    policies: text("policies", { mode: "json" }),
+    products_summary: text("products_summary"),
+    status: text("status").default("pending").notNull(),
+    system_prompt_cache: text("system_prompt_cache"),
+    tenant_id: text("tenant_id").notNull(),
+    tone: text("tone", { mode: "json" }),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+    version: integer("version").default(1).notNull(),
+  },
+  (t) => ({
+    tenantUnq: uniqueIndex("agent_souls_tenant_unq").on(t.tenant_id),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// soul_sources (raw ingested source text per soul)
+// ---------------------------------------------------------------------------
+export const soulSources = sqliteTable(
+  "soul_sources",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    content_text: text("content_text"),
+    created_at: text("created_at").default(nowIso).notNull(),
+    error: text("error"),
+    fetched_at: text("fetched_at"),
+    soul_id: text("soul_id").notNull(),
+    status: text("status").default("pending").notNull(),
+    tenant_id: text("tenant_id").notNull(),
+    type: text("type").notNull(),
+    url: text("url"),
+  },
+  (t) => ({
+    tenantIdx: index("soul_sources_tenant_id_idx").on(t.tenant_id),
+    soulIdx: index("soul_sources_soul_id_idx").on(t.soul_id),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// job_queue (durable in-process background jobs; polled by jobs/worker.ts)
+// ---------------------------------------------------------------------------
+export const jobQueue = sqliteTable(
+  "job_queue",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    attempts: integer("attempts").default(0).notNull(),
+    created_at: text("created_at").default(nowIso).notNull(),
+    /** Coalescing key: a new job with the same key replaces a queued one. */
+    dedupe_key: text("dedupe_key"),
+    kind: text("kind").notNull(),
+    last_error: text("last_error"),
+    payload: text("payload", { mode: "json" }),
+    run_at: text("run_at").default(nowIso).notNull(),
+    status: text("status").default("queued").notNull(),
+    tenant_id: text("tenant_id"),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+  },
+  (t) => ({
+    statusRunAtIdx: index("job_queue_status_run_at_idx").on(t.status, t.run_at),
+    dedupeIdx: index("job_queue_dedupe_key_idx").on(t.dedupe_key),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// agent_configs (per-tenant, per-agent behavior config: hermes | ceo)
+// ---------------------------------------------------------------------------
+export const agentConfigs = sqliteTable(
+  "agent_configs",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    agent: text("agent").notNull(),
+    channels: text("channels", { mode: "json" }),
+    created_at: text("created_at").default(nowIso).notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).default(false).notNull(),
+    escalation_keywords: text("escalation_keywords", { mode: "json" }),
+    max_turns_before_handoff: integer("max_turns_before_handoff").default(10),
+    model_override: text("model_override"),
+    reply_delay_ms: integer("reply_delay_ms").default(8000).notNull(),
+    tenant_id: text("tenant_id").notNull(),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+    working_hours: text("working_hours", { mode: "json" }),
+  },
+  (t) => ({
+    tenantAgentUnq: uniqueIndex("agent_configs_tenant_agent_unq").on(t.tenant_id, t.agent),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// agent_runs (observability: every agent invocation with tokens + outcome)
+// ---------------------------------------------------------------------------
+export const agentRuns = sqliteTable(
+  "agent_runs",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    agent: text("agent").notNull(),
+    completion_tokens: integer("completion_tokens").default(0).notNull(),
+    contact_id: text("contact_id"),
+    created_at: text("created_at").default(nowIso).notNull(),
+    error: text("error"),
+    input_preview: text("input_preview"),
+    latency_ms: integer("latency_ms"),
+    output_preview: text("output_preview"),
+    prompt_tokens: integer("prompt_tokens").default(0).notNull(),
+    status: text("status").notNull(),
+    tenant_id: text("tenant_id").notNull(),
+    tool_calls: text("tool_calls", { mode: "json" }),
+    trigger: text("trigger"),
+  },
+  (t) => ({
+    tenantCreatedIdx: index("agent_runs_tenant_created_idx").on(t.tenant_id, t.created_at),
+  }),
+);
+
 export const appSchema = {
   tenants,
   profiles,
@@ -435,4 +1014,24 @@ export const appSchema = {
   tenantDailyStats,
   notifications,
   adminAuditLogs,
+  usageCounters,
+  webhookEventsLog,
+  messageRawPayloads,
+  plans,
+  payments,
+  categories,
+  products,
+  productVariants,
+  orders,
+  orderItems,
+  facebookPages,
+  fbContacts,
+  fbMessages,
+  llmSettings,
+  llmUsageEvents,
+  agentSouls,
+  soulSources,
+  jobQueue,
+  agentConfigs,
+  agentRuns,
 };

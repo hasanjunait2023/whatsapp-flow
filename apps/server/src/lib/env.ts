@@ -31,3 +31,46 @@ export function getAuthSecret(): string {
 
 /** Base URL the auth server is reachable at (same-origin in production). */
 export const AUTH_BASE_URL = process.env.AUTH_BASE_URL ?? `http://localhost:${PORT}`;
+
+// --- WAHA (WhatsApp HTTP API) -----------------------------------------------
+
+/** Base URL of the WAHA REST API (pilot: http://127.0.0.1:3999, prod: http://waha:3000). */
+export const WAHA_URL = process.env.WAHA_URL ?? "http://127.0.0.1:3999";
+
+/** API key sent as the X-Api-Key header on every WAHA request. */
+export const WAHA_API_KEY = process.env.WAHA_API_KEY ?? "";
+
+/**
+ * Core/pilot mode: WAHA Core supports only a single session named `default`,
+ * so every instance id is mapped to `default`. In Plus mode (false) the session
+ * name equals the instance id, enabling one session per tenant instance.
+ */
+export const WAHA_SINGLE_SESSION =
+  (process.env.WAHA_SINGLE_SESSION ?? "true").toLowerCase() === "true";
+
+/**
+ * Public base URL WAHA uses to reach our webhook endpoint. In prod this is the
+ * container-network address of the app (e.g. http://app:3000); the webhook path
+ * /api/waha/webhook/{instanceId} is appended per instance.
+ */
+export const WAHA_WEBHOOK_BASE_URL =
+  process.env.WAHA_WEBHOOK_BASE_URL ?? AUTH_BASE_URL;
+
+/** Optional HMAC secret WAHA Plus uses to sign webhooks; verification is gated on this. */
+export const WAHA_WEBHOOK_HMAC_SECRET = process.env.WAHA_WEBHOOK_HMAC_SECRET ?? "";
+
+/**
+ * Master key for AES-256-GCM encryption of stored secrets (per-tenant API keys).
+ * 64 hex chars (32 bytes). Required at runtime by lib/crypto.ts, not at import.
+ */
+export function getMasterKey(): Buffer {
+  const hex = process.env.MASTER_KEY;
+  if (!hex) {
+    throw new Error("MASTER_KEY is not configured");
+  }
+  const key = Buffer.from(hex, "hex");
+  if (key.length !== 32) {
+    throw new Error("MASTER_KEY must be 64 hex characters (32 bytes)");
+  }
+  return key;
+}
