@@ -1,0 +1,32 @@
+# Keep the build context small and never leak local state/secrets into images.
+**/node_modules
+**/dist
+**/dist-ssr
+**/.turbo
+**/.cache
+
+# Local data + SQLite (the image starts from a FRESH DB on a mounted volume)
+data/
+**/data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+
+# Secrets / local env — never copy into the image
+.env
+.env.*
+!.env.production.example
+
+# VCS + tooling
+.git
+.github
+.claude
+.lovable
+supabase
+
+# Logs + editor
+*.log
+.vscode
+.idea
+.DS_Store
