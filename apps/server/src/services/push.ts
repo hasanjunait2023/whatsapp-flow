@@ -62,7 +62,25 @@ export function saveSubscription(
     );
 }
 
-export function removeSubscription(endpoint: string): void {
+/**
+ * Removes a push subscription by endpoint. When `owner` is supplied (user-facing
+ * unsubscribe), the delete is scoped to that tenant+user so a caller cannot
+ * remove another tenant's endpoint. The unscoped form is for internal pruning
+ * of endpoints the push service itself reported as gone (404/410) — a dead
+ * endpoint is globally dead, so no owner check applies.
+ */
+export function removeSubscription(
+  endpoint: string,
+  owner?: { tenantId: string; userId: string },
+): void {
+  if (owner) {
+    sqlite
+      .prepare(
+        `DELETE FROM push_subscriptions WHERE endpoint = ? AND tenant_id = ? AND user_id = ?`,
+      )
+      .run(endpoint, owner.tenantId, owner.userId);
+    return;
+  }
   sqlite.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`).run(endpoint);
 }
 

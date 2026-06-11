@@ -24,10 +24,12 @@ export const PUSH_HANDLERS: Record<string, FnHandler> = {
     return { data: { success: true }, error: null };
   },
 
-  "push-unsubscribe": async (body, _ctx) => {
+  "push-unsubscribe": async (body, ctx) => {
+    if (!ctx.tenantId) return { data: null, error: { message: "No active tenant" } };
     const endpoint = typeof body.endpoint === "string" ? body.endpoint : "";
     if (!endpoint) return { data: null, error: { message: "endpoint is required" } };
-    removeSubscription(endpoint);
+    // Scope to caller's tenant+user: a foreign endpoint is a no-op, not a leak.
+    removeSubscription(endpoint, { tenantId: ctx.tenantId, userId: ctx.userId });
     return { data: { success: true }, error: null };
   },
 };

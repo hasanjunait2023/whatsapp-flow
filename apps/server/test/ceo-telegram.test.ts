@@ -238,4 +238,23 @@ describe("telegram webhook route", () => {
     delete process.env.TELEGRAM_WEBHOOK_SECRET;
     vi.resetModules();
   });
+
+  it("fails closed in production when no secret is configured", async () => {
+    vi.resetModules();
+    const prevEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    delete process.env.TELEGRAM_WEBHOOK_SECRET;
+    const { telegramWebhookRoute } = await import("../src/routes/webhooks/telegram.js");
+    const { Hono } = await import("hono");
+    const app = new Hono().route("/webhook", telegramWebhookRoute);
+
+    const res = await app.request("/webhook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: { text: "/start abc", chat: { id: 1 } } }),
+    });
+    expect(res.status).toBe(401);
+    process.env.NODE_ENV = prevEnv;
+    vi.resetModules();
+  });
 });

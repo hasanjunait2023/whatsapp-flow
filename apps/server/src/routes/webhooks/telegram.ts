@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { timingSafeEqual } from "node:crypto";
-import { TELEGRAM_WEBHOOK_SECRET } from "../../lib/env.js";
+import { TELEGRAM_WEBHOOK_SECRET, IS_PRODUCTION } from "../../lib/env.js";
 import { consumeLinkCode, sendTelegramMessage } from "../../services/telegram.js";
 
 /**
@@ -22,7 +22,12 @@ interface TelegramUpdate {
 }
 
 function secretValid(header: string | undefined): boolean {
-  if (!TELEGRAM_WEBHOOK_SECRET) return true; // not enforced until configured
+  if (!TELEGRAM_WEBHOOK_SECRET) {
+    // Fail closed in production: an unconfigured secret must reject every
+    // request (mirrors the WAHA HMAC-enforced posture). Dev/test, where no
+    // secret is set, stays open for local webhook exercising.
+    return !IS_PRODUCTION;
+  }
   if (!header) return false;
   const a = Buffer.from(TELEGRAM_WEBHOOK_SECRET);
   const b = Buffer.from(header);
