@@ -1,4 +1,21 @@
 import bcrypt from "bcryptjs";
+import { randomInt } from "node:crypto";
+
+const TEMP_PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+
+/**
+ * Generates a one-time temporary password using a CSPRNG. 24 random chars from
+ * a 54-char alphabet is ~138 bits of entropy (well above the 128-bit bar); the
+ * fixed "Temp@" prefix only satisfies upper/lower/symbol complexity rules and
+ * contributes no entropy. Never use Math.random() for credentials.
+ */
+export function generateTempPassword(): string {
+  let password = "Temp@";
+  for (let i = 0; i < 24; i++) {
+    password += TEMP_PASSWORD_CHARS.charAt(randomInt(TEMP_PASSWORD_CHARS.length));
+  }
+  return password;
+}
 
 /**
  * Custom password verifier scaffold for migrated GoTrue (Supabase) users.

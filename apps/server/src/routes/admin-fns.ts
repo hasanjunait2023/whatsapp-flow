@@ -2,6 +2,7 @@ import { sqlite } from "../db/index.js";
 import { emitChange } from "../realtime/emitter.js";
 import { wahaClient, sessionNameForInstance } from "../waha/client.js";
 import { WAHA_WEBHOOK_BASE_URL, WAHA_WEBHOOK_HMAC_SECRET } from "../lib/env.js";
+import { generateTempPassword } from "../auth/password.js";
 import type { FnContext, FnResult } from "./waha/session.js";
 
 /**
@@ -96,16 +97,6 @@ export async function adminDeleteTenant(raw: Record<string, unknown>, ctx: FnCon
 
 // --- admin-reset-user-password -----------------------------------------------
 
-const PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-
-function generatePassword(): string {
-  let password = "Temp@";
-  for (let i = 0; i < 8; i++) {
-    password += PASSWORD_CHARS.charAt(Math.floor(Math.random() * PASSWORD_CHARS.length));
-  }
-  return password;
-}
-
 /** admin-reset-user-password: rotate a user's credential to a temp password. */
 export async function adminResetUserPassword(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
   if (!ctx.isAdmin) return forbidden();
@@ -117,7 +108,7 @@ export async function adminResetUserPassword(raw: Record<string, unknown>, ctx: 
     | undefined;
   if (!target) return ok({ success: false, error: "User not found" });
 
-  const newPassword = generatePassword();
+  const newPassword = generateTempPassword();
   let hash: string;
   try {
     const { hashPassword } = await import("better-auth/crypto");

@@ -1,6 +1,7 @@
 import { sqlite } from "../db/index.js";
 import { notify } from "../services/notify.js";
 import { fbRefreshProfile } from "./fb-fns.js";
+import { generateTempPassword } from "../auth/password.js";
 import type { FnContext, FnResult } from "./waha/session.js";
 
 /**
@@ -22,15 +23,6 @@ import type { FnContext, FnResult } from "./waha/session.js";
 const ok = (data: unknown): FnResult => ({ data, error: null });
 
 const LOGIN_URL = "https://whataapp.myecomex.com/auth/login";
-const PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-
-function generatePassword(): string {
-  let password = "Temp@";
-  for (let i = 0; i < 8; i++) {
-    password += PASSWORD_CHARS.charAt(Math.floor(Math.random() * PASSWORD_CHARS.length));
-  }
-  return password;
-}
 
 function welcomeBody(customerName: string, email: string, password: string, businessName: string): string {
   return (
@@ -143,7 +135,7 @@ export async function resendWelcomeNotification(raw: Record<string, unknown>, ct
     .get(body.order_id) as ExternalOrderRow | undefined;
   if (!order) return ok({ success: false, error: "Order not found" });
 
-  const password = body.temp_password ?? generatePassword();
+  const password = body.temp_password ?? generateTempPassword();
 
   // Rotate the user's credential so the password we send is valid.
   if (order.user_id) {
