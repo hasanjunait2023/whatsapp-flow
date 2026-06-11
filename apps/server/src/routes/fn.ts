@@ -13,6 +13,8 @@ import { GROUP_HANDLERS } from "./groups-fns.js";
 import { TEAM_HANDLERS } from "./team-fns.js";
 import { MISC_HANDLERS } from "./misc-fns.js";
 import { DEFERRED_HANDLERS } from "./deferred-fns.js";
+import { ADMIN_HANDLERS } from "./admin-fns.js";
+import { WELCOME_HANDLERS } from "./welcome-fns.js";
 import { uploadChatMediaJson, uploadChatMediaMultipart } from "./upload-fns.js";
 
 export const fnRoute = new Hono();
@@ -40,6 +42,8 @@ const HANDLERS: Record<string, FnHandler> = {
   ...TEAM_HANDLERS,
   ...MISC_HANDLERS,
   ...DEFERRED_HANDLERS,
+  ...ADMIN_HANDLERS,
+  ...WELCOME_HANDLERS,
   "send-message": sendMessage,
   "send-new-message": sendNewMessage,
   "upload-chat-media": uploadChatMediaJson,
