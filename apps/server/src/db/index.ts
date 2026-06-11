@@ -22,6 +22,11 @@ export const sqlite = new Database(DB_PATH);
 sqlite.pragma("journal_mode = WAL");
 sqlite.pragma("busy_timeout = 5000");
 sqlite.pragma("foreign_keys = ON");
+// NORMAL is the standard durability mode under WAL: a fsync only at checkpoint,
+// not per-commit — large write-throughput win for the webhook ingest path. Safe
+// here because the WAL is continuously replicated off-box by Litestream, so the
+// only NORMAL risk (losing the last txn on an OS-level crash) is itself backed up.
+sqlite.pragma("synchronous = NORMAL");
 
 export const db = drizzle(sqlite, { schema });
 
