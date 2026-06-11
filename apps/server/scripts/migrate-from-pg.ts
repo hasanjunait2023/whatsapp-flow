@@ -17,14 +17,20 @@
  * requires creds; the URL-rewrite of media columns happens regardless.
  */
 
-import { sql, getTableColumns } from "drizzle-orm";
+import { sql, getTableColumns, getTableName } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { db, sqlite } from "../src/db/index.js";
 import { runMigrations } from "../src/db/migrate.js";
 import { appSchema } from "../src/db/schema.js";
 import { user as userTable, account as accountTable } from "../src/db/auth-schema.js";
 import { transformRow, type ColumnKind } from "./pg-transforms.js";
-import { MIGRATION_TABLES, MEDIA_URL_COLUMNS, kindsForTable } from "./pg-tables.js";
+import {
+  MIGRATION_TABLES,
+  MEDIA_URL_COLUMNS,
+  kindsForTable,
+  TENANT_BACKFILL,
+  backfillTenantId,
+} from "./pg-tables.js";
 import { mapGoTrueUser, type GoTrueUser, type GoTrueIdentity } from "./pg-auth-map.js";
 import { rewriteMediaUrl } from "./pg-media.js";
 import { downloadMedia, type MediaDownloader } from "./pg-media-download.js";
@@ -191,6 +197,19 @@ async function migrateTable(
   const kinds: Record<string, ColumnKind> = kindsForTable(target);
   const mediaCols = Object.keys(kinds).filter((c) => MEDIA_URL_COLUMNS.has(c));
 
+  // Synthetic-tenant back-fill: a child (e.g. order_items) whose tenant_id is
+  // absent in the source gets it stamped from its already-migrated parent.
+  const backfill = TENANT_BACKFILL[target];
+  let lookupParentTenant: ((id: string) => string | undefined) | null = null;
+  if (backfill) {
+    const parentName = getTableName(appSchema[backfill.parent]);
+    const stmt = sqlite.prepare(`SELECT tenant_id FROM ${ident(parentName)} WHERE id = ? LIMIT 1`);
+    lookupParentTenant = (id) => {
+      const r = stmt.get(id) as { tenant_id?: string } | undefined;
+      return r?.tenant_id ?? undefined;
+    };
+  }
+
   const countRes = await client.query(`SELECT COUNT(*)::int AS n FROM ${ident(source)}`);
   const sourceCount = (countRes.rows[0]?.n as number) ?? 0;
 
@@ -207,7 +226,14 @@ async function migrateTable(
 
     const transformed: Array<Record<string, unknown>> = [];
     for (const row of page.rows) {
-      const out = transformRow(row, kinds);
+      let out = transformRow(row, kinds);
+
+      if (backfill && lookupParentTenant) {
+        const res = backfillTenantId(out, backfill, lookupParentTenant);
+        if ("dropped" in res) continue; // orphan child — skip, surfaced as a count mismatch
+        out = res.row;
+      }
+
       const tenantId = typeof out.tenant_id === "string" ? out.tenant_id : "";
       for (const col of mediaCols) {
         const current = out[col];

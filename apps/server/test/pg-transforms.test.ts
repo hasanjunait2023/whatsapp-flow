@@ -24,7 +24,7 @@ import {
   type GoTrueUser,
   type GoTrueIdentity,
 } from "../scripts/pg-auth-map.js";
-import { kindsForTable, columnKind } from "../scripts/pg-tables.js";
+import { kindsForTable, columnKind, backfillTenantId } from "../scripts/pg-tables.js";
 import { verifyPassword } from "../src/auth/password.js";
 
 // ---------------------------------------------------------------------------
@@ -445,5 +445,42 @@ describe("bcrypt sample verify (password.ts)", () => {
 
     const wrong = await verifyPassword("wrong-pass", hash, nativeVerify);
     expect(wrong.valid).toBe(false);
+  });
+});
+
+describe("backfillTenantId (synthetic tenant_id from parent)", () => {
+  const cfg = { parent: "orders" as const, fkColumn: "order_id" };
+
+  it("keeps an existing non-empty tenant_id untouched", () => {
+    const res = backfillTenantId({ id: "oi1", order_id: "o1", tenant_id: "t-existing" }, cfg, () => "t-parent");
+    expect("dropped" in res).toBe(false);
+    if (!("dropped" in res)) expect(res.row.tenant_id).toBe("t-existing");
+  });
+
+  it("stamps tenant_id from the parent when the child lacks it", () => {
+    const res = backfillTenantId({ id: "oi1", order_id: "o1" }, cfg, (id) => (id === "o1" ? "t-parent" : undefined));
+    expect("dropped" in res).toBe(false);
+    if (!("dropped" in res)) expect(res.row.tenant_id).toBe("t-parent");
+  });
+
+  it("stamps when tenant_id is present but empty", () => {
+    const res = backfillTenantId({ id: "oi1", order_id: "o1", tenant_id: "" }, cfg, () => "t-parent");
+    if (!("dropped" in res)) expect(res.row.tenant_id).toBe("t-parent");
+  });
+
+  it("drops the row when the parent cannot be resolved", () => {
+    const res = backfillTenantId({ id: "oi1", order_id: "missing" }, cfg, () => undefined);
+    expect("dropped" in res).toBe(true);
+  });
+
+  it("drops the row when the fk column is missing", () => {
+    const res = backfillTenantId({ id: "oi1" }, cfg, () => "t-parent");
+    expect("dropped" in res).toBe(true);
+  });
+
+  it("does not mutate the input row", () => {
+    const input = { id: "oi1", order_id: "o1" };
+    backfillTenantId(input, cfg, () => "t-parent");
+    expect(input).not.toHaveProperty("tenant_id");
   });
 });

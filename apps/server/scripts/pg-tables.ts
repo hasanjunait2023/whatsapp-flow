@@ -73,6 +73,43 @@ export const MEDIA_URL_COLUMNS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Child tables whose tenant_id is synthetic — absent in the Postgres source —
+ * and so must be stamped from a parent row that migrated earlier. tenant_id is
+ * a NOT NULL isolation key, so a child that can't resolve one is dropped (and
+ * reported) rather than inserted with a bogus/empty tenant.
+ */
+export interface TenantBackfill {
+  /** Parent target table (already migrated by the time the child runs). */
+  parent: keyof typeof appSchema;
+  /** Column on the child row holding the parent's id. */
+  fkColumn: string;
+}
+
+export const TENANT_BACKFILL: Partial<Record<keyof typeof appSchema, TenantBackfill>> = {
+  orderItems: { parent: "orders", fkColumn: "order_id" },
+};
+
+/**
+ * Resolves a synthetic tenant_id for a child row from its parent. Returns the
+ * row (possibly a new copy with tenant_id stamped) when satisfied, or
+ * `{ dropped: true }` when the row already lacks tenant_id AND the parent can't
+ * be resolved — the caller must skip it, never violate the isolation key.
+ */
+export function backfillTenantId(
+  row: Record<string, unknown>,
+  cfg: TenantBackfill,
+  lookupParentTenant: (parentId: string) => string | undefined,
+): { row: Record<string, unknown> } | { dropped: true } {
+  const existing = row.tenant_id;
+  if (typeof existing === "string" && existing) return { row };
+  const fk = row[cfg.fkColumn];
+  if (typeof fk !== "string" || !fk) return { dropped: true };
+  const tenantId = lookupParentTenant(fk);
+  if (!tenantId) return { dropped: true };
+  return { row: { ...row, tenant_id: tenantId } };
+}
+
+/**
  * Dependency-ordered migration plan. Parents precede children. Catalog/global
  * tables (plans, business_types, ...) come first since tenants and others
  * reference them by id. Auth (user/account) is handled out-of-band first.
