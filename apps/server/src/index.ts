@@ -12,10 +12,14 @@ import { fnRoute } from "./routes/fn.js";
 import { mediaRoute } from "./routes/media.js";
 import { realtimeRoute } from "./realtime/sse.js";
 import { llmSettingsRoute } from "./routes/llm-settings.js";
+import { adminBillingRoute } from "./routes/admin-billing.js";
 import { wahaWebhookRoute } from "./routes/waha/webhook.js";
+import { telegramWebhookRoute } from "./routes/webhooks/telegram.js";
+import { fbWebhookRoute } from "./routes/webhooks/fb.js";
 import { startScheduler, stopScheduler } from "./jobs/scheduler.js";
 import { registerSoulJobs } from "./services/soul/index.js";
 import { registerHermesPipeline } from "./services/hermes/pipeline.js";
+import { registerCeoJobs } from "./services/ceo/index.js";
 import { PORT, IS_PRODUCTION, WEB_DIST_DIR, warnIfWebhookUnverified } from "./lib/env.js";
 
 const app = new Hono();
@@ -47,6 +51,12 @@ app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 // Authenticated by instance id + optional HMAC, not by a user session.
 app.route("/api/waha/webhook", wahaWebhookRoute);
 
+// --- Telegram webhook (machine caller; secret-token validated) ---------------
+app.route("/api/telegram/webhook", telegramWebhookRoute);
+
+// --- Facebook webhook (machine caller; verify-token + per-page HMAC) ----------
+app.route("/api/webhooks/fb", fbWebhookRoute);
+
 // --- authed API --------------------------------------------------------------
 const api = new Hono();
 api.use("*", tenantMiddleware);
@@ -56,6 +66,7 @@ api.route("/fn", fnRoute);
 api.route("/media", mediaRoute);
 api.route("/realtime", realtimeRoute);
 api.route("/llm-settings", llmSettingsRoute);
+api.route("/admin/billing", adminBillingRoute);
 app.route("/api", api);
 
 // --- static SPA in production ------------------------------------------------
@@ -76,6 +87,7 @@ const server = serve({ fetch: app.fetch, port: PORT });
 
 registerSoulJobs();
 registerHermesPipeline();
+registerCeoJobs();
 startScheduler();
 warnIfWebhookUnverified();
 

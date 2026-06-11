@@ -24,7 +24,10 @@ export interface FnContext {
   isAdmin: boolean;
 }
 
-export type FnResult = { data: unknown; error: { message: string } | null };
+export type FnResult = {
+  data: unknown;
+  error: { message: string; code?: string } | null;
+};
 
 const WEBHOOK_EVENTS = ["message", "message.ack", "session.status"];
 

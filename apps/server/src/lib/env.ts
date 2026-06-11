@@ -99,6 +99,20 @@ export const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET ?? ""
 export const CRYPTO_USDT_ADDRESS_TRC20 = process.env.CRYPTO_USDT_ADDRESS_TRC20 ?? "";
 export const CRYPTO_USDT_ADDRESS_BEP20 = process.env.CRYPTO_USDT_ADDRESS_BEP20 ?? "";
 
+// --- UddoktaPay (BDT gateway) ------------------------------------------------
+
+/** Gateway API key + base URL; empty disables the UddoktaPay checkout path. */
+export const UDDOKTAPAY_API_KEY = process.env.UDDOKTAPAY_API_KEY ?? "";
+export const UDDOKTAPAY_BASE_URL = process.env.UDDOKTAPAY_BASE_URL ?? "";
+
+// --- Facebook / Meta Graph ---------------------------------------------------
+
+/** Graph API version for Messenger send / comment-reply / profile fetch. */
+export const FB_GRAPH_VERSION = process.env.FB_GRAPH_VERSION ?? "v21.0";
+
+/** App-level webhook verify token (used during initial Meta app setup). */
+export const FB_WEBHOOK_VERIFY_TOKEN = process.env.FB_WEBHOOK_VERIFY_TOKEN ?? "";
+
 /**
  * Master key for AES-256-GCM encryption of stored secrets (per-tenant API keys).
  * 64 hex chars (32 bytes). Required at runtime by lib/crypto.ts, not at import.

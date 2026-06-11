@@ -188,6 +188,42 @@ export class WahaClient {
     const params = new URLSearchParams({ session: name, chatId, limit: String(limit) });
     return this.request<unknown[]>("GET", `/api/messages?${params.toString()}`);
   }
+
+  // --- Groups (NOWEB engine) -------------------------------------------------
+
+  async createGroup(name: string, subject: string, participants: string[]): Promise<unknown> {
+    return this.request<unknown>("POST", `/api/${name}/groups`, {
+      name: subject,
+      participants: participants.map((id) => ({ id })),
+    });
+  }
+
+  async getGroups(name: string): Promise<unknown[]> {
+    return this.request<unknown[]>("GET", `/api/${name}/groups`);
+  }
+
+  async getGroup(name: string, groupId: string): Promise<unknown> {
+    return this.request<unknown>("GET", `/api/${name}/groups/${encodeURIComponent(groupId)}`);
+  }
+
+  async addGroupParticipants(name: string, groupId: string, participants: string[]): Promise<unknown> {
+    return this.request<unknown>("POST", `/api/${name}/groups/${encodeURIComponent(groupId)}/participants/add`, {
+      participants: participants.map((id) => ({ id })),
+    });
+  }
+
+  async removeGroupParticipants(name: string, groupId: string, participants: string[]): Promise<unknown> {
+    return this.request<unknown>("POST", `/api/${name}/groups/${encodeURIComponent(groupId)}/participants/remove`, {
+      participants: participants.map((id) => ({ id })),
+    });
+  }
+
+  async getGroupInviteCode(name: string, groupId: string): Promise<{ code?: string }> {
+    return this.request<{ code?: string }>(
+      "GET",
+      `/api/${name}/groups/${encodeURIComponent(groupId)}/invite-code`,
+    );
+  }
 }
 
 /** Shared singleton used by routes/jobs; constructed from env. */
