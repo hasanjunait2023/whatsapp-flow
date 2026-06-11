@@ -1,17 +1,18 @@
 {
   "mission": "Self-host whatsapp-flow on Contabo VPS: WAHA Plus + SQLite migration + launch",
   "phase": "BUILD",
-  "active_milestone": "Phase 4 rehearsal blocked on founder DB creds. Phase 6 isolation audit done + all findings fixed (c33a8be). Next no-creds work: Phase 6 hardening (SQLite write-load test, WAHA RSS soak plan, ban-risk UI guardrails) + re-audit in formal gauntlet.",
+  "active_milestone": "FRESH LAUNCH (no data migration, founder decision). Building deployment layer for Contabo: Dockerfile + docker-compose (app+waha+litestream/restic) + nginx vhost + healthcheck + deploy script. Then WAHA Plus + QR scan -> go live.",
   "awaiting_gate": null,
   "gates_passed": ["GATE1 2026-06-11 plan approved by founder"],
-  "founder_actions_pending": ["Buy WAHA Plus ($19/mo) for multi-session+media", "Create Cloudflare R2 bucket+token", "Scan pilot/instance QR with test WhatsApp number", "GO/NO-GO on off-scope launch features: crypto-USDT billing + Telegram CEO bot (built+tested in b3c165d; keep or drop before cutover)", "If keeping: provision config (names only) — MASTER_KEY, CRYPTO_USDT_ADDRESS_TRC20/BEP20, TELEGRAM_BOT_TOKEN/USERNAME/WEBHOOK_SECRET, VAPID_PUBLIC/PRIVATE_KEY, GOOGLE_CLIENT_ID/SECRET, LLM provider key(s)", "Phase 4 BLOCKER: provide Supabase service-role key OR direct Postgres connection string (.env has only the anon key — cannot pg_dump live data without it). Migration script being built now; rehearsal runs once creds arrive."],
+  "founder_actions_pending": ["Buy WAHA Plus ($19/mo) for multi-session+media", "Create Cloudflare R2 bucket+token (off-VPS backups)", "Scan instance QR with WhatsApp number once deployed (first live round-trip test)", "Pick public hostname for the app (e.g. app.junno.qzz.io) + point Cloudflare DNS at VPS", "GO/NO-GO on off-scope features: crypto-USDT billing + Telegram CEO bot (built+tested; keep or drop)", "Provide MASTER_KEY + any LLM provider key for production .env (names documented in .env.example)"],
   "phases": {
     "0_infra": "done",
     "1_backend_skeleton": "done",
     "security_fixes": "done (commit 39120a5)",
     "2_waha_slice": "done (mocked; live pending founder QR+Plus)",
     "3_module_port": "done (71 edge fns classified; v1 gaps ported in 7d36327/8ad0e85/8efb659/575ec6c; 3 security rounds fixed: 1d5da4a push/telegram, 518e4c9 CSPRNG temp passwords)",
-    "4_migration_rehearsal": "script built (migrate-from-pg.ts + pg-transforms/auth/media/tables, 47 tests; order_items tenant back-fill fixed ed04b3d). EXECUTION blocked on founder DB creds. Rehearsal open items: pnpm install pg in real env; verify GoTrue auth.identities column names; media download needs reachable storage.",
+    "4_migration_rehearsal": "DROPPED from launch path (founder chose fresh launch, no data migration). Script kept as optional tooling.",
+    "deployment_build": "in_progress (Dockerfile, docker-compose, nginx vhost, litestream, deploy script)",
     "5_cutover": "pending",
     "6_hardening_launch": "pending",
     "7_deferred_modules": "pending"
