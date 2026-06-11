@@ -1161,6 +1161,28 @@ export const agentSchedules = sqliteTable(
   }),
 );
 
+// ---------------------------------------------------------------------------
+// push_subscriptions (web push endpoints per user; pruned on 404/410)
+// ---------------------------------------------------------------------------
+export const pushSubscriptions = sqliteTable(
+  "push_subscriptions",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    created_at: text("created_at").default(nowIso).notNull(),
+    endpoint: text("endpoint").notNull(),
+    keys: text("keys", { mode: "json" }).notNull(),
+    tenant_id: text("tenant_id").notNull(),
+    user_agent: text("user_agent"),
+    user_id: text("user_id").notNull(),
+  },
+  (t) => ({
+    endpointUnq: uniqueIndex("push_subscriptions_endpoint_unq").on(t.endpoint),
+    tenantIdx: index("push_subscriptions_tenant_id_idx").on(t.tenant_id),
+  }),
+);
+
 export const appSchema = {
   tenants,
   profiles,
@@ -1203,6 +1225,7 @@ export const appSchema = {
   telegramLinks,
   ceoReports,
   agentSchedules,
+  pushSubscriptions,
   ...moduleSchema,
 };
 

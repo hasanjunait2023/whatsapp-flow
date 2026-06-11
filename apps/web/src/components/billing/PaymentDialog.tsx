@@ -16,7 +16,7 @@ import { Plan } from '@/hooks/usePlans';
 import { CreatePaymentInput } from '@/hooks/usePayments';
 import { useUddoktaPay } from '@/hooks/useUddoktaPay';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
-import { Smartphone, CreditCard, Loader2, ArrowLeft, ExternalLink } from 'lucide-react';
+import { Smartphone, CreditCard, Loader2, ArrowLeft, ExternalLink, Coins } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface PaymentDialogProps {
@@ -25,11 +25,13 @@ interface PaymentDialogProps {
   plan: Plan | null;
   onSubmit: (input: CreatePaymentInput) => Promise<void>;
   orderType?: 'subscription' | 'renewal';
+  /** Optional: when provided, shows a "Pay with Crypto (USDT)" option that delegates to the crypto flow. */
+  onCryptoSelect?: () => void;
 }
 
 type Step = 'method' | 'manual' | 'processing';
 
-export function PaymentDialog({ open, onOpenChange, plan, onSubmit, orderType = 'subscription' }: PaymentDialogProps) {
+export function PaymentDialog({ open, onOpenChange, plan, onSubmit, orderType = 'subscription', onCryptoSelect }: PaymentDialogProps) {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<Step>('method');
   const [paymentType, setPaymentType] = useState<'online' | 'manual'>('online');
@@ -117,11 +119,25 @@ export function PaymentDialog({ open, onOpenChange, plan, onSubmit, orderType = 
               </ResponsiveDialogDescription>
             </ResponsiveDialogHeader>
             
-            <div className="py-6">
+            <div className="py-6 space-y-4">
               <PaymentMethodSelector
                 value={paymentType}
                 onChange={setPaymentType}
               />
+              {onCryptoSelect && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full gap-2 border-emerald-500/50 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                  onClick={() => {
+                    onOpenChange(false);
+                    onCryptoSelect();
+                  }}
+                >
+                  <Coins className="h-4 w-4" />
+                  Pay with Crypto (USDT)
+                </Button>
+              )}
             </div>
 
             <ResponsiveDialogFooter>

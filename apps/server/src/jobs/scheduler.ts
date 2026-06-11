@@ -1,5 +1,6 @@
 import { runWahaHealthCheck } from "./waha-health.js";
 import { processDueJobs } from "./queue.js";
+import { checkCeoSchedules } from "../services/ceo/index.js";
 
 /**
  * Minimal interval-based job scheduler. The plan suggested node-cron, but the
@@ -10,6 +11,7 @@ import { processDueJobs } from "./queue.js";
 
 const WAHA_HEALTH_INTERVAL_MS = 3 * 60 * 1000;
 const JOB_QUEUE_INTERVAL_MS = 5 * 1000;
+const CEO_SCHEDULE_INTERVAL_MS = 60 * 1000;
 
 const timers: NodeJS.Timeout[] = [];
 
@@ -30,6 +32,16 @@ export function startScheduler(): void {
   }, JOB_QUEUE_INTERVAL_MS);
   jobQueue.unref();
   timers.push(jobQueue);
+
+  const ceoSchedules = setInterval(() => {
+    try {
+      checkCeoSchedules();
+    } catch {
+      // Schedule-eval failures retry next tick; job-level errors live on rows.
+    }
+  }, CEO_SCHEDULE_INTERVAL_MS);
+  ceoSchedules.unref();
+  timers.push(ceoSchedules);
 }
 
 /** Stops all background jobs (used on shutdown / in tests). */

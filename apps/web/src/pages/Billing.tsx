@@ -10,6 +10,8 @@ import { UsageSummary } from '@/components/billing/UsageSummary';
 import { BillingTimeline } from '@/components/billing/BillingTimeline';
 import { UpgradePlanSection } from '@/components/billing/UpgradePlanSection';
 import { PaymentDialog } from '@/components/billing/PaymentDialog';
+import { CryptoPaymentDialog } from '@/components/billing/CryptoPaymentDialog';
+import { AiUsageWidget } from '@/components/billing/AiUsageWidget';
 import { PaymentHistory } from '@/components/billing/PaymentHistory';
 import { SubscriptionOrdersCard } from '@/components/billing/SubscriptionOrdersCard';
 import { PlanDetailsCard } from '@/components/billing/PlanDetailsCard';
@@ -27,6 +29,7 @@ export default function Billing() {
   const { isDemoTenant } = useDemoSession();
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [cryptoDialogOpen, setCryptoDialogOpen] = useState(false);
   const [comparisonModalOpen, setComparisonModalOpen] = useState(false);
   const planSectionRef = useRef<HTMLDivElement>(null);
 
@@ -131,6 +134,7 @@ export default function Billing() {
             {isDemoTenant && <DemoSpecialOfferCard />}
             
             <PlanDetailsCard />
+            <AiUsageWidget />
             <RenewalCard onRenewClick={handleRenewClick} />
             <BillingTimeline />
           </div>
@@ -147,6 +151,13 @@ export default function Billing() {
         onOpenChange={setPaymentDialogOpen}
         plan={selectedPlan}
         onSubmit={handleSubmitPayment}
+        onCryptoSelect={() => setCryptoDialogOpen(true)}
+      />
+
+      <CryptoPaymentDialog
+        open={cryptoDialogOpen}
+        onOpenChange={setCryptoDialogOpen}
+        plan={selectedPlan}
       />
 
       <PlanComparisonModal

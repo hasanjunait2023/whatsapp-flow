@@ -2,6 +2,8 @@ import { useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAiAgent, KnowledgeItem } from '@/hooks/useAiAgent';
 import { useSubscription } from '@/hooks/useSubscription';
+import { SoulTab } from '@/components/ai/SoulTab';
+import { HermesTab } from '@/components/ai/HermesTab';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +33,8 @@ import {
   Lock,
   UserRound,
   ArrowRightLeft,
+  Sparkle,
+  Headset,
 } from 'lucide-react';
 
 export default function AiAgent() {
@@ -200,7 +204,15 @@ export default function AiAgent() {
 
         {/* Main Configuration */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 h-auto lg:w-[760px]">
+            <TabsTrigger value="soul" className="flex items-center gap-2">
+              <Sparkle className="h-4 w-4" />
+              Soul
+            </TabsTrigger>
+            <TabsTrigger value="hermes" className="flex items-center gap-2">
+              <Headset className="h-4 w-4" />
+              Hermes
+            </TabsTrigger>
             <TabsTrigger value="prompt" className="flex items-center gap-2">
               <Brain className="h-4 w-4" />
               Prompts
@@ -218,6 +230,16 @@ export default function AiAgent() {
               Behavior
             </TabsTrigger>
           </TabsList>
+
+          {/* Agent Soul Tab */}
+          <TabsContent value="soul" className="mt-4">
+            <SoulTab />
+          </TabsContent>
+
+          {/* Hermes Tab */}
+          <TabsContent value="hermes" className="mt-4">
+            <HermesTab />
+          </TabsContent>
 
           {/* Prompts Tab */}
           <TabsContent value="prompt" className="space-y-4 mt-4">
