@@ -1,7 +1,7 @@
 {
   "mission": "Self-host whatsapp-flow on Contabo VPS: WAHA Plus + SQLite migration + launch",
   "phase": "BUILD",
-  "active_milestone": "Phase 4 rehearsal blocked on founder DB creds; running Phase 6 tenant-isolation audit in parallel (no creds needed, mission top risk)",
+  "active_milestone": "Phase 4 rehearsal blocked on founder DB creds. Phase 6 isolation audit done + all findings fixed (c33a8be). Next no-creds work: Phase 6 hardening (SQLite write-load test, WAHA RSS soak plan, ban-risk UI guardrails) + re-audit in formal gauntlet.",
   "awaiting_gate": null,
   "gates_passed": ["GATE1 2026-06-11 plan approved by founder"],
   "founder_actions_pending": ["Buy WAHA Plus ($19/mo) for multi-session+media", "Create Cloudflare R2 bucket+token", "Scan pilot/instance QR with test WhatsApp number", "GO/NO-GO on off-scope launch features: crypto-USDT billing + Telegram CEO bot (built+tested in b3c165d; keep or drop before cutover)", "If keeping: provision config (names only) — MASTER_KEY, CRYPTO_USDT_ADDRESS_TRC20/BEP20, TELEGRAM_BOT_TOKEN/USERNAME/WEBHOOK_SECRET, VAPID_PUBLIC/PRIVATE_KEY, GOOGLE_CLIENT_ID/SECRET, LLM provider key(s)", "Phase 4 BLOCKER: provide Supabase service-role key OR direct Postgres connection string (.env has only the anon key — cannot pg_dump live data without it). Migration script being built now; rehearsal runs once creds arrive."],
