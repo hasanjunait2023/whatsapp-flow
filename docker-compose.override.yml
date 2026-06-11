@@ -1,0 +1,24 @@
+# =============================================================================
+# PILOT override — WAHA CORE (free) instead of Plus.
+#
+# docker compose auto-applies this file on top of docker-compose.yml. It runs
+# WAHA Core (public image, no Plus sub / no docker-login) in SINGLE-SESSION mode
+# — Core supports only the 'default' session (one WhatsApp number for the whole
+# platform), which is fine for pilot/testing before customers are onboarded.
+#
+# WHEN THE FOUNDER BUYS WAHA PLUS:
+#   1. `docker login` with the WAHA Plus credentials,
+#   2. delete (or rename) this file so the Plus image + multi-session config in
+#      docker-compose.yml takes over,
+#   3. `docker compose up -d waha app`.
+# =============================================================================
+services:
+  waha:
+    image: devlikeapro/waha:latest
+    environment:
+      WHATSAPP_DEFAULT_ENGINE: NOWEB
+      WHATSAPP_API_KEY: ${WAHA_API_KEY}
+  app:
+    environment:
+      # Core supports only the 'default' session — pin the app to single-session.
+      WAHA_SINGLE_SESSION: "true"
