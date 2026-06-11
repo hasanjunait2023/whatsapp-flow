@@ -12,7 +12,7 @@
     "2_waha_slice": "done (mocked; live pending founder QR+Plus)",
     "3_module_port": "done (71 edge fns classified; v1 gaps ported in 7d36327/8ad0e85/8efb659/575ec6c; 3 security rounds fixed: 1d5da4a push/telegram, 518e4c9 CSPRNG temp passwords)",
     "4_migration_rehearsal": "DROPPED from launch path (founder chose fresh launch, no data migration). Script kept as optional tooling.",
-    "deployment_build": "in_progress (Dockerfile, docker-compose, nginx vhost, litestream, deploy script)",
+    "deployment_build": "done (a03c696..0752cc2): Dockerfile (multi-stage, fresh-DB migrations on boot, non-root, /healthz), docker-compose (app 127.0.0.1:3500/1500m + waha NOWEB internal/2500m + litestream + restic), nginx SSE-safe vhost, litestream->R2, .env.production.example, deploy.sh, runbook. CAVEATS: docker not available locally so image build UNVERIFIED (must `docker compose build` on VPS first); WAHA Plus tag is a guess (private paid image — founder must docker-login + confirm exact tag from their Plus dashboard).",
     "5_cutover": "pending",
     "6_hardening_launch": "pending",
     "7_deferred_modules": "pending"
