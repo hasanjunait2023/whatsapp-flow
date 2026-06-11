@@ -101,6 +101,21 @@ describe("tenantViaParent scoping (CRITICAL)", () => {
     const stillThere = sqlite.prepare("SELECT 1 FROM contact_labels WHERE id = 'cl-b'").get();
     expect(stillThere).toBeTruthy(); // tenant A could not delete tenant B's junction row
   });
+
+  it("contact_labels insert cannot tag another tenant's contact", async () => {
+    const res = await executeQuery(
+      {
+        table: "contact_labels",
+        op: "insert",
+        values: { id: "cl-evil", contact_id: "contact-b", label_id: "label-a" },
+        returning: true,
+      },
+      ctxFor(TENANT_A),
+    );
+    expect(res.error?.code).toBe("forbidden");
+    const written = sqlite.prepare("SELECT 1 FROM contact_labels WHERE id = 'cl-evil'").get();
+    expect(written).toBeFalsy();
+  });
 });
 
 describe("accept-invitation identity binding (HIGH)", () => {

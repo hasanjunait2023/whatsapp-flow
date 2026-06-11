@@ -213,6 +213,35 @@ function assertRowAllowed(
   }
 }
 
+/**
+ * Defense in depth for junction tables scoped via a parent (tenantViaParent):
+ * a non-admin may only insert/upsert a row whose FK points at a parent owned by
+ * their tenant — closing the cross-tenant *write* path that read-side scoping
+ * alone leaves open (e.g. tagging another tenant's contact via contact_labels).
+ */
+async function assertViaParentAllowed(
+  cfg: TableConfig,
+  ctx: TenantContext,
+  row: Record<string, unknown>,
+): Promise<void> {
+  if (ctx.isAdmin || !cfg.tenantViaParent) return;
+  if (!ctx.tenantId) throw new QueryError("No active tenant", "no_tenant");
+  const { fkColumn, parentTable } = cfg.tenantViaParent;
+  const fk = row[fkColumn];
+  if (typeof fk !== "string" || !fk) {
+    throw new QueryError(`"${fkColumn}" is required`, "forbidden");
+  }
+  const parentCfg = QUERY_TABLES[parentTable];
+  const parentCols = getTableColumns(parentCfg.table) as Record<string, any>;
+  const found = (await db
+    .select({ id: parentCols.id })
+    .from(parentCfg.table as any)
+    .where(and(eq(parentCols.id, fk), eq(parentCols.tenant_id, ctx.tenantId)))) as unknown[];
+  if (found.length === 0) {
+    throw new QueryError("Forbidden parent row", "forbidden");
+  }
+}
+
 /** Blocklist privilege columns from update patches for non-admins. */
 function assertPatchAllowed(
   cfg: TableConfig,
@@ -404,6 +433,7 @@ async function runInsert(
   if (rows.length === 0) {
     throw new QueryError("No values to insert", "no_values");
   }
+  for (const r of rows) await assertViaParentAllowed(cfg, ctx, r);
   const inserted = (await db
     .insert(cfg.table as any)
     .values(rows)
@@ -455,6 +485,7 @@ async function runUpsert(
   if (rows.length === 0) {
     throw new QueryError("No values to upsert", "no_values");
   }
+  for (const r of rows) await assertViaParentAllowed(cfg, ctx, r);
   const conflictCols = (req.onConflict ?? "id")
     .split(",")
     .map((c) => c.trim())
