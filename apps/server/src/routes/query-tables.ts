@@ -104,8 +104,6 @@ import {
   woocommerceIntegrations,
   woocommerceSyncLogs,
   internalChatRooms,
-  internalChatMembers,
-  internalMessages,
   serviceBoards,
   serviceBoardMembers,
   serviceLists,
@@ -134,6 +132,12 @@ export interface TableConfig {
    *  - "membership": rows scoped by user_id === userId (user_roles, system_roles)
    */
   access?: "own-profile" | "own-tenant" | "membership";
+  /**
+   * Tenant scoping for junction tables that have NO tenant_id of their own: the
+   * row is visible/mutable only when its `fkColumn` points at a row in
+   * `parentTable` owned by the caller's tenant. Enforced via a scoped subquery.
+   */
+  tenantViaParent?: { fkColumn: string; parentTable: string };
   /** Who may mutate this table via /api/query. Defaults to "tenant". */
   mutability?: Mutability;
   /**
@@ -193,7 +197,13 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
   contacts: { table: contacts, tenantColumn: "tenant_id", mutability: "tenant" },
   messages: { table: messages, tenantColumn: "tenant_id", mutability: "tenant" },
   contact_thread_state: { table: contactThreadState, tenantColumn: "tenant_id", mutability: "tenant" },
-  contact_labels: { table: contactLabels, tenantColumn: null, mutability: "tenant" },
+  // contact_labels has no tenant_id; scope it through its parent contact.
+  contact_labels: {
+    table: contactLabels,
+    tenantColumn: null,
+    tenantViaParent: { fkColumn: "contact_id", parentTable: "contacts" },
+    mutability: "tenant",
+  },
   quick_replies: { table: quickReplies, tenantColumn: "tenant_id", mutability: "tenant" },
   message_templates: { table: messageTemplates, tenantColumn: null, mutability: "tenant" },
   tenant_daily_stats: { table: tenantDailyStats, tenantColumn: "tenant_id", mutability: "readonly" },
@@ -244,7 +254,13 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
 
   // === Contacts / Segments / Labels =========================================
   labels: { table: labels, tenantColumn: "tenant_id", mutability: "tenant" },
-  fb_contact_labels: { table: fbContactLabels, tenantColumn: null, mutability: "tenant" },
+  // fb_contact_labels has no tenant_id; scope through its parent fb_contact.
+  fb_contact_labels: {
+    table: fbContactLabels,
+    tenantColumn: null,
+    tenantViaParent: { fkColumn: "contact_id", parentTable: "fb_contacts" },
+    mutability: "tenant",
+  },
   customer_segments: { table: customerSegments, tenantColumn: "tenant_id", mutability: "tenant" },
   contact_segments: { table: contactSegments, tenantColumn: "tenant_id", mutability: "tenant" },
   customer_scores: { table: customerScores, tenantColumn: "tenant_id", mutability: "readonly" },
@@ -272,13 +288,13 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
   whatsapp_auto_message_log: { table: whatsappAutoMessageLog, tenantColumn: "tenant_id", mutability: "readonly" },
   whatsapp_followup_queue: { table: whatsappFollowupQueue, tenantColumn: "tenant_id", mutability: "readonly" },
   workflows: { table: workflows, tenantColumn: "tenant_id", mutability: "tenant" },
-  workflow_nodes: { table: workflowNodes, tenantColumn: null, mutability: "tenant" },
-  workflow_edges: { table: workflowEdges, tenantColumn: null, mutability: "tenant" },
+  workflow_nodes: { table: workflowNodes, tenantColumn: "tenant_id", mutability: "tenant" },
+  workflow_edges: { table: workflowEdges, tenantColumn: "tenant_id", mutability: "tenant" },
   workflow_executions: { table: workflowExecutions, tenantColumn: "tenant_id", mutability: "readonly" },
 
   // === Groups ================================================================
   whatsapp_groups: { table: whatsappGroups, tenantColumn: "tenant_id", mutability: "tenant" },
-  whatsapp_group_participants: { table: whatsappGroupParticipants, tenantColumn: null, mutability: "tenant" },
+  whatsapp_group_participants: { table: whatsappGroupParticipants, tenantColumn: "tenant_id", mutability: "tenant" },
   group_add_queue: { table: groupAddQueue, tenantColumn: "tenant_id", mutability: "tenant" },
   tenant_daily_group_limits: { table: tenantDailyGroupLimits, tenantColumn: "tenant_id", mutability: "readonly" },
 
@@ -332,7 +348,13 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
   admin_notifications: { table: adminNotifications, tenantColumn: null, mutability: "admin" },
   in_app_notifications: { table: inAppNotifications, tenantColumn: "tenant_id", mutability: "tenant" },
   support_tickets: { table: supportTickets, tenantColumn: "tenant_id", mutability: "tenant" },
-  support_ticket_messages: { table: supportTicketMessages, tenantColumn: null, mutability: "tenant" },
+  // support_ticket_messages has no tenant_id; scope through its parent ticket.
+  support_ticket_messages: {
+    table: supportTicketMessages,
+    tenantColumn: null,
+    tenantViaParent: { fkColumn: "ticket_id", parentTable: "support_tickets" },
+    mutability: "tenant",
+  },
 
   // === Accounting (deferred-v1; read-only pages may load these) =============
   expense_categories: { table: expenseCategories, tenantColumn: null, mutability: "admin" },
@@ -368,10 +390,12 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
   },
   woocommerce_sync_logs: { table: woocommerceSyncLogs, tenantColumn: null, mutability: "readonly" },
 
-  // === Internal Chat (deferred-v1; read-only) ===============================
+  // === Internal Chat (deferred-v1) ==========================================
+  // Only the tenant-scoped rooms table is exposed. internal_chat_members and
+  // internal_messages have NO tenant_id and cannot be safely scoped through the
+  // generic API, so they are intentionally kept OFF the allowlist until Phase 7
+  // builds Internal Chat with a tenant_id column + a dedicated scoped route.
   internal_chat_rooms: { table: internalChatRooms, tenantColumn: "tenant_id", mutability: "tenant" },
-  internal_chat_members: { table: internalChatMembers, tenantColumn: null, mutability: "tenant" },
-  internal_messages: { table: internalMessages, tenantColumn: null, mutability: "tenant" },
 
   // === Service Boards (deferred-v1; read-only) ==============================
   service_boards: { table: serviceBoards, tenantColumn: "tenant_id", mutability: "tenant" },

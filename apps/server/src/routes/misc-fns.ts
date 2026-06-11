@@ -74,6 +74,13 @@ export async function forwardMessage(raw: Record<string, unknown>, ctx: FnContex
     }
   }
   if (!targetContactId) return ok({ error: "Could not resolve target contact" });
+  // SECURITY: a client-supplied target_contact_id must belong to the instance's
+  // tenant — never forward into another tenant's contact (created contacts above
+  // already carry the right tenant_id, so this only gates the supplied path).
+  const ownsTarget = sqlite
+    .prepare("SELECT 1 FROM contacts WHERE id = ? AND tenant_id = ? LIMIT 1")
+    .get(targetContactId, instance.tenant_id);
+  if (!ownsTarget) return ok({ error: "Forbidden target contact" });
 
   const results: Array<{ message_id: string; success: boolean; error?: string }> = [];
   for (const mid of messageIds) {

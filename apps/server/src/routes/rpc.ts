@@ -151,6 +151,12 @@ function threadMessages(
 
   const conds: string[] = ["contact_id = ?"];
   const params: unknown[] = [contactId];
+  // Defense in depth: scope to the caller's tenant even though the contact was
+  // already verified in-tenant above (admins without a tenant read unscoped).
+  if (ctx.tenantId) {
+    conds.push("tenant_id = ?");
+    params.push(ctx.tenantId);
+  }
   if (cursorTs && cursorId) {
     if (direction === "older") {
       conds.push("(sent_at < ? OR (sent_at = ? AND id < ?))");
@@ -195,9 +201,17 @@ const markThreadAsRead: RpcHandler = async (args, ctx) => {
   if (!contactId) return fail("p_contact_id is required");
   if (!assertContactInTenant(contactId, ctx)) return fail("Forbidden contact");
   const now = new Date().toISOString();
-  sqlite
-    .prepare("UPDATE contact_thread_state SET unread_count = 0, updated_at = ? WHERE contact_id = ?")
-    .run(now, contactId);
+  if (ctx.tenantId) {
+    sqlite
+      .prepare(
+        "UPDATE contact_thread_state SET unread_count = 0, updated_at = ? WHERE contact_id = ? AND tenant_id = ?",
+      )
+      .run(now, contactId, ctx.tenantId);
+  } else {
+    sqlite
+      .prepare("UPDATE contact_thread_state SET unread_count = 0, updated_at = ? WHERE contact_id = ?")
+      .run(now, contactId);
+  }
   emitChange("contact_thread_state", ctx.tenantId, { contact_id: contactId });
   return ok(null);
 };

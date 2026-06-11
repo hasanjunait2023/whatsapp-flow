@@ -90,9 +90,9 @@ function handleAck(payload: WahaMessagePayload, ack: number, tenantId: string): 
     updates.push("read_at = ?");
     params.push(new Date().toISOString());
   }
-  params.push(payload.id);
+  params.push(payload.id, tenantId);
   const info = sqlite
-    .prepare(`UPDATE messages SET ${updates.join(", ")} WHERE wa_message_id = ?`)
+    .prepare(`UPDATE messages SET ${updates.join(", ")} WHERE wa_message_id = ? AND tenant_id = ?`)
     .run(...params);
   if (info.changes > 0) {
     emitChange("messages", tenantId, { wa_message_id: payload.id });

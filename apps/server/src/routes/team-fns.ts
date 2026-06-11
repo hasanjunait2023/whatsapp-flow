@@ -164,6 +164,16 @@ export async function acceptInvitation(raw: Record<string, unknown>, ctx: FnCont
   if (inv.accepted_at) return ok({ error: "Invitation already accepted" });
   if (new Date(inv.expires_at).getTime() < Date.now()) return ok({ error: "Invitation expired" });
 
+  // SECURITY: bind the token to the invited identity. Without this, any
+  // authenticated user holding a token (leaked link/log/referer) could join the
+  // tenant with the invited role. The session user's email must match.
+  const acceptor = sqlite
+    .prepare("SELECT email FROM user WHERE id = ? LIMIT 1")
+    .get(ctx.userId) as { email: string | null } | undefined;
+  if (!acceptor?.email || acceptor.email.toLowerCase() !== inv.email.toLowerCase()) {
+    return ok({ error: "This invitation was sent to a different email address" });
+  }
+
   const now = new Date().toISOString();
   const tx = sqlite.transaction(() => {
     sqlite

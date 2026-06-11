@@ -119,6 +119,28 @@ function tenantScope(
     return conds;
   }
 
+  // Junction tables with no tenant_id: scope through a parent row owned by the
+  // caller's tenant (the row is visible/mutable only when its FK points at one).
+  if (cfg.tenantViaParent) {
+    if (ctx.isAdmin) return conds;
+    if (!ctx.tenantId) {
+      throw new QueryError("No active tenant", "no_tenant");
+    }
+    const { fkColumn, parentTable } = cfg.tenantViaParent;
+    const parentCfg = QUERY_TABLES[parentTable];
+    const parentCols = getTableColumns(parentCfg.table) as Record<string, any>;
+    conds.push(
+      inArray(
+        getColumn(cfg, fkColumn),
+        db
+          .select({ id: parentCols.id })
+          .from(parentCfg.table as any)
+          .where(eq(parentCols.tenant_id, ctx.tenantId)),
+      ),
+    );
+    return conds;
+  }
+
   if (ctx.isAdmin) return conds;
 
   switch (cfg.access) {
@@ -264,7 +286,7 @@ export async function executeQuery(
     const where = whereParts.length > 0 ? and(...whereParts) : undefined;
 
     if (req.op === "select") {
-      return await runSelect(req, cfg, where);
+      return await runSelect(req, cfg, where, ctx);
     }
     if (req.op === "insert") {
       return await runInsert(req, cfg, ctx);
@@ -292,6 +314,7 @@ async function runSelect(
   req: QueryRequest,
   cfg: TableConfig,
   where: SQL | undefined,
+  ctx: TenantContext,
 ): Promise<QueryResponse> {
   // head:true => count-only request, no rows.
   if (req.head) {
@@ -325,7 +348,7 @@ async function runSelect(
 
   if (hasEmbeds(req.columns)) {
     const parsed = parseSelect(req.columns!);
-    rows = await hydrateEmbeds(rows, parsed.embeds);
+    rows = await hydrateEmbeds(rows, parsed.embeds, ctx);
     rows = applyColumnSelection(rows, parsed.baseColumns, parsed.embeds.map((e) => e.alias));
   } else {
     rows = applyColumnSelection(rows, req.columns);

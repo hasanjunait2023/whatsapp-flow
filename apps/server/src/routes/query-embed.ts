@@ -1,6 +1,7 @@
-import { eq, inArray, getTableColumns } from "drizzle-orm";
+import { and, eq, inArray, getTableColumns, type SQL } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { QUERY_TABLES } from "./query-tables.js";
+import { QUERY_TABLES, type TableConfig } from "./query-tables.js";
+import type { TenantContext } from "../middleware/tenant.ts";
 
 /**
  * Minimal PostgREST-style embedded-select support.
@@ -83,9 +84,67 @@ export function hasEmbeds(columns?: string): boolean {
   return !!columns && columns.includes("(");
 }
 
+/**
+ * SECURITY: an embedded relation is resolved by FK id, which would otherwise
+ * cross tenant boundaries and bypass per-table redaction. We apply the SAME
+ * isolation rules the base-table path uses (tenantScope) to the embed target,
+ * and strip its secret columns. Returns the extra WHERE conditions, or "deny"
+ * when the caller has no tenant on a tenant-scoped target (embed yields null).
+ */
+function embedScope(
+  cfg: TableConfig,
+  ctx: TenantContext,
+  cols: Record<string, any>,
+): SQL[] | "deny" {
+  if (ctx.isAdmin) return [];
+  if (cfg.tenantColumn) {
+    if (!ctx.tenantId) return "deny";
+    return [eq(cols[cfg.tenantColumn], ctx.tenantId)];
+  }
+  if (cfg.tenantViaParent) {
+    if (!ctx.tenantId) return "deny";
+    const parentCfg = QUERY_TABLES[cfg.tenantViaParent.parentTable];
+    const parentCols = getTableColumns(parentCfg.table) as Record<string, any>;
+    return [
+      inArray(
+        cols[cfg.tenantViaParent.fkColumn],
+        db
+          .select({ id: parentCols.id })
+          .from(parentCfg.table as any)
+          .where(eq(parentCols.tenant_id, ctx.tenantId)),
+      ),
+    ];
+  }
+  switch (cfg.access) {
+    case "own-profile":
+      return [eq(cols.id, ctx.userId)];
+    case "own-tenant":
+      return ctx.tenantId ? [eq(cols.id, ctx.tenantId)] : "deny";
+    case "membership":
+      return [eq(cols.user_id, ctx.userId)];
+    default:
+      // Global reference tables (plans, business_types, ...) — safe to embed.
+      return [];
+  }
+}
+
+function redactEmbed(
+  cfg: TableConfig,
+  rows: Record<string, unknown>[],
+): Record<string, unknown>[] {
+  const secret = cfg.redactColumns;
+  if (!secret || secret.length === 0) return rows;
+  return rows.map((r) => {
+    const out = { ...r };
+    for (const col of secret) delete out[col];
+    return out;
+  });
+}
+
 export async function hydrateEmbeds(
   rows: Record<string, unknown>[],
   embeds: EmbedSpec[],
+  ctx: TenantContext,
 ): Promise<Record<string, unknown>[]> {
   if (rows.length === 0 || embeds.length === 0) return rows;
   const result = rows.map((r) => ({ ...r }));
@@ -93,6 +152,12 @@ export async function hydrateEmbeds(
   for (const embed of embeds) {
     const cfg = QUERY_TABLES[embed.table];
     if (!cfg) {
+      for (const row of result) row[embed.alias] = null;
+      continue;
+    }
+    const cols = getTableColumns(cfg.table) as Record<string, any>;
+    const scope = embedScope(cfg, ctx, cols);
+    if (scope === "deny") {
       for (const row of result) row[embed.alias] = null;
       continue;
     }
@@ -107,15 +172,13 @@ export async function hydrateEmbeds(
       for (const row of result) row[embed.alias] = null;
       continue;
     }
-    const cols = getTableColumns(cfg.table) as Record<string, any>;
-    const related = (await db
-      .select()
-      .from(cfg.table as any)
-      .where(
-        fkValues.length === 1
-          ? eq(cols.id, fkValues[0])
-          : inArray(cols.id, fkValues),
-      )) as Record<string, unknown>[];
+    const idCond =
+      fkValues.length === 1 ? eq(cols.id, fkValues[0]) : inArray(cols.id, fkValues);
+    const where = scope.length > 0 ? and(idCond, ...scope) : idCond;
+    const related = redactEmbed(
+      cfg,
+      (await db.select().from(cfg.table as any).where(where)) as Record<string, unknown>[],
+    );
 
     const byId = new Map(related.map((r) => [r.id as string, r]));
     for (const row of result) {
