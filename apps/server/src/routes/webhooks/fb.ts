@@ -143,7 +143,12 @@ fbWebhookRoute.post("/", async (c) => {
       .prepare("SELECT id, tenant_id, app_secret FROM facebook_pages WHERE page_id = ? LIMIT 1")
       .get(fbPageId) as PageRow | undefined;
     if (!page) continue;
-    if (page.app_secret && !verifySignature(page.app_secret, rawBody, signature)) continue;
+
+    // SECURITY: fail closed. A page with no app_secret cannot have its payloads
+    // authenticated, so we refuse to ingest rather than trusting unsigned data.
+    // Verify the HMAC over the raw body unconditionally before ingesting.
+    if (!page.app_secret) continue;
+    if (!verifySignature(page.app_secret, rawBody, signature)) continue;
 
     for (const event of entry.messaging ?? []) {
       if (event.sender?.id === fbPageId) continue; // skip echoes of our own sends
@@ -152,3 +157,25 @@ fbWebhookRoute.post("/", async (c) => {
   }
   return c.text("EVENT_RECEIVED", 200);
 });
+
+/**
+ * Startup check: warn when any connected page lacks an app_secret, since those
+ * pages' inbound webhooks will be refused (fail-closed) until a secret is set.
+ */
+export function warnIfFbPagesUnverified(): void {
+  try {
+    const row = sqlite
+      .prepare(
+        "SELECT COUNT(*) AS n FROM facebook_pages WHERE (app_secret IS NULL OR app_secret = '') AND status = 'active'",
+      )
+      .get() as { n: number };
+    if (row.n > 0) {
+      process.emitWarning(
+        `${row.n} active facebook_pages row(s) have no app_secret; their inbound webhooks will be refused until one is set.`,
+        { code: "FB_PAGES_UNVERIFIED" },
+      );
+    }
+  } catch {
+    // facebook_pages may not exist yet during very early boot; ignore.
+  }
+}

@@ -1,12 +1,14 @@
-import { describe, it, expect, beforeAll, vi } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { useTempDb } from "./helpers.js";
 
 useTempDb();
 
 const { db, sqlite } = await import("../src/db/index.js");
 const { runMigrations } = await import("../src/db/migrate.js");
-const { tenants, orders, invoiceSettings } = await import("../src/db/schema.js");
-const { generateInvoice, mergeInvoices } = await import("../src/routes/misc-fns.js");
+const { tenants, orders, invoiceSettings, whatsappInstances, contacts, messages } = await import(
+  "../src/db/schema.js"
+);
+const { generateInvoice, mergeInvoices, forwardMessage } = await import("../src/routes/misc-fns.js");
 const { DEFERRED_HANDLERS } = await import("../src/routes/deferred-fns.js");
 import type { FnContext } from "../src/routes/waha/session.js";
 
@@ -33,6 +35,28 @@ beforeAll(() => {
     .run();
   db.insert(invoiceSettings)
     .values({ id: "is-a", tenant_id: TENANT_A, invoice_prefix: "INV-", next_invoice_number: 7 })
+    .run();
+
+  // forward-message IDOR fixtures: instance + contact for A, a secret message in B.
+  db.insert(whatsappInstances)
+    .values({ id: "inst-a", tenant_id: TENANT_A, name: "A", status: "active", phone_number: "111" })
+    .run();
+  db.insert(contacts)
+    .values([
+      { id: "ca", tenant_id: TENANT_A, wa_id: "a@s", phone_number: "111", instance_id: "inst-a" },
+      { id: "cb", tenant_id: TENANT_B, wa_id: "b@s", phone_number: "222" },
+    ])
+    .run();
+  db.insert(messages)
+    .values({
+      id: "msg-b-secret",
+      tenant_id: TENANT_B,
+      contact_id: "cb",
+      direction: "inbound",
+      content: "TENANT-B-SECRET",
+      content_type: "text",
+      wa_message_id: "wamid-b",
+    })
     .run();
 });
 
@@ -77,6 +101,19 @@ describe("merge-invoices tenant scoping", () => {
     const res = await mergeInvoices({ invoice_ids: [aInv.id, bInv.id] }, ctx(TENANT_A));
     const data = res.data as { error?: string };
     expect(data.error).toBe("Some invoices were not found in your tenant");
+  });
+});
+
+describe("forward-message cross-tenant isolation", () => {
+  it("refuses to forward another tenant's message (IDOR) — source not found", async () => {
+    const res = await forwardMessage(
+      { message_ids: ["msg-b-secret"], instance_id: "inst-a", target_contact_id: "ca" },
+      ctx(TENANT_A),
+    );
+    const data = res.data as { success: boolean; results: Array<{ success: boolean; error?: string }> };
+    expect(data.success).toBe(false);
+    expect(data.results[0].success).toBe(false);
+    expect(data.results[0].error).toBe("Source message not found");
   });
 });
 

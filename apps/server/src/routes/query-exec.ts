@@ -25,6 +25,7 @@ import type {
 import { db } from "../db/index.js";
 import { QUERY_TABLES, isAllowedTable, type TableConfig } from "./query-tables.js";
 import { parseSelect, hasEmbeds, hydrateEmbeds } from "./query-embed.js";
+import { isVirtualView, executeView } from "./query-views.js";
 import type { TenantContext } from "../middleware/tenant.ts";
 
 class QueryError extends Error {
@@ -246,6 +247,11 @@ export async function executeQuery(
   ctx: TenantContext,
 ): Promise<QueryResponse> {
   try {
+    // Derived read-only views (e.g. contact_customer_status) are computed, not
+    // backed by a base table; dispatch before the allowlist check.
+    if (isVirtualView(req.table)) {
+      return executeView(req, ctx);
+    }
     if (!isAllowedTable(req.table)) {
       throw new QueryError(`Table "${req.table}" is not allowed`, "table_not_allowed");
     }

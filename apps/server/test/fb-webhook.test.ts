@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { createHmac } from "node:crypto";
 import { useTempDb } from "./helpers.js";
 
 useTempDb();
@@ -11,6 +12,11 @@ const { fbWebhookRoute } = await import("../src/routes/webhooks/fb.js");
 import { Hono } from "hono";
 
 const TENANT_A = "aaaa1111-1111-1111-1111-111111111111";
+const APP_SECRET = "page-app-secret";
+
+function sign(body: string): string {
+  return "sha256=" + createHmac("sha256", APP_SECRET).update(body).digest("hex");
+}
 
 const app = new Hono();
 app.route("/api/webhooks/fb", fbWebhookRoute);
@@ -25,6 +31,7 @@ beforeAll(() => {
       page_id: "FB-PAGE-1",
       page_name: "Page A",
       page_access_token: "tok",
+      app_secret: APP_SECRET,
       webhook_verify_token: "page-level-token",
       status: "disconnected",
     })
@@ -78,12 +85,12 @@ describe("fb webhook inbound message ingest", () => {
         },
       ],
     };
-    // No app_secret set on the page, so signature is skipped.
+    const raw = JSON.stringify(payload);
     const post = () =>
       app.request("/api/webhooks/fb", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json", "x-hub-signature-256": sign(raw) },
+        body: raw,
       });
 
     const res1 = await post();
@@ -110,13 +117,67 @@ describe("fb webhook inbound message ingest", () => {
       object: "page",
       entry: [{ id: "UNKNOWN-PAGE", messaging: [{ sender: { id: "x" }, message: { mid: "m_z", text: "hi" } }] }],
     };
+    const raw = JSON.stringify(payload);
     const res = await app.request("/api/webhooks/fb", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: { "Content-Type": "application/json", "x-hub-signature-256": sign(raw) },
+      body: raw,
     });
     expect(res.status).toBe(200);
     const count = sqlite.prepare("SELECT COUNT(*) AS n FROM fb_messages WHERE mid = 'm_z'").get() as { n: number };
+    expect(count.n).toBe(0);
+  });
+
+  it("fails closed: refuses to ingest a payload with an invalid signature", async () => {
+    const payload = {
+      object: "page",
+      entry: [
+        {
+          id: "FB-PAGE-1",
+          messaging: [{ sender: { id: "PSID-X" }, message: { mid: "m_bad", text: "spoofed" } }],
+        },
+      ],
+    };
+    const raw = JSON.stringify(payload);
+    const res = await app.request("/api/webhooks/fb", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-hub-signature-256": "sha256=deadbeef" },
+      body: raw,
+    });
+    // Webhook always 200s to Meta, but the spoofed message must not be ingested.
+    expect(res.status).toBe(200);
+    const count = sqlite.prepare("SELECT COUNT(*) AS n FROM fb_messages WHERE mid = 'm_bad'").get() as { n: number };
+    expect(count.n).toBe(0);
+  });
+
+  it("fails closed: refuses to ingest when the page has no app_secret", async () => {
+    // A page with no secret cannot authenticate payloads → no ingest.
+    db.insert(facebookPages)
+      .values({
+        id: "page-nosecret",
+        tenant_id: TENANT_A,
+        page_id: "FB-PAGE-NOSEC",
+        page_name: "No Secret",
+        page_access_token: "tok",
+        app_secret: null,
+        webhook_verify_token: "vt2",
+        status: "active",
+      })
+      .run();
+    const payload = {
+      object: "page",
+      entry: [
+        { id: "FB-PAGE-NOSEC", messaging: [{ sender: { id: "PSID-Y" }, message: { mid: "m_nosec", text: "hi" } }] },
+      ],
+    };
+    const raw = JSON.stringify(payload);
+    const res = await app.request("/api/webhooks/fb", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-hub-signature-256": sign(raw) },
+      body: raw,
+    });
+    expect(res.status).toBe(200);
+    const count = sqlite.prepare("SELECT COUNT(*) AS n FROM fb_messages WHERE mid = 'm_nosec'").get() as { n: number };
     expect(count.n).toBe(0);
   });
 });

@@ -15,7 +15,7 @@ import { llmSettingsRoute } from "./routes/llm-settings.js";
 import { adminBillingRoute } from "./routes/admin-billing.js";
 import { wahaWebhookRoute } from "./routes/waha/webhook.js";
 import { telegramWebhookRoute } from "./routes/webhooks/telegram.js";
-import { fbWebhookRoute } from "./routes/webhooks/fb.js";
+import { fbWebhookRoute, warnIfFbPagesUnverified } from "./routes/webhooks/fb.js";
 import { startScheduler, stopScheduler } from "./jobs/scheduler.js";
 import { registerSoulJobs } from "./services/soul/index.js";
 import { registerHermesPipeline } from "./services/hermes/pipeline.js";
@@ -90,6 +90,7 @@ registerHermesPipeline();
 registerCeoJobs();
 startScheduler();
 warnIfWebhookUnverified();
+warnIfFbPagesUnverified();
 
 function shutdown(signal: string): void {
   stopScheduler();

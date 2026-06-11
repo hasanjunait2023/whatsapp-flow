@@ -77,9 +77,19 @@ export async function forwardMessage(raw: Record<string, unknown>, ctx: FnContex
 
   const results: Array<{ message_id: string; success: boolean; error?: string }> = [];
   for (const mid of messageIds) {
+    // SECURITY: scope the source-message read to the caller's tenant so a tenant
+    // cannot forward (and thus read) another tenant's message content/media.
+    // Admins may forward cross-tenant only when an explicit source_tenant_id is
+    // provided; otherwise admins are scoped to the resolving instance's tenant.
+    const sourceTenant =
+      ctx.isAdmin && typeof raw.source_tenant_id === "string"
+        ? (raw.source_tenant_id as string)
+        : instance.tenant_id;
     const src = sqlite
-      .prepare("SELECT content, content_type, media_url, media_filename FROM messages WHERE id = ? LIMIT 1")
-      .get(mid) as
+      .prepare(
+        "SELECT content, content_type, media_url, media_filename FROM messages WHERE id = ? AND tenant_id = ? LIMIT 1",
+      )
+      .get(mid, sourceTenant) as
       | { content: string | null; content_type: string; media_url: string | null; media_filename: string | null }
       | undefined;
     if (!src) {

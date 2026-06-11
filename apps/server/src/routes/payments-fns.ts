@@ -242,9 +242,11 @@ export async function paymentConfirmed(raw: Record<string, unknown>, ctx: FnCont
   if (!ctx.isAdmin && tenantId !== ctx.tenantId) return ok({ error: "Forbidden tenant" });
 
   if (paymentId) {
+    // Scope the payment lookup to the resolved tenant so a verified payment id
+    // from another tenant cannot be used to trigger provisioning here.
     const payment = sqlite
-      .prepare("SELECT status FROM payments WHERE id = ? LIMIT 1")
-      .get(paymentId) as { status: string } | undefined;
+      .prepare("SELECT status FROM payments WHERE id = ? AND tenant_id = ? LIMIT 1")
+      .get(paymentId, tenantId) as { status: string } | undefined;
     if (!payment || payment.status !== "verified") {
       return ok({ error: "Payment not verified" });
     }
