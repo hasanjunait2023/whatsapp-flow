@@ -50,6 +50,20 @@
       "when": 1781193294343,
       "tag": "0006_silly_silvermane",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1781193757527,
+      "tag": "0007_cheerful_thunderbolt_ross",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1781193929883,
+      "tag": "0008_mixed_ironclad",
+      "breakpoints": true
     }
   ]
 }

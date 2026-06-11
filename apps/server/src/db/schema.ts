@@ -8,6 +8,7 @@ import {
   uniqueIndex,
   primaryKey,
 } from "drizzle-orm/sqlite-core";
+import { moduleSchema } from "./schema-modules.js";
 
 /**
  * Core SQLite schema, hand-authored from the repo's generated Supabase types
@@ -998,6 +999,168 @@ export const agentRuns = sqliteTable(
   }),
 );
 
+// ---------------------------------------------------------------------------
+// crypto_payment_requests (manual USDT transfer checkout)
+// txid is globally UNIQUE — the txid-reuse fraud guard. unique_amount is the
+// plan price plus a cent salt so concurrent payments are distinguishable
+// on-chain. Writes happen only via fn handlers / the admin approval route.
+// ---------------------------------------------------------------------------
+export const cryptoPaymentRequests = sqliteTable(
+  "crypto_payment_requests",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    amount_usd: real("amount_usd").notNull(),
+    coupon_id: text("coupon_id"),
+    created_at: text("created_at").default(nowIso).notNull(),
+    currency: text("currency").default("USDT").notNull(),
+    expires_at: text("expires_at").notNull(),
+    network: text("network").notNull(),
+    plan_id: text("plan_id").notNull(),
+    review_note: text("review_note"),
+    reviewed_at: text("reviewed_at"),
+    reviewed_by: text("reviewed_by"),
+    status: text("status").default("awaiting_payment").notNull(),
+    submitted_at: text("submitted_at"),
+    tenant_id: text("tenant_id").notNull(),
+    txid: text("txid"),
+    unique_amount: real("unique_amount").notNull(),
+    wallet_address: text("wallet_address").notNull(),
+  },
+  (t) => ({
+    tenantIdx: index("crypto_payment_requests_tenant_id_idx").on(t.tenant_id),
+    txidUnq: uniqueIndex("crypto_payment_requests_txid_unq").on(t.txid),
+    statusIdx: index("crypto_payment_requests_status_idx").on(t.status),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// coupons (admin-managed; NOT exposed via /api/query — codes must not enumerate)
+// ---------------------------------------------------------------------------
+export const coupons = sqliteTable(
+  "coupons",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    code: text("code").notNull(),
+    created_at: text("created_at").default(nowIso).notNull(),
+    created_by: text("created_by"),
+    discount_type: text("discount_type").notNull(),
+    expires_at: text("expires_at"),
+    is_active: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+    max_uses: integer("max_uses"),
+    note: text("note"),
+    plan_ids: text("plan_ids", { mode: "json" }),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+    used_count: integer("used_count").default(0).notNull(),
+    value: real("value").notNull(),
+  },
+  (t) => ({
+    codeUnq: uniqueIndex("coupons_code_unq").on(t.code),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// coupon_redemptions (one redemption per coupon per tenant)
+// ---------------------------------------------------------------------------
+export const couponRedemptions = sqliteTable(
+  "coupon_redemptions",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    amount_discounted: real("amount_discounted"),
+    coupon_id: text("coupon_id").notNull(),
+    created_at: text("created_at").default(nowIso).notNull(),
+    crypto_request_id: text("crypto_request_id"),
+    payment_id: text("payment_id"),
+    tenant_id: text("tenant_id").notNull(),
+  },
+  (t) => ({
+    couponTenantUnq: uniqueIndex("coupon_redemptions_coupon_tenant_unq").on(
+      t.coupon_id,
+      t.tenant_id,
+    ),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// telegram_links (owner chat binding via single-use deep-link code)
+// ---------------------------------------------------------------------------
+export const telegramLinks = sqliteTable(
+  "telegram_links",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    chat_id: text("chat_id"),
+    created_at: text("created_at").default(nowIso).notNull(),
+    expires_at: text("expires_at").notNull(),
+    link_code: text("link_code").notNull(),
+    linked_at: text("linked_at"),
+    status: text("status").default("pending").notNull(),
+    tenant_id: text("tenant_id").notNull(),
+    user_id: text("user_id").notNull(),
+  },
+  (t) => ({
+    linkCodeUnq: uniqueIndex("telegram_links_link_code_unq").on(t.link_code),
+    tenantIdx: index("telegram_links_tenant_id_idx").on(t.tenant_id),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// ceo_reports (generated business reports + marketing ideas)
+// ---------------------------------------------------------------------------
+export const ceoReports = sqliteTable(
+  "ceo_reports",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    content_md: text("content_md"),
+    created_at: text("created_at").default(nowIso).notNull(),
+    data_snapshot: text("data_snapshot", { mode: "json" }),
+    error: text("error"),
+    sent_at: text("sent_at"),
+    status: text("status").default("pending").notNull(),
+    tenant_id: text("tenant_id").notNull(),
+    type: text("type").notNull(),
+  },
+  (t) => ({
+    tenantCreatedIdx: index("ceo_reports_tenant_created_idx").on(t.tenant_id, t.created_at),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// agent_schedules (per-tenant report cadence, evaluated by the scheduler tick)
+// ---------------------------------------------------------------------------
+export const agentSchedules = sqliteTable(
+  "agent_schedules",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    agent: text("agent").default("ceo").notNull(),
+    cadence: text("cadence").notNull(),
+    created_at: text("created_at").default(nowIso).notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).default(true).notNull(),
+    hour_utc: integer("hour_utc").default(9).notNull(),
+    last_run_at: text("last_run_at"),
+    report_type: text("report_type").notNull(),
+    tenant_id: text("tenant_id").notNull(),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+  },
+  (t) => ({
+    tenantTypeUnq: uniqueIndex("agent_schedules_tenant_type_unq").on(
+      t.tenant_id,
+      t.agent,
+      t.report_type,
+    ),
+  }),
+);
+
 export const appSchema = {
   tenants,
   profiles,
@@ -1034,4 +1197,15 @@ export const appSchema = {
   jobQueue,
   agentConfigs,
   agentRuns,
+  cryptoPaymentRequests,
+  coupons,
+  couponRedemptions,
+  telegramLinks,
+  ceoReports,
+  agentSchedules,
+  ...moduleSchema,
 };
+
+// Re-export Phase 3 module tables so consumers can import them from this module
+// alongside the core tables.
+export * from "./schema-modules.js";

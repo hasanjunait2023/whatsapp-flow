@@ -222,6 +222,25 @@ function applyColumnSelection(
   });
 }
 
+/**
+ * SECURITY: strips configured secret columns from outgoing rows. Applied to
+ * every SELECT result and every insert/update `returning` projection so tokens,
+ * keys and secrets never leave the server via /api/query — including when the
+ * client requested "*" or named the column explicitly.
+ */
+function redactRows(
+  cfg: TableConfig,
+  rows: Record<string, unknown>[],
+): Record<string, unknown>[] {
+  const secret = cfg.redactColumns;
+  if (!secret || secret.length === 0) return rows;
+  return rows.map((r) => {
+    const out = { ...r };
+    for (const col of secret) delete out[col];
+    return out;
+  });
+}
+
 export async function executeQuery(
   req: QueryRequest,
   ctx: TenantContext,
@@ -305,6 +324,7 @@ async function runSelect(
   } else {
     rows = applyColumnSelection(rows, req.columns);
   }
+  rows = redactRows(cfg, rows);
 
   let count: number | null | undefined;
   if (req.count === "exact") {
@@ -359,7 +379,7 @@ async function runInsert(
     .insert(cfg.table as any)
     .values(rows)
     .returning()) as Record<string, unknown>[];
-  return returnedResponse(req, inserted);
+  return returnedResponse(req, inserted, cfg);
 }
 
 async function runUpdate(
@@ -379,7 +399,7 @@ async function runUpdate(
     .set(patch)
     .where(where ?? sql`1=1`)
     .returning()) as Record<string, unknown>[];
-  return returnedResponse(req, updated);
+  return returnedResponse(req, updated, cfg);
 }
 
 async function runDelete(
@@ -391,7 +411,7 @@ async function runDelete(
     .delete(cfg.table as any)
     .where(where ?? sql`1=1`)
     .returning()) as Record<string, unknown>[];
-  return returnedResponse(req, deleted);
+  return returnedResponse(req, deleted, cfg);
 }
 
 async function runUpsert(
@@ -421,15 +441,16 @@ async function runUpsert(
       .returning()) as Record<string, unknown>[];
     results.push(...res);
   }
-  return returnedResponse(req, results);
+  return returnedResponse(req, results, cfg);
 }
 
 function returnedResponse(
   req: QueryRequest,
   rows: Record<string, unknown>[],
+  cfg: TableConfig,
 ): QueryResponse {
   if (!req.returning) return { data: null, error: null };
-  const projected = applyColumnSelection(rows, req.columns);
+  const projected = redactRows(cfg, applyColumnSelection(rows, req.columns));
   if (req.single || req.maybeSingle) {
     if (projected.length === 0) {
       if (req.maybeSingle) return { data: null, error: null };
