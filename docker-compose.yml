@@ -1,0 +1,157 @@
+# ===========================================================================
+# whatsapp-flow — production stack for the Contabo VPS (FRESH launch)
+#
+# HARD RULES (Phase 0 reality — see .claude/team/PHASE0-REPORT.md):
+#   * Host nginx (systemd) owns 80/443. NEVER bind 80/443 here.
+#   * Port 3000 is already taken on the host. The app exposes ONLY
+#     127.0.0.1:3500 (loopback) — nginx reverse-proxies to it.
+#   * WAHA has NO host port: the app reaches it over the compose network at
+#     http://waha:3000. WAHA reaches the app's webhook at http://app:3500.
+#   * Everything additive — never touch postiz/cobalt/searxng or their volumes.
+#   * mem_limits are mandatory; the box is RAM-tight (swap exhausted at Phase 0).
+#
+# Validate before deploy:  docker compose config
+# ===========================================================================
+
+name: whatsapp-flow
+
+networks:
+  wf_net:
+    driver: bridge
+
+volumes:
+  sqlite_data:    # /data/sqlite  — SQLite DB + WAL (replicated by litestream)
+  media_data:     # /data/media   — tenant media (backed up by restic)
+  waha_data:      # /data/waha    — WAHA Plus session persistence (backed up by restic)
+
+services:
+  # -------------------------------------------------------------------------
+  # app — Hono server + bundled SPA. Loopback-only; nginx proxies to it.
+  # -------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: whatsapp-flow:latest
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      # Pin the runtime wiring here so it can't drift from the env file.
+      NODE_ENV: production
+      PORT: "3500"
+      DB_PATH: /data/sqlite/app.db
+      MEDIA_DIR: /data/media
+      WEB_DIST_DIR: /app/apps/web/dist
+      # WAHA over the compose network (container-to-container, no host port).
+      WAHA_URL: http://waha:3000
+      # Plus mode: one session per tenant instance (session name == instance id).
+      WAHA_SINGLE_SESSION: "false"
+      # WAHA calls our webhook back over the network at the app service.
+      WAHA_WEBHOOK_BASE_URL: http://app:3500
+    ports:
+      # Loopback only. 3500 chosen because 3000 is taken on the host (Phase 0).
+      - "127.0.0.1:3500:3500"
+    volumes:
+      - sqlite_data:/data/sqlite
+      - media_data:/data/media
+    networks:
+      - wf_net
+    depends_on:
+      - waha
+    mem_limit: 1500m
+    healthcheck:
+      # /healthz does a real SELECT 1 — green == DB reachable (migrations ran).
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3500/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  # -------------------------------------------------------------------------
+  # waha — WhatsApp HTTP API (Plus). NOWEB engine, multi-session.
+  #
+  # IMAGE: devlikeapro/waha-plus requires the founder's WAHA Plus subscription
+  #        ($19/mo) AND a `docker login` against the WAHA private registry/Docker
+  #        Hub access granted with the sub. Core blocks multi-session (confirmed
+  #        in Phase 0: HTTP 422 "WAHA Core support only 'default' session").
+  #
+  # TAG:   pinned to latest-2026.4.3 (current confirmed-stable build; WAHA tags
+  #        are latest-{YEAR}.{MONTH}.{BUILD}). NEVER use the floating `latest`.
+  #        To update: bump this tag deliberately, then `docker compose pull waha`.
+  #
+  # CORE FALLBACK (single-session only, for a smoke test without the sub):
+  #   image: devlikeapro/waha:2026.5.1
+  #   and set WAHA_SINGLE_SESSION=true on `app`. Core supports only the
+  #   `default` session — not viable for multi-tenant production.
+  # -------------------------------------------------------------------------
+  waha:
+    image: devlikeapro/waha-plus:latest-2026.4.3
+    restart: unless-stopped
+    environment:
+      WHATSAPP_DEFAULT_ENGINE: NOWEB
+      # API key the app sends as X-Api-Key. Set WAHA_API_KEY in .env.production;
+      # WAHA reads it from WHATSAPP_API_KEY.
+      WHATSAPP_API_KEY: ${WAHA_API_KEY}
+      # Persist NOWEB sessions across restarts.
+      WAHA_NOWEB_STORE_ENABLED: "true"
+      WHATSAPP_FILES_FOLDER: /app/.media
+    volumes:
+      - waha_data:/app/.sessions
+    networks:
+      - wf_net
+    # NO ports: — WAHA is reachable only inside wf_net at http://waha:3000.
+    mem_limit: 2500m
+
+  # -------------------------------------------------------------------------
+  # litestream — continuous SQLite WAL replication to Cloudflare R2.
+  # Reads the same DB volume read-mostly; config in litestream.yml.
+  # -------------------------------------------------------------------------
+  litestream:
+    image: litestream/litestream:0.3.14
+    restart: unless-stopped
+    command: ["replicate", "-config", "/etc/litestream.yml"]
+    env_file:
+      - .env.production
+    volumes:
+      - sqlite_data:/data/sqlite
+      - ./litestream.yml:/etc/litestream.yml:ro
+    networks:
+      - wf_net
+    depends_on:
+      - app
+    mem_limit: 256m
+
+  # -------------------------------------------------------------------------
+  # restic-backup — periodic snapshot of media + WAHA sessions to R2.
+  #
+  # SQLite is covered by litestream (continuous WAL); restic covers the blob
+  # state litestream does not: /data/media and /data/waha. Runs an internal
+  # cron loop (default daily 03:30) and exits only on error.
+  # -------------------------------------------------------------------------
+  restic-backup:
+    image: mazzolino/restic:1.8.2
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      # Daily at 03:30. restic repo + R2 creds come from .env.production.
+      BACKUP_CRON: "0 30 3 * * *"
+      RESTIC_REPOSITORY: ${RESTIC_REPOSITORY}
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD}
+      AWS_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      # Source paths (mounted read-only below).
+      RESTIC_BACKUP_SOURCES: /data/media /data/waha
+      # Keep a rolling window; prune old snapshots after each run.
+      RESTIC_FORGET_ARGS: --keep-daily 7 --keep-weekly 4 --prune
+    volumes:
+      - media_data:/data/media:ro
+      - waha_data:/data/waha:ro
+    networks:
+      - wf_net
+    mem_limit: 256m

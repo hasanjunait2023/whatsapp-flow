@@ -1,0 +1,7 @@
+# Shell scripts, Dockerfile, and the entrypoint must keep LF endings so they
+# run correctly inside Linux containers regardless of the checkout platform.
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+docker-entrypoint.sh text eol=lf
+.dockerignore   text eol=lf
+*.yml           text eol=lf
