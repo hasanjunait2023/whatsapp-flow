@@ -148,6 +148,62 @@ function forceTenantOnRow(
   return row;
 }
 
+const MUTATION_OPS = new Set(["insert", "update", "upsert", "delete"]);
+
+/**
+ * Central mutation gate. Enforces the per-table `mutability` flag:
+ *  - "readonly": never mutable via the generic API
+ *  - "admin":    only admins may mutate (privilege-bearing tables)
+ *  - "tenant":   any authenticated tenant member may mutate
+ *
+ * Rejecting here closes the IDOR / privilege-escalation path where a non-admin
+ * could insert/update their own role-bearing rows (user_roles, system_roles).
+ */
+function assertMutable(cfg: TableConfig, op: string, ctx: TenantContext): void {
+  if (!MUTATION_OPS.has(op)) return;
+  const mutability = cfg.mutability ?? "tenant";
+  if (mutability === "readonly") {
+    throw new QueryError("Table is read-only via this API", "readonly_table");
+  }
+  if (mutability === "admin" && !ctx.isAdmin) {
+    throw new QueryError("Admin privileges required", "forbidden");
+  }
+}
+
+/**
+ * Defense in depth for insert/upsert rows: non-admins may not write privilege
+ * columns, and on membership tables may only write rows for themselves.
+ */
+function assertRowAllowed(
+  cfg: TableConfig,
+  ctx: TenantContext,
+  row: Record<string, unknown>,
+): void {
+  if (ctx.isAdmin) return;
+  for (const col of cfg.privilegeColumns ?? []) {
+    if (col in row) {
+      throw new QueryError(`Forbidden field "${col}"`, "forbidden");
+    }
+  }
+  if (cfg.access === "membership" && "user_id" in row && row.user_id !== ctx.userId) {
+    throw new QueryError("Cannot write rows for another user", "forbidden");
+  }
+}
+
+/** Blocklist privilege columns from update patches for non-admins. */
+function assertPatchAllowed(
+  cfg: TableConfig,
+  ctx: TenantContext,
+  patch: Record<string, unknown>,
+): void {
+  if (ctx.isAdmin) return;
+  for (const col of cfg.privilegeColumns ?? []) {
+    if (col in patch) {
+      throw new QueryError(`Forbidden field "${col}"`, "forbidden");
+    }
+  }
+}
+
 function applyColumnSelection(
   rows: Record<string, unknown>[],
   columns?: string,
@@ -175,6 +231,7 @@ export async function executeQuery(
       throw new QueryError(`Table "${req.table}" is not allowed`, "table_not_allowed");
     }
     const cfg = QUERY_TABLES[req.table];
+    assertMutable(cfg, req.op, ctx);
     const filters = req.filters ?? [];
     const scope = tenantScope(cfg, req.table, ctx, filters);
     const userConds = filters.map((f) => buildFilter(cfg, f));
@@ -291,7 +348,10 @@ async function runInsert(
   cfg: TableConfig,
   ctx: TenantContext,
 ): Promise<QueryResponse> {
-  const rows = toRows(req.values).map((r) => forceTenantOnRow(cfg, ctx, r));
+  const rows = toRows(req.values).map((r) => {
+    assertRowAllowed(cfg, ctx, r);
+    return forceTenantOnRow(cfg, ctx, r);
+  });
   if (rows.length === 0) {
     throw new QueryError("No values to insert", "no_values");
   }
@@ -309,6 +369,7 @@ async function runUpdate(
   where: SQL | undefined,
 ): Promise<QueryResponse> {
   const patch = { ...(req.values as Record<string, unknown>) };
+  assertPatchAllowed(cfg, ctx, patch);
   // Never allow re-targeting the tenant column via update.
   if (cfg.tenantColumn && ctx.tenantId && patch[cfg.tenantColumn] != null) {
     patch[cfg.tenantColumn] = ctx.tenantId;
@@ -338,7 +399,10 @@ async function runUpsert(
   cfg: TableConfig,
   ctx: TenantContext,
 ): Promise<QueryResponse> {
-  const rows = toRows(req.values).map((r) => forceTenantOnRow(cfg, ctx, r));
+  const rows = toRows(req.values).map((r) => {
+    assertRowAllowed(cfg, ctx, r);
+    return forceTenantOnRow(cfg, ctx, r);
+  });
   if (rows.length === 0) {
     throw new QueryError("No values to upsert", "no_values");
   }
