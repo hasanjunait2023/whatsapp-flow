@@ -2,7 +2,10 @@ import { Hono } from "hono";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { sqlite } from "../../db/index.js";
 import { emitChange } from "../../realtime/emitter.js";
-import { WAHA_WEBHOOK_HMAC_SECRET } from "../../lib/env.js";
+import {
+  WAHA_WEBHOOK_HMAC_SECRET,
+  WAHA_WEBHOOK_HMAC_ENFORCED,
+} from "../../lib/env.js";
 import {
   mapWahaMessage,
   downloadMedia,
@@ -49,9 +52,26 @@ const ACK_STATUS: Record<number, "sent" | "delivered" | "read" | "failed"> = {
   5: "read",
 };
 
+/**
+ * Verifies the webhook HMAC signature.
+ *
+ * Fail-CLOSED when enforcement is on (a secret is set, or
+ * WAHA_WEBHOOK_REQUIRE_HMAC=true): a missing or mismatched signature is
+ * rejected. If enforcement is on but no secret is configured (REQUIRE without a
+ * key — a misconfiguration), every webhook is rejected rather than accepted
+ * unsigned. Verification is skipped ONLY in the explicit pilot/Core case where
+ * enforcement is off (no secret and not required).
+ */
 function verifyHmac(raw: string, signature: string | undefined): boolean {
-  if (!WAHA_WEBHOOK_HMAC_SECRET) return true; // verification disabled
-  if (!signature) return false;
+  if (!WAHA_WEBHOOK_HMAC_ENFORCED) {
+    return true; // pilot/Core: explicitly unverified
+  }
+  if (!WAHA_WEBHOOK_HMAC_SECRET) {
+    return false; // required but misconfigured (no key) → reject all
+  }
+  if (!signature) {
+    return false; // enforced but unsigned → reject
+  }
   const expected = createHmac("sha512", WAHA_WEBHOOK_HMAC_SECRET).update(raw).digest("hex");
   const a = Buffer.from(expected);
   const b = Buffer.from(signature);

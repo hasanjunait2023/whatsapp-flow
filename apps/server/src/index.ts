@@ -16,7 +16,7 @@ import { wahaWebhookRoute } from "./routes/waha/webhook.js";
 import { startScheduler, stopScheduler } from "./jobs/scheduler.js";
 import { registerSoulJobs } from "./services/soul/index.js";
 import { registerHermesPipeline } from "./services/hermes/pipeline.js";
-import { PORT, IS_PRODUCTION, WEB_DIST_DIR } from "./lib/env.js";
+import { PORT, IS_PRODUCTION, WEB_DIST_DIR, warnIfWebhookUnverified } from "./lib/env.js";
 
 const app = new Hono();
 
@@ -77,6 +77,7 @@ const server = serve({ fetch: app.fetch, port: PORT });
 registerSoulJobs();
 registerHermesPipeline();
 startScheduler();
+warnIfWebhookUnverified();
 
 function shutdown(signal: string): void {
   stopScheduler();

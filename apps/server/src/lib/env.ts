@@ -60,6 +60,46 @@ export const WAHA_WEBHOOK_BASE_URL =
 export const WAHA_WEBHOOK_HMAC_SECRET = process.env.WAHA_WEBHOOK_HMAC_SECRET ?? "";
 
 /**
+ * Forces webhook HMAC verification on even before a secret is wired (defense in
+ * depth: a misconfigured prod that sets REQUIRE but forgets the secret rejects
+ * all webhooks rather than accepting unsigned ones).
+ */
+export const WAHA_WEBHOOK_REQUIRE_HMAC =
+  (process.env.WAHA_WEBHOOK_REQUIRE_HMAC ?? "false").toLowerCase() === "true";
+
+/** True when webhook signatures must be present and valid (secret set or required). */
+export const WAHA_WEBHOOK_HMAC_ENFORCED =
+  WAHA_WEBHOOK_HMAC_SECRET.length > 0 || WAHA_WEBHOOK_REQUIRE_HMAC;
+
+/**
+ * Emits a one-line startup warning (not a hard throw) when webhook HMAC is not
+ * enforced. Pilot/Core has no secret and runs loopback-only, so this is allowed;
+ * production with WAHA Plus MUST set WAHA_WEBHOOK_HMAC_SECRET.
+ */
+export function warnIfWebhookUnverified(): void {
+  if (!WAHA_WEBHOOK_HMAC_ENFORCED) {
+    process.emitWarning(
+      "WAHA webhook HMAC verification is DISABLED (WAHA_WEBHOOK_HMAC_SECRET unset). " +
+        "Acceptable for the loopback Core/pilot only — production with WAHA Plus MUST set the secret.",
+      { code: "WAHA_WEBHOOK_UNVERIFIED" },
+    );
+  }
+}
+
+// --- Telegram (single platform bot; per-tenant chat linking) ------------------
+
+export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
+export const TELEGRAM_BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME ?? "";
+/** Validates X-Telegram-Bot-Api-Secret-Token on the webhook route. */
+export const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET ?? "";
+
+// --- Crypto payments (manual USDT transfer) ----------------------------------
+
+/** Platform USDT receiving addresses per network; empty = network disabled. */
+export const CRYPTO_USDT_ADDRESS_TRC20 = process.env.CRYPTO_USDT_ADDRESS_TRC20 ?? "";
+export const CRYPTO_USDT_ADDRESS_BEP20 = process.env.CRYPTO_USDT_ADDRESS_BEP20 ?? "";
+
+/**
  * Master key for AES-256-GCM encryption of stored secrets (per-tenant API keys).
  * 64 hex chars (32 bytes). Required at runtime by lib/crypto.ts, not at import.
  */

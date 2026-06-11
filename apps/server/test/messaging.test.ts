@@ -14,9 +14,18 @@ const INSTANCE = "minst222-2222-2222-2222-222222222222";
 const CONTACT = "mcont333-3333-3333-3333-333333333333";
 const CTX = { userId: "user-1", tenantId: TENANT, isAdmin: false };
 
+// A second tenant whose instance must never be reachable by TENANT (IDOR guard).
+const OTHER_TENANT = "oooo9999-9999-9999-9999-999999999999";
+const OTHER_INSTANCE = "oinst888-8888-8888-8888-888888888888";
+
 beforeAll(() => {
   runMigrations();
-  db.insert(tenants).values({ id: TENANT, name: "M", owner_id: "u" }).run();
+  db.insert(tenants)
+    .values([
+      { id: TENANT, name: "M", owner_id: "u" },
+      { id: OTHER_TENANT, name: "Other", owner_id: "u2" },
+    ])
+    .run();
   db.insert(subscriptions)
     .values({
       id: "sub-1",
@@ -28,7 +37,16 @@ beforeAll(() => {
     })
     .run();
   db.insert(whatsappInstances)
-    .values({ id: INSTANCE, tenant_id: TENANT, name: "WA", status: "active", session_id: "default" })
+    .values([
+      { id: INSTANCE, tenant_id: TENANT, name: "WA", status: "active", session_id: "default" },
+      {
+        id: OTHER_INSTANCE,
+        tenant_id: OTHER_TENANT,
+        name: "OtherWA",
+        status: "active",
+        session_id: "default",
+      },
+    ])
     .run();
   db.insert(contacts)
     .values({
@@ -139,5 +157,60 @@ describe("send-message function", () => {
       .prepare("SELECT status FROM messages WHERE id = ?")
       .get(res.data.message_id as string) as { status: string };
     expect(row.status).toBe("pending");
+  });
+
+  it("rejects a foreign instance_id instead of routing through another tenant (IDOR)", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: "x" }), { status: 200 }),
+    );
+    const res = (await sendMessage(
+      { contact_id: CONTACT, content: "leak", instance_id: OTHER_INSTANCE },
+      CTX,
+    )) as { data: Record<string, unknown> };
+
+    // Must be rejected, not silently sent through the caller's default instance.
+    expect(res.data.success).toBe(false);
+    expect(res.data.error).toBe("Instance not found");
+    // No WAHA send must have happened.
+    expect(fetchSpy.mock.calls.some(([url]) => String(url).endsWith("/api/sendText"))).toBe(false);
+    // No outbound row should have been created for this attempt.
+    const count = sqlite
+      .prepare("SELECT COUNT(*) AS n FROM messages WHERE content = 'leak'")
+      .get() as { n: number };
+    expect(count.n).toBe(0);
+  });
+
+  it("rejects an unknown explicit instance_id with an explicit error", async () => {
+    const res = (await sendMessage(
+      { contact_id: CONTACT, content: "x", instance_id: "does-not-exist" },
+      CTX,
+    )) as { data: Record<string, unknown> };
+    expect(res.data.success).toBe(false);
+    expect(res.data.error).toBe("Instance not found");
+  });
+
+  it("ignores a foreign reply_to_id (cross-tenant) and sends without a reply target", async () => {
+    // Plant a message under the OTHER tenant; its id must not be usable as a reply.
+    sqlite
+      .prepare(
+        `INSERT INTO messages (id, tenant_id, instance_id, contact_id, direction, status, content_type, wa_message_id)
+         VALUES ('foreign-msg', ?, ?, NULL, 'inbound', 'delivered', 'text', 'foreign-wamid')`,
+      )
+      .run(OTHER_TENANT, OTHER_INSTANCE);
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: "sent-id" }), { status: 200 }),
+    );
+
+    const res = (await sendMessage(
+      { contact_id: CONTACT, content: "reply attempt", reply_to_id: "foreign-msg" },
+      CTX,
+    )) as { data: Record<string, unknown> };
+
+    expect(res.data.success).toBe(true);
+    const call = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/api/sendText"));
+    const sent = JSON.parse((call![1] as RequestInit).body as string);
+    // The foreign wa_message_id must NOT have leaked into the reply target.
+    expect(sent.reply_to ?? null).toBeNull();
   });
 });

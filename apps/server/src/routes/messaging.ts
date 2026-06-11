@@ -67,23 +67,58 @@ function subscriptionSuspended(tenantId: string): boolean {
   return sub?.status === "suspended";
 }
 
-/** Picks the contact's instance, else any active instance for the tenant. */
-function resolveInstance(tenantId: string, preferredId: string | null): InstanceRow | null {
+type ResolveInstanceResult =
+  | { ok: true; instance: InstanceRow }
+  | { ok: false; error: string };
+
+/**
+ * Resolves the WhatsApp instance to send through.
+ *
+ * SECURITY: every lookup is scoped to the caller's tenant. When an explicit
+ * `preferredId` was supplied (from the request body or the contact's own
+ * instance_id), it MUST belong to the caller's tenant and be active — a
+ * mismatch is rejected explicitly rather than silently falling back to the
+ * tenant's default instance (which would mask a cross-tenant IDOR attempt where
+ * an attacker passes a foreign instance_id to send through another tenant's
+ * WhatsApp number). The default-instance fallback applies only when NO
+ * preferredId was supplied.
+ */
+function resolveInstance(
+  tenantId: string,
+  preferredId: string | null,
+  explicit: boolean,
+): ResolveInstanceResult {
   if (preferredId) {
     const row = sqlite
-      .prepare("SELECT id, status FROM whatsapp_instances WHERE id = ? LIMIT 1")
-      .get(preferredId) as InstanceRow | undefined;
-    if (row && row.status === "active") return row;
-  }
-  return (
-    (sqlite
       .prepare(
-        `SELECT id, status FROM whatsapp_instances
-         WHERE tenant_id = ? AND status = 'active' AND (is_deleted IS NULL OR is_deleted = 0)
-         ORDER BY is_default DESC LIMIT 1`,
+        "SELECT id, status FROM whatsapp_instances WHERE id = ? AND tenant_id = ? LIMIT 1",
       )
-      .get(tenantId) as InstanceRow | undefined) ?? null
-  );
+      .get(preferredId, tenantId) as InstanceRow | undefined;
+    if (!row) {
+      // Unknown instance, or one owned by another tenant: reject explicitly.
+      if (explicit) {
+        return { ok: false, error: "Instance not found" };
+      }
+      // The contact's denormalized instance_id is stale; fall back to default.
+    } else if (row.status === "active") {
+      return { ok: true, instance: row };
+    } else if (explicit) {
+      // Caller named a specific instance that exists but is not connected.
+      return { ok: false, error: "Selected instance is not connected" };
+    }
+  }
+
+  const fallback = sqlite
+    .prepare(
+      `SELECT id, status FROM whatsapp_instances
+       WHERE tenant_id = ? AND status = 'active' AND (is_deleted IS NULL OR is_deleted = 0)
+       ORDER BY is_default DESC LIMIT 1`,
+    )
+    .get(tenantId) as InstanceRow | undefined;
+  if (!fallback) {
+    return { ok: false, error: "No active instance available" };
+  }
+  return { ok: true, instance: fallback };
 }
 
 /** A send is reactive when the contact has a recent inbound message. */
@@ -207,10 +242,19 @@ export async function sendMessage(rawBody: Record<string, unknown>, ctx: FnConte
     };
   }
 
-  const instance = resolveInstance(contact.tenant_id, body.instance_id ?? contact.instance_id);
-  if (!instance) {
-    return { data: { success: false, error: "No active instance available" }, error: null };
+  // `explicit` is true only when the caller named an instance_id in the request;
+  // the contact's own instance_id is a denormalized hint, not a user-supplied
+  // selection, so a stale value there falls back rather than hard-rejects.
+  const explicitInstanceId = typeof body.instance_id === "string" && body.instance_id.length > 0;
+  const resolved = resolveInstance(
+    contact.tenant_id,
+    body.instance_id ?? contact.instance_id,
+    explicitInstanceId,
+  );
+  if (!resolved.ok) {
+    return { data: { success: false, error: resolved.error }, error: null };
   }
+  const instance = resolved.instance;
 
   // Per-number rate limit: proactive sends capped, reactive replies bypass.
   const reactive = isReactive(contact.id);
@@ -251,12 +295,13 @@ export async function sendMessage(rawBody: Record<string, unknown>, ctx: FnConte
     );
   emitChange("messages", contact.tenant_id, { contact_id: contact.id });
 
-  // Resolve reply target's wa_message_id.
+  // Resolve reply target's wa_message_id — scoped to the caller's tenant so a
+  // foreign message id can't be used (or leaked) as a reply target.
   let replyTo: string | null = null;
   if (body.reply_to_id) {
     const replied = sqlite
-      .prepare("SELECT wa_message_id FROM messages WHERE id = ? LIMIT 1")
-      .get(body.reply_to_id) as { wa_message_id: string | null } | undefined;
+      .prepare("SELECT wa_message_id FROM messages WHERE id = ? AND tenant_id = ? LIMIT 1")
+      .get(body.reply_to_id, contact.tenant_id) as { wa_message_id: string | null } | undefined;
     replyTo = replied?.wa_message_id ?? null;
   }
 
