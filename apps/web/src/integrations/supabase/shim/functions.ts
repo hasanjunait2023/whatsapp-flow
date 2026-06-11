@@ -10,7 +10,8 @@ interface InvokeOptions {
 }
 
 export const functions = {
-  async invoke<T = unknown>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async invoke<T = any>(
     name: string,
     options?: InvokeOptions,
   ): Promise<{ data: T | null; error: Error | null }> {

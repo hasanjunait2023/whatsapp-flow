@@ -14,7 +14,11 @@ interface UploadResult {
 class StorageBucket {
   constructor(private readonly bucket: string) {}
 
-  async upload(filePath: string, file: Blob | File): Promise<UploadResult> {
+  async upload(
+    filePath: string,
+    file: Blob | File,
+    _options?: { upsert?: boolean; contentType?: string; cacheControl?: string },
+  ): Promise<UploadResult> {
     try {
       const res = await fetch(`${MEDIA_BASE}/${filePath}`, {
         method: "POST",

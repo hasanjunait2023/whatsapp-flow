@@ -211,6 +211,15 @@ async function runSelect(
   cfg: TableConfig,
   where: SQL | undefined,
 ): Promise<QueryResponse> {
+  // head:true => count-only request, no rows.
+  if (req.head) {
+    const countRows = await db
+      .select({ n: sql<number>`count(*)` })
+      .from(cfg.table as any)
+      .where(where ?? sql`1=1`);
+    return { data: null, error: null, count: Number(countRows[0]?.n ?? 0) };
+  }
+
   let q = db.select().from(cfg.table as any);
   if (where) q = q.where(where) as any;
 

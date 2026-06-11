@@ -1,3 +1,40 @@
+# whatsapp-flow (self-hosted)
+
+pnpm monorepo migrating off Supabase cloud to a self-hosted Node/Hono + SQLite backend.
+
+## Workspace layout
+
+```
+apps/web/        # Vite React SPA (moved from repo root; zero logic changes)
+apps/server/     # Hono + Drizzle (SQLite) + better-auth backend
+packages/shared/ # API contract types shared by web and server
+supabase/        # legacy reference: 71 edge functions + migrations (ported in later phases)
+```
+
+## Quickstart (local dev)
+
+```sh
+pnpm install                       # requires Node >= 22, pnpm 9
+# server env
+cp apps/server/.env.example apps/server/.env   # set AUTH_SECRET (32+ chars)
+
+pnpm --filter server migrate       # apply SQLite schema (drizzle)
+pnpm --filter server seed          # demo tenant + owner@demo.test / demo-password-123
+pnpm dev                           # runs web (8080) + server (3000); /api proxied in dev
+```
+
+## Scripts (root)
+
+- `pnpm dev` — web + server in parallel
+- `pnpm build` — web (vite) + server (tsc)
+- `pnpm test` — server + web vitest suites
+- `pnpm --filter server migrate` / `seed`
+
+The SPA talks to the backend through a drop-in supabase shim
+(`apps/web/src/integrations/supabase/client.ts`), so existing call sites are unchanged.
+
+---
+
 # Welcome to your Lovable project
 
 ## Project info

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
+    "start": "node dist/src/index.js",
     "migrate": "drizzle-kit migrate",
     "generate": "drizzle-kit generate",
     "push": "drizzle-kit push",
@@ -20,15 +20,15 @@
     "@whatsapp-flow/shared": "workspace:*",
     "bcryptjs": "^2.4.3",
     "better-auth": "^1.2.7",
-    "better-sqlite3": "^11.8.1",
-    "drizzle-orm": "^0.38.4",
-    "hono": "^4.6.14",
-    "zod": "^3.24.1"
+    "better-sqlite3": "^12.2.0",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.6.14"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.10.5",
-    "drizzle-kit": "^0.30.2",
+    "drizzle-kit": "^0.31.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^3.0.2"

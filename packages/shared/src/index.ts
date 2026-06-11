@@ -53,6 +53,8 @@ export interface QueryRequest {
   maybeSingle?: boolean;
   /** request an exact count alongside data */
   count?: "exact" | null;
+  /** count-only request (supabase .select(col,{head:true}) ) — no rows returned */
+  head?: boolean;
   /** upsert conflict target columns */
   onConflict?: string;
   /** whether the builder requested rows back (.select() after a mutation) */

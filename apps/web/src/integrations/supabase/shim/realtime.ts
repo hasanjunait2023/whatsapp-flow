@@ -18,10 +18,16 @@ interface ServerChangeEvent {
   payload: Record<string, unknown>;
 }
 
+// Payload rows are `any` so existing call sites can cast/destructure them into
+// their generated row types exactly as they did with supabase-js.
 type ChangeCallback = (payload: {
   eventType: string;
-  new: Record<string, unknown>;
-  old: Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  new: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  old: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
 }) => void;
 
 interface Handler {
@@ -74,7 +80,10 @@ export class RealtimeChannel {
     return this;
   }
 
-  subscribe(statusCallback?: (status: string) => void): this {
+  subscribe(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    statusCallback?: (status: string, err?: any) => void,
+  ): this {
     if (!this.subscribed) {
       channels.add(this);
       ensureSource();

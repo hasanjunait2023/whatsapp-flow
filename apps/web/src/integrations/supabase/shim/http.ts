@@ -4,15 +4,23 @@
  * better-auth session cookie travels with every request.
  */
 
-export interface ApiEnvelope<T = unknown> {
-  data: T | null;
-  error: { message: string; code?: string } | null;
+// `data` is intentionally `any`: the call sites were written against
+// supabase-js's generated row types and freely access columns, spread, and
+// iterate over results. Keeping the envelope loose preserves drop-in type
+// compatibility without touching any of those call sites.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface ApiEnvelope<T = any> {
+  data: T;
+  // `details`/`hint` mirror PostgrestError so call sites that read them keep
+  // type-checking against the shim.
+  error: { message: string; code?: string; details?: string; hint?: string } | null;
   count?: number | null;
 }
 
 const API_BASE = "/api";
 
-export async function postJson<T = unknown>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function postJson<T = any>(
   pathname: string,
   body: unknown,
 ): Promise<ApiEnvelope<T>> {

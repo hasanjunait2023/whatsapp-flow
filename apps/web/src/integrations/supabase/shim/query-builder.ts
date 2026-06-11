@@ -21,14 +21,14 @@ interface OrderSpec {
  * the codebase relies on by awaiting builders directly). After mutations a
  * trailing .select() requests rows back.
  */
-export class QueryBuilder<T = unknown> implements PromiseLike<ApiEnvelope<T>> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export class QueryBuilder<T = any> implements PromiseLike<ApiEnvelope<T>> {
   private op: Op = "select";
   private columns = "*";
   private values: unknown;
   private filters: Filter[] = [];
   private orders: OrderSpec[] = [];
   private _limit?: number;
-  private _offset?: number;
   private rangeFrom?: number;
   private rangeTo?: number;
   private _single = false;
@@ -39,8 +39,13 @@ export class QueryBuilder<T = unknown> implements PromiseLike<ApiEnvelope<T>> {
 
   constructor(private readonly table: string) {}
 
+  private _head = false;
+
   // --- terminal op selectors ------------------------------------------------
-  select(columns = "*"): this {
+  select(
+    columns = "*",
+    options?: { count?: "exact" | "planned" | "estimated"; head?: boolean },
+  ): this {
     if (this.op === "select") {
       this.columns = columns;
     } else {
@@ -48,6 +53,8 @@ export class QueryBuilder<T = unknown> implements PromiseLike<ApiEnvelope<T>> {
       this.columns = columns;
       this._returning = true;
     }
+    if (options?.count) this._count = "exact";
+    if (options?.head) this._head = true;
     return this;
   }
 
@@ -177,12 +184,12 @@ export class QueryBuilder<T = unknown> implements PromiseLike<ApiEnvelope<T>> {
       filters: this.filters,
       order: this.orders,
       limit: this._limit,
-      offset: this._offset,
       rangeFrom: this.rangeFrom,
       rangeTo: this.rangeTo,
       single: this._single,
       maybeSingle: this._maybeSingle,
       count: this._count,
+      head: this._head,
       onConflict: this._onConflict,
       returning: this._returning || this.op === "select",
     };
