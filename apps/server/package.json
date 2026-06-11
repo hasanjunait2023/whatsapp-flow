@@ -11,6 +11,7 @@
     "generate": "drizzle-kit generate",
     "push": "drizzle-kit push",
     "seed": "tsx scripts/seed-dev.ts",
+    "migrate:from-pg": "tsx scripts/migrate-from-pg.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json"
@@ -31,7 +32,9 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.10.5",
+    "@types/pg": "^8.11.10",
     "drizzle-kit": "^0.31.4",
+    "pg": "^8.13.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^3.0.2"
