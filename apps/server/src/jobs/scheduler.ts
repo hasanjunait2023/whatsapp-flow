@@ -1,6 +1,9 @@
 import { runWahaHealthCheck } from "./waha-health.js";
 import { processDueJobs } from "./queue.js";
 import { checkCeoSchedules } from "../services/ceo/index.js";
+import { runMediaCleanup, runWebhookCleanup } from "./cleanup.js";
+import { runSubscriptionReminders } from "./reminders.js";
+import { runWhatsappFollowups } from "./followups.js";
 
 /**
  * Minimal interval-based job scheduler. The plan suggested node-cron, but the
@@ -12,6 +15,8 @@ import { checkCeoSchedules } from "../services/ceo/index.js";
 const WAHA_HEALTH_INTERVAL_MS = 3 * 60 * 1000;
 const JOB_QUEUE_INTERVAL_MS = 5 * 1000;
 const CEO_SCHEDULE_INTERVAL_MS = 60 * 1000;
+const FOLLOWUP_INTERVAL_MS = 2 * 60 * 1000;
+const DAILY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 const timers: NodeJS.Timeout[] = [];
 
@@ -42,6 +47,28 @@ export function startScheduler(): void {
   }, CEO_SCHEDULE_INTERVAL_MS);
   ceoSchedules.unref();
   timers.push(ceoSchedules);
+
+  const followups = setInterval(() => {
+    void runWhatsappFollowups().catch(() => {
+      // Per-item failures are recorded on the queue row; swallow sweep errors.
+    });
+  }, FOLLOWUP_INTERVAL_MS);
+  followups.unref();
+  timers.push(followups);
+
+  const dailySweeps = setInterval(() => {
+    void runMediaCleanup().catch(() => {
+      // Best-effort retention; errors are non-fatal and retry next day.
+    });
+    try {
+      runWebhookCleanup();
+      runSubscriptionReminders();
+    } catch {
+      // Sweep-level failures retry on the next daily tick.
+    }
+  }, DAILY_INTERVAL_MS);
+  dailySweeps.unref();
+  timers.push(dailySweeps);
 }
 
 /** Stops all background jobs (used on shutdown / in tests). */
