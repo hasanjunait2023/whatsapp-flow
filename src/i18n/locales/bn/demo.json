@@ -1,0 +1,49 @@
+{
+  "banner": {
+    "demoMode": "ডেমো মোড",
+    "session": "সেশন",
+    "businessesJoined": "১০০+ ব্যবসা এই সপ্তাহে যোগ দিয়েছে",
+    "startNow": "এখনই শুরু করুন",
+    "createOwn": "নিজের Workspace তৈরি করুন"
+  },
+  "prompts": {
+    "dismiss": "দেখলাম",
+    "getStarted": "শুরু করুন"
+  },
+  "potential": {
+    "title": "আপনার ব্যবসার সম্ভাবনা",
+    "demoBusiness": "Demo ব্যবসা",
+    "yourBusiness": "আপনার ব্যবসা",
+    "dailyRevenue": "দৈনিক আয়",
+    "responseRate": "রেসপন্স রেট",
+    "dailyOrders": "দৈনিক অর্ডার",
+    "trackIt": "ট্র্যাক করুন",
+    "measureIt": "পরিমাপ করুন",
+    "startIt": "শুরু করুন",
+    "setupDashboard": "নিজের Dashboard সেটআপ করুন"
+  },
+  "offer": {
+    "title": "Demo User Special Offer",
+    "discount": "প্রথম মাসে ২০% ছাড়!",
+    "code": "Code",
+    "remaining": "বাকি",
+    "copyCode": "অফার কপি করুন",
+    "subscribeNow": "এখনই Subscribe করুন",
+    "codeCopied": "কোড কপি হয়েছে!",
+    "dailyPrice": "প্রতিদিন মাত্র",
+    "teaPrice": "একটা চায়ের দামে",
+    "weeklySignups": "গত ৭ দিনে ২৩ জন এই প্ল্যান নিয়েছে"
+  },
+  "exitIntent": {
+    "title": "আপনি কি নিশ্চিত যেতে চান?",
+    "message": "আপনার প্রতিযোগীরা এখনই তাদের WhatsApp ব্যবসা অটোমেট করছে...",
+    "specialOffer": "বিশেষ অফার: এখনই সাইন আপ করলে ২০% ছাড়!",
+    "later": "পরে আসবো",
+    "startNow": "এখনই শুরু করি"
+  },
+  "pricing": {
+    "mostPopular": "সবচেয়ে জনপ্রিয়",
+    "bestValue": "সেরা মূল্য",
+    "perMonth": "মাস"
+  }
+}

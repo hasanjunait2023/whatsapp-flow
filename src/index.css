@@ -1,0 +1,408 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* WhatsCRM Design System - Premium Dashboard Theme */
+
+@layer base {
+  :root {
+    --background: 0 10% 98%;
+    --foreground: 0 10% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 10% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 10% 8%;
+    --primary: 0 65% 35%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 20% 94%;
+    --secondary-foreground: 0 10% 8%;
+    --muted: 0 15% 96%;
+    --muted-foreground: 0 10% 45%;
+    --accent: 350 30% 95%;
+    --accent-foreground: 0 10% 8%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --brand: 0 65% 35%;
+    --brand-foreground: 0 0% 100%;
+    --brand-light: 0 65% 95%;
+    --border: 0 15% 90%;
+    --input: 0 15% 90%;
+    --ring: 0 65% 35%;
+    --radius: 0.75rem;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 10% 15%;
+    --sidebar-primary: 0 65% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 15% 96%;
+    --sidebar-accent-foreground: 0 10% 15%;
+    --sidebar-border: 0 15% 90%;
+    --sidebar-ring: 0 65% 35%;
+    --sidebar-muted: 0 10% 45%;
+    --chart-1: 0 65% 35%;
+    --chart-2: 350 80% 45%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 0 40% 55%;
+    --chart-5: 345 60% 30%;
+  }
+
+  .dark {
+    /* Premium dark mode - rich charcoal tones */
+    --background: 220 20% 7%;
+    --foreground: 210 20% 98%;
+    --card: 220 20% 9%;
+    --card-foreground: 210 20% 98%;
+    --popover: 220 20% 9%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 0 60% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 15% 14%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 220 15% 12%;
+    --muted-foreground: 210 10% 65%;
+    --accent: 220 15% 14%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 70% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --brand: 0 60% 55%;
+    --brand-foreground: 0 0% 100%;
+    --brand-light: 0 40% 18%;
+    --border: 220 15% 16%;
+    --input: 220 15% 16%;
+    --ring: 0 60% 55%;
+    --sidebar-background: 220 20% 5%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 0 60% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 11%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 220 15% 14%;
+    --sidebar-ring: 0 60% 55%;
+    --chart-1: 0 60% 55%;
+    --chart-2: 350 75% 55%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 0 45% 60%;
+    --chart-5: 345 55% 40%;
+  }
+
+  /* ===== COLOR SCHEMES ===== */
+  
+  /* Blue Scheme */
+  .scheme-blue:root,
+  :root.scheme-blue {
+    --primary: 217 91% 50%;
+    --primary-foreground: 0 0% 100%;
+    --brand: 217 91% 50%;
+    --brand-foreground: 0 0% 100%;
+    --brand-light: 217 91% 95%;
+    --ring: 217 91% 50%;
+    --accent: 217 30% 95%;
+    --sidebar-primary: 217 91% 55%;
+    --sidebar-accent: 217 33% 12%;
+    --sidebar-ring: 217 91% 50%;
+    --chart-1: 217 91% 50%;
+    --chart-2: 199 89% 48%;
+  }
+  
+  .scheme-blue.dark,
+  .dark.scheme-blue {
+    --primary: 217 91% 60%;
+    --brand: 217 91% 60%;
+    --brand-light: 217 40% 20%;
+    --ring: 217 91% 60%;
+    /* Keep accent dark in dark-mode; scheme-blue:root would otherwise override it */
+    --accent: 217 33% 14%;
+    --accent-foreground: 0 10% 98%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-ring: 217 91% 60%;
+    --chart-1: 217 91% 60%;
+  }
+
+  /* Green Scheme */
+  .scheme-green:root,
+  :root.scheme-green {
+    --primary: 142 70% 40%;
+    --primary-foreground: 0 0% 100%;
+    --brand: 142 70% 40%;
+    --brand-foreground: 0 0% 100%;
+    --brand-light: 142 70% 95%;
+    --ring: 142 70% 40%;
+    --accent: 142 30% 95%;
+    --sidebar-primary: 142 70% 45%;
+    --sidebar-accent: 142 33% 12%;
+    --sidebar-ring: 142 70% 40%;
+    --chart-1: 142 70% 40%;
+    --chart-2: 160 84% 39%;
+  }
+  
+  .scheme-green.dark,
+  .dark.scheme-green {
+    --primary: 142 70% 50%;
+    --brand: 142 70% 50%;
+    --brand-light: 142 40% 20%;
+    --ring: 142 70% 50%;
+    /* Keep accent dark in dark-mode; scheme-green:root would otherwise override it */
+    --accent: 142 33% 14%;
+    --accent-foreground: 0 10% 98%;
+    --sidebar-primary: 142 70% 50%;
+    --sidebar-ring: 142 70% 50%;
+    --chart-1: 142 70% 50%;
+  }
+
+  /* Purple Scheme */
+  .scheme-purple:root,
+  :root.scheme-purple {
+    --primary: 270 70% 50%;
+    --primary-foreground: 0 0% 100%;
+    --brand: 270 70% 50%;
+    --brand-foreground: 0 0% 100%;
+    --brand-light: 270 70% 95%;
+    --ring: 270 70% 50%;
+    --accent: 270 30% 95%;
+    --sidebar-primary: 270 70% 55%;
+    --sidebar-accent: 270 33% 12%;
+    --sidebar-ring: 270 70% 50%;
+    --chart-1: 270 70% 50%;
+    --chart-2: 290 80% 55%;
+  }
+  
+  .scheme-purple.dark,
+  .dark.scheme-purple {
+    --primary: 270 70% 60%;
+    --brand: 270 70% 60%;
+    --brand-light: 270 40% 20%;
+    --ring: 270 70% 60%;
+    /* Keep accent dark in dark-mode; scheme-purple:root would otherwise override it */
+    --accent: 270 33% 14%;
+    --accent-foreground: 0 10% 98%;
+    --sidebar-primary: 270 70% 60%;
+    --sidebar-ring: 270 70% 60%;
+    --chart-1: 270 70% 60%;
+  }
+  
+  /* Maroon is the default, so no overrides needed */
+}
+
+/* Vaul Drawer pointer-events fix - known bug workaround */
+/* See: https://github.com/emilkowalski/vaul/issues/492 */
+[vaul-drawer] {
+  pointer-events: auto !important;
+}
+
+[vaul-drawer-wrapper] {
+  pointer-events: auto !important;
+}
+
+body[data-scroll-locked] {
+  pointer-events: auto !important;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  /* Smooth theme transitions */
+  html {
+    transition: color 0.2s ease, background-color 0.2s ease;
+  }
+
+  html.transitioning,
+  html.transitioning *,
+  html.transitioning *::before,
+  html.transitioning *::after {
+    transition: 
+      color 0.2s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease !important;
+    transition-delay: 0s !important;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Noto Serif Bengali", serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Safe area padding for notched devices */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Touch optimization */
+.touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-action-pan-y {
+  touch-action: pan-y;
+}
+
+/* Mobile only utility */
+@media (min-width: 768px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+/* Premium Utilities */
+@layer utilities {
+  /* Glass morphism effect */
+  .glass {
+    @apply bg-background/80 backdrop-blur-xl border border-border/50;
+  }
+  
+  .dark .glass {
+    @apply bg-background/60 border-border/30;
+  }
+
+  /* Gradient utilities - use CSS variables for dynamic theming */
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--chart-2)) 100%);
+  }
+  
+  .gradient-brand {
+    background: linear-gradient(135deg, hsl(var(--brand)) 0%, hsl(var(--primary)) 100%);
+  }
+  
+  .gradient-success {
+    background: linear-gradient(135deg, hsl(var(--success)) 0%, hsl(142 71% 55%) 100%);
+  }
+  
+  .gradient-warning {
+    background: linear-gradient(135deg, hsl(var(--warning)) 0%, hsl(38 92% 60%) 100%);
+  }
+  
+  .gradient-destructive {
+    background: linear-gradient(135deg, hsl(var(--destructive)) 0%, hsl(0 84% 70%) 100%);
+  }
+
+  /* Premium shadows */
+  .shadow-premium {
+    box-shadow: 
+      0 1px 2px 0 hsl(var(--foreground) / 0.03),
+      0 4px 8px -2px hsl(var(--foreground) / 0.05),
+      0 12px 24px -4px hsl(var(--foreground) / 0.08);
+  }
+  
+  .shadow-premium-lg {
+    box-shadow: 
+      0 2px 4px 0 hsl(var(--foreground) / 0.03),
+      0 8px 16px -4px hsl(var(--foreground) / 0.06),
+      0 20px 40px -8px hsl(var(--foreground) / 0.1);
+  }
+
+  .shadow-glow {
+    box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.25);
+  }
+
+  /* Text gradient */
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--chart-2)) 100%);
+  }
+
+  /* Brand shadow */
+  .shadow-brand {
+    box-shadow: 0 4px 14px -3px hsl(var(--brand) / 0.25);
+  }
+
+  /* Custom scrollbar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  /* Shimmer loading effect */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted-foreground) / 0.1) 50%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Hover lift effect */
+  .hover-lift {
+    @apply transition-all duration-300;
+  }
+  
+  .hover-lift:hover {
+    @apply -translate-y-0.5 shadow-premium;
+  }
+
+  /* Focus ring */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background;
+  }
+
+  /* Stagger animation for lists */
+  .stagger-animation > * {
+    animation: fade-slide-up 0.4s ease-out forwards;
+    opacity: 0;
+  }
+
+  .stagger-animation > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger-animation > *:nth-child(2) { animation-delay: 50ms; }
+  .stagger-animation > *:nth-child(3) { animation-delay: 100ms; }
+  .stagger-animation > *:nth-child(4) { animation-delay: 150ms; }
+  .stagger-animation > *:nth-child(5) { animation-delay: 200ms; }
+  .stagger-animation > *:nth-child(6) { animation-delay: 250ms; }
+  .stagger-animation > *:nth-child(7) { animation-delay: 300ms; }
+  .stagger-animation > *:nth-child(8) { animation-delay: 350ms; }
+
+  @keyframes fade-slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}

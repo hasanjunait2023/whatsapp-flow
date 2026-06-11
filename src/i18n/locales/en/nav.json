@@ -1,0 +1,58 @@
+{
+  "main": {
+    "dashboard": "Dashboard",
+    "waInbox": "WA Inbox",
+    "fbInbox": "FB Inbox",
+    "inbox": "Inbox",
+    "contacts": "Contacts",
+    "products": "Products",
+    "orders": "Orders",
+    "inventory": "Inventory",
+    "complaints": "Complaints",
+    "groups": "Groups",
+    "instances": "WhatsApp",
+    "billing": "Billing",
+    "reports": "Reports",
+    "waFunctions": "WA Functions"
+  },
+  "tools": {
+    "title": "Tools",
+    "accounts": "Accounts",
+    "segmentation": "Segmentation",
+    "automation": "Automation",
+    "workflows": "Workflows",
+    "aiAgent": "AI Agent",
+    "analytics": "Analytics"
+  },
+  "teamWork": {
+    "title": "Team Work",
+    "teamChat": "Team Chat",
+    "team": "Team",
+    "teamReports": "Team Reports"
+  },
+  "settings": {
+    "title": "Settings",
+    "settings": "Settings",
+    "profile": "Profile",
+    "workspace": "Workspace",
+    "appearance": "Appearance",
+    "notifications": "Notifications"
+  },
+  "user": {
+    "myAccount": "My Account",
+    "helpSupport": "Help & Support",
+    "adminPanel": "Admin Panel",
+    "signOut": "Sign out"
+  },
+  "workspace": {
+    "title": "Workspaces",
+    "selectWorkspace": "Select Workspace",
+    "createWorkspace": "Create workspace",
+    "switchWorkspace": "Switch Workspace",
+    "freeTrial": "Free Trial"
+  },
+  "actions": {
+    "collapse": "Collapse",
+    "expand": "Expand"
+  }
+}

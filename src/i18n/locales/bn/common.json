@@ -1,0 +1,130 @@
+{
+  "appName": "ইকোমেক্স অটোমেশন",
+  "appShortName": "ইকোমেক্স",
+  "actions": {
+    "save": "সংরক্ষণ",
+    "cancel": "বাতিল",
+    "delete": "মুছুন",
+    "edit": "সম্পাদনা",
+    "create": "তৈরি করুন",
+    "add": "যোগ করুন",
+    "search": "অনুসন্ধান",
+    "filter": "ফিল্টার",
+    "export": "এক্সপোর্ট",
+    "import": "ইম্পোর্ট",
+    "refresh": "রিফ্রেশ",
+    "submit": "জমা দিন",
+    "confirm": "নিশ্চিত করুন",
+    "close": "বন্ধ করুন",
+    "back": "পেছনে",
+    "next": "পরবর্তী",
+    "previous": "পূর্ববর্তী",
+    "continue": "চালিয়ে যান",
+    "view": "দেখুন",
+    "viewAll": "সব দেখুন",
+    "viewDetails": "বিস্তারিত দেখুন",
+    "download": "ডাউনলোড",
+    "upload": "আপলোড",
+    "copy": "কপি",
+    "copied": "কপি হয়েছে!",
+    "loading": "লোড হচ্ছে...",
+    "tryAgain": "আবার চেষ্টা করুন",
+    "learnMore": "আরও জানুন"
+  },
+  "status": {
+    "active": "সক্রিয়",
+    "inactive": "নিষ্ক্রিয়",
+    "pending": "মুলতুবি",
+    "completed": "সম্পন্ন",
+    "processing": "প্রক্রিয়াধীন",
+    "failed": "ব্যর্থ",
+    "success": "সফল",
+    "error": "ত্রুটি",
+    "warning": "সতর্কতা",
+    "cancelled": "বাতিল",
+    "connected": "সংযুক্ত",
+    "disconnected": "বিচ্ছিন্ন"
+  },
+  "time": {
+    "today": "আজ",
+    "yesterday": "গতকাল",
+    "thisWeek": "এই সপ্তাহ",
+    "thisMonth": "এই মাস",
+    "lastMonth": "গত মাস",
+    "lastWeek": "গত সপ্তাহ",
+    "last7Days": "গত ৭ দিন",
+    "last30Days": "গত ৩০ দিন",
+    "allTime": "সব সময়",
+    "ago": "আগে",
+    "justNow": "এইমাত্র",
+    "minutes": "মিনিট",
+    "hours": "ঘণ্টা",
+    "days": "দিন"
+  },
+  "validation": {
+    "required": "এই ফিল্ড আবশ্যক",
+    "email": "সঠিক ইমেইল দিন",
+    "minLength": "কমপক্ষে {{min}} অক্ষর হতে হবে",
+    "maxLength": "সর্বোচ্চ {{max}} অক্ষর হতে পারবে",
+    "passwordMatch": "পাসওয়ার্ড মিলছে না",
+    "invalidFormat": "ভুল ফরম্যাট"
+  },
+  "messages": {
+    "saveSuccess": "সফলভাবে সংরক্ষিত",
+    "saveError": "সংরক্ষণ ব্যর্থ",
+    "deleteSuccess": "সফলভাবে মুছে ফেলা হয়েছে",
+    "deleteError": "মুছতে ব্যর্থ",
+    "updateSuccess": "সফলভাবে আপডেট হয়েছে",
+    "updateError": "আপডেট ব্যর্থ",
+    "createSuccess": "সফলভাবে তৈরি হয়েছে",
+    "createError": "তৈরি করতে ব্যর্থ",
+    "copySuccess": "ক্লিপবোর্ডে কপি হয়েছে",
+    "noData": "কোন ডাটা নেই",
+    "noResults": "কোন ফলাফল পাওয়া যায়নি",
+    "confirmDelete": "আপনি কি নিশ্চিত মুছে ফেলতে চান?"
+  },
+  "demo": {
+    "banner": "ডেমো মোড",
+    "bannerMessage": "এটি একটি ডেমো workspace। পরিবর্তনগুলো সেভ হবে না।",
+    "createOwn": "নিজের workspace তৈরি করুন →"
+  },
+  "language": {
+    "en": "English",
+    "bn": "বাংলা",
+    "switchLanguage": "ভাষা পরিবর্তন"
+  },
+  "notifications": {
+    "title": "নোটিফিকেশন",
+    "description": "আপনার সব নোটিফিকেশন দেখুন ও পরিচালনা করুন",
+    "noNotifications": "কোনো নোটিফিকেশন নেই",
+    "emptyMessage": "আপনার সব নোটিফিকেশন এখানে দেখা যাবে।",
+    "markAllRead": "সব পঠিত করুন",
+    "deleteAllRead": "পঠিত মুছে ফেলুন",
+    "filters": {
+      "all": "সব",
+      "unread": "অপঠিত",
+      "orders": "অর্ডার",
+      "complaints": "অভিযোগ",
+      "instance": "ইন্সট্যান্স",
+      "system": "সিস্টেম"
+    },
+    "dateRange": {
+      "today": "আজ",
+      "last7Days": "গত ৭ দিন",
+      "last30Days": "গত ৩০ দিন",
+      "allTime": "সব সময়"
+    },
+    "searchPlaceholder": "নোটিফিকেশন খুঁজুন..."
+  },
+  "limits": {
+    "instanceLimitReached": "ইন্সট্যান্স লিমিট পূর্ণ",
+    "agentLimitReached": "এজেন্ট লিমিট পূর্ণ",
+    "messageLimitReached": "মেসেজ লিমিট পূর্ণ",
+    "upgradeToAddMore": "আরও যোগ করতে আপগ্রেড করুন",
+    "xOfYUsed": "{{current}}/{{max}} ব্যবহৃত",
+    "upgradeNow": "এখনই আপগ্রেড করুন",
+    "comparePlans": "প্ল্যান তুলনা করুন",
+    "yourPlanAllows": "আপনার {{plan}} প্ল্যান {{count}}টি {{resource}} অনুমোদন করে",
+    "upgradeFor": "{{count}}টি {{resource}} এর জন্য {{plan}} এ আপগ্রেড করুন"
+  }
+}

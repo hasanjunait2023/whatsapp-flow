@@ -1,0 +1,33 @@
+{
+  "welcome": "Welcome back",
+  "welcomeUser": "Welcome back, {{name}}!",
+  "overview": "Overview",
+  "stats": {
+    "totalMessages": "Total Messages",
+    "activeContacts": "Active Contacts",
+    "connectedInstances": "Connected WhatsApp",
+    "responseRate": "Response Rate",
+    "ordersToday": "Orders Today",
+    "pendingOrders": "Pending Orders",
+    "revenue": "Revenue",
+    "newCustomers": "New Customers",
+    "conversationsToday": "Conversations Today",
+    "activeConversations": "Active Conversations",
+    "totalConversations": "Total Conversations"
+  },
+  "recentActivity": "Recent Activity",
+  "quickActions": "Quick Actions",
+  "noActivity": "No recent activity",
+  "widgets": {
+    "complaints": "Recent Complaints",
+    "orders": "Recent Orders",
+    "messages": "Unread Messages",
+    "instances": "WhatsApp Status"
+  },
+  "actions": {
+    "newOrder": "New Order",
+    "sendMessage": "Send Message",
+    "addProduct": "Add Product",
+    "viewReports": "View Reports"
+  }
+}

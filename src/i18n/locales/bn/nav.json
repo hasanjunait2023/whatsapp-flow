@@ -1,0 +1,58 @@
+{
+  "main": {
+    "dashboard": "ড্যাশবোর্ড",
+    "waInbox": "WA ইনবক্স",
+    "fbInbox": "FB ইনবক্স",
+    "inbox": "ইনবক্স",
+    "contacts": "যোগাযোগ",
+    "products": "পণ্য",
+    "orders": "অর্ডার",
+    "inventory": "ইনভেন্টরি",
+    "complaints": "অভিযোগ",
+    "groups": "গ্রুপ",
+    "instances": "হোয়াটসঅ্যাপ",
+    "billing": "বিলিং",
+    "reports": "রিপোর্ট",
+    "waFunctions": "WA ফাংশন"
+  },
+  "tools": {
+    "title": "টুলস",
+    "accounts": "হিসাব",
+    "segmentation": "সেগমেন্টেশন",
+    "automation": "অটোমেশন",
+    "workflows": "ওয়ার্কফ্লো",
+    "aiAgent": "AI এজেন্ট",
+    "analytics": "বিশ্লেষণ"
+  },
+  "teamWork": {
+    "title": "টিম ওয়ার্ক",
+    "teamChat": "টিম চ্যাট",
+    "team": "টিম",
+    "teamReports": "টিম রিপোর্ট"
+  },
+  "settings": {
+    "title": "সেটিংস",
+    "settings": "সেটিংস",
+    "profile": "প্রোফাইল",
+    "workspace": "ওয়ার্কস্পেস",
+    "appearance": "অ্যাপিয়ারেন্স",
+    "notifications": "নোটিফিকেশন"
+  },
+  "user": {
+    "myAccount": "আমার একাউন্ট",
+    "helpSupport": "সাহায্য ও সহায়তা",
+    "adminPanel": "অ্যাডমিন প্যানেল",
+    "signOut": "সাইন আউট"
+  },
+  "workspace": {
+    "title": "ওয়ার্কস্পেস",
+    "selectWorkspace": "ওয়ার্কস্পেস নির্বাচন করুন",
+    "createWorkspace": "ওয়ার্কস্পেস তৈরি করুন",
+    "switchWorkspace": "ওয়ার্কস্পেস পরিবর্তন",
+    "freeTrial": "ফ্রি ট্রায়াল"
+  },
+  "actions": {
+    "collapse": "সংকুচিত করুন",
+    "expand": "বিস্তৃত করুন"
+  }
+}

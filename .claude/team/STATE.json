@@ -1,0 +1,18 @@
+{
+  "mission": "Self-host whatsapp-flow on Contabo VPS: WAHA Plus + SQLite migration + launch",
+  "phase": "BUILD",
+  "active_milestone": "Phase 0 (infra discovery + WAHA pilot) and Phase 1 (backend skeleton + shim) in parallel",
+  "awaiting_gate": null,
+  "gates_passed": ["GATE1 2026-06-11 plan approved by founder"],
+  "phases": {
+    "0_infra": "in_progress",
+    "1_backend_skeleton": "in_progress",
+    "2_waha_slice": "pending",
+    "3_module_port": "pending",
+    "4_migration_rehearsal": "pending",
+    "5_cutover": "pending",
+    "6_hardening_launch": "pending",
+    "7_deferred_modules": "pending"
+  },
+  "updated": "2026-06-11"
+}

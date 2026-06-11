@@ -1,0 +1,111 @@
+{
+  "tour": {
+    "title": "Let's Take a Tour",
+    "subtitle": "Tools to grow your business",
+    "skipTour": "Skip Tour",
+    "next": "Next",
+    "previous": "Previous",
+    "finish": "Get Started!",
+    "stepOf": "{{current}} / {{total}}",
+    "loading": "Loading page...",
+    "startCard": {
+      "title": "Platform Tour",
+      "description": "See all our features in 10 steps. Each step lasts 7 seconds.",
+      "startButton": "Start Tour",
+      "skipLink": "Maybe Later"
+    },
+    "steps": {
+      "dashboard": {
+        "title": "Your Business Pulse",
+        "description": "See today's sales, orders, and revenue at a glance. Start your day here to plan effectively!",
+        "tip": "🎯 Check your dashboard every morning to understand your business pulse!"
+      },
+      "inbox": {
+        "title": "Customer Conversations",
+        "description": "View and reply to WhatsApp messages. Share products and take orders instantly.",
+        "tip": "💬 Manage all customer conversations in one place!"
+      },
+      "orders": {
+        "title": "Order Management",
+        "description": "Track all orders here. Update status, book couriers, generate invoices - all in one click.",
+        "tip": "📦 Use bulk courier booking to save time!"
+      },
+      "products": {
+        "title": "Product Catalog",
+        "description": "All your products in one place. Send products to customers with one click from inbox.",
+        "tip": "🏷️ Good photos + accurate pricing = more sales!"
+      },
+      "automation": {
+        "title": "Work Less, Sell More",
+        "description": "Set up auto-replies and auto-thanks. Sleep tight while your business runs!",
+        "tip": "💡 Keep auto-reply on at night, wake up to 10 leads!"
+      },
+      "workflows": {
+        "title": "Visual Workflows",
+        "description": "Build automations with drag-and-drop. No coding needed, just logic!",
+        "tip": "⚡ Order → Thanks → Follow-up → Review, all automated!"
+      },
+      "accounts": {
+        "title": "Accounts at a Click",
+        "description": "Expenses, income, profit & loss - all in one place. Month-end reports ready instantly.",
+        "tip": "📊 What took 3 hours now takes 3 seconds!"
+      },
+      "analytics": {
+        "title": "Data-Driven Decisions",
+        "description": "When do messages peak? Who sells the most? All the data is here.",
+        "tip": "📈 Extra staff during peak hours = more sales!"
+      },
+      "reports": {
+        "title": "Professional Reports",
+        "description": "Sales, customer, product reports. Download as PDF and share.",
+        "tip": "📄 Send reports to investors/partners with one click!"
+      },
+      "team": {
+        "title": "Team Management",
+        "description": "Add team members. Set permissions. Track all activities.",
+        "tip": "👥 As your team grows, distribute permissions wisely!"
+      }
+    }
+  },
+  "setup": {
+    "title": "Complete Your Setup",
+    "subtitle": "Get your business ready",
+    "progress": "{{completed}}/{{total}} completed",
+    "skipAll": "Skip all and go to dashboard",
+    "skipStep": "Skip for now",
+    "complete": "Complete",
+    "required": "Required",
+    "continue": "Continue",
+    "showTour": "View Feature Tour",
+    "steps": {
+      "whatsapp": {
+        "title": "Connect WhatsApp",
+        "description": "Connect your number to send and receive messages"
+      },
+      "products": {
+        "title": "Add Products",
+        "description": "Add your first product to the catalog"
+      },
+      "invoice": {
+        "title": "Invoice Settings",
+        "description": "Set company name, address, logo"
+      },
+      "courier": {
+        "title": "Courier Setup",
+        "description": "Add Steadfast or Pathao API key"
+      },
+      "quickReplies": {
+        "title": "Quick Replies",
+        "description": "Save frequently used messages"
+      },
+      "team": {
+        "title": "Add Team Members",
+        "description": "Invite your first team member"
+      }
+    }
+  },
+  "banner": {
+    "title": "Complete Your Setup",
+    "description": "Complete the remaining steps to start your business"
+  }
+}

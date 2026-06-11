@@ -1,0 +1,33 @@
+{
+  "welcome": "স্বাগতম",
+  "welcomeUser": "স্বাগতম, {{name}}!",
+  "overview": "সংক্ষিপ্ত বিবরণ",
+  "stats": {
+    "totalMessages": "মোট বার্তা",
+    "activeContacts": "সক্রিয় যোগাযোগ",
+    "connectedInstances": "সংযুক্ত হোয়াটসঅ্যাপ",
+    "responseRate": "রেসপন্স রেট",
+    "ordersToday": "আজকের অর্ডার",
+    "pendingOrders": "মুলতুবি অর্ডার",
+    "revenue": "রাজস্ব",
+    "newCustomers": "নতুন গ্রাহক",
+    "conversationsToday": "আজকের কথোপকথন",
+    "activeConversations": "সক্রিয় কথোপকথন",
+    "totalConversations": "মোট কথোপকথন"
+  },
+  "recentActivity": "সাম্প্রতিক কার্যকলাপ",
+  "quickActions": "দ্রুত কর্ম",
+  "noActivity": "কোন সাম্প্রতিক কার্যকলাপ নেই",
+  "widgets": {
+    "complaints": "সাম্প্রতিক অভিযোগ",
+    "orders": "সাম্প্রতিক অর্ডার",
+    "messages": "অপঠিত বার্তা",
+    "instances": "হোয়াটসঅ্যাপ স্ট্যাটাস"
+  },
+  "actions": {
+    "newOrder": "নতুন অর্ডার",
+    "sendMessage": "বার্তা পাঠান",
+    "addProduct": "পণ্য যোগ করুন",
+    "viewReports": "রিপোর্ট দেখুন"
+  }
+}

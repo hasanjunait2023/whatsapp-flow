@@ -1,0 +1,49 @@
+{
+  "banner": {
+    "demoMode": "Demo Mode",
+    "session": "Session",
+    "businessesJoined": "100+ businesses joined this week",
+    "startNow": "Start Now",
+    "createOwn": "Create Your Own Workspace"
+  },
+  "prompts": {
+    "dismiss": "Got it",
+    "getStarted": "Get Started"
+  },
+  "potential": {
+    "title": "Your Business Potential",
+    "demoBusiness": "Demo Business",
+    "yourBusiness": "Your Business",
+    "dailyRevenue": "Daily Revenue",
+    "responseRate": "Response Rate",
+    "dailyOrders": "Daily Orders",
+    "trackIt": "Track It",
+    "measureIt": "Measure It",
+    "startIt": "Start It",
+    "setupDashboard": "Setup Your Dashboard"
+  },
+  "offer": {
+    "title": "Demo User Special Offer",
+    "discount": "20% off first month!",
+    "code": "Code",
+    "remaining": "remaining",
+    "copyCode": "Copy Code",
+    "subscribeNow": "Subscribe Now",
+    "codeCopied": "Code copied!",
+    "dailyPrice": "Just",
+    "teaPrice": "per day - price of a tea",
+    "weeklySignups": "23 people subscribed in the last 7 days"
+  },
+  "exitIntent": {
+    "title": "Are you sure you want to leave?",
+    "message": "Your competitors are automating their WhatsApp business right now...",
+    "specialOffer": "Special offer: Sign up now and get 20% off!",
+    "later": "Maybe Later",
+    "startNow": "Start Now"
+  },
+  "pricing": {
+    "mostPopular": "Most Popular",
+    "bestValue": "Best Value",
+    "perMonth": "month"
+  }
+}
