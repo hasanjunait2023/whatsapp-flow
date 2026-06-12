@@ -5,6 +5,7 @@ import { runMediaCleanup, runWebhookCleanup } from "./cleanup.js";
 import { runSubscriptionReminders } from "./reminders.js";
 import { runWhatsappFollowups } from "./followups.js";
 import { processGroupAddQueue } from "../services/groups/queue-processor.js";
+import { generateDueRecurringExpenses } from "../services/accounting/recurring.js";
 
 /**
  * Minimal interval-based job scheduler. The plan suggested node-cron, but the
@@ -73,6 +74,7 @@ export function startScheduler(): void {
     try {
       runWebhookCleanup();
       runSubscriptionReminders();
+      generateDueRecurringExpenses();
     } catch {
       // Sweep-level failures retry on the next daily tick.
     }

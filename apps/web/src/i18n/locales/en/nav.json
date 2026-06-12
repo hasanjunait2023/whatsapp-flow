@@ -13,7 +13,8 @@
     "instances": "WhatsApp",
     "billing": "Billing",
     "reports": "Reports",
-    "waFunctions": "WA Functions"
+    "waFunctions": "WA Functions",
+    "accounting": "Accounting"
   },
   "tools": {
     "title": "Tools",

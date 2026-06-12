@@ -58,6 +58,7 @@ import {
   GitBranch,
   Package,
   Warehouse,
+  Receipt,
   ShoppingCart,
   AlertTriangle,
   MessagesSquare,
@@ -182,6 +183,7 @@ function DashboardLayoutInner({ children, hideMobileNav }: DashboardLayoutProps)
     { titleKey: 'main.orders', href: '/orders', icon: <ShoppingCart className="h-5 w-5" /> },
     { titleKey: 'main.products', href: '/products', icon: <Package className="h-5 w-5" /> },
     { titleKey: 'main.inventory', href: '/inventory', icon: <Warehouse className="h-5 w-5" /> },
+    { titleKey: 'main.accounting', href: '/accounting', icon: <Receipt className="h-5 w-5" /> },
     { titleKey: 'main.complaints', href: '/complaints', icon: <AlertTriangle className="h-5 w-5" /> },
   ];
 

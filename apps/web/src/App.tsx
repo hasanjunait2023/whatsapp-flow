@@ -36,6 +36,7 @@ import Workflows from "./pages/Workflows";
 import Products from "./pages/Products";
 import Orders from "./pages/Orders";
 import Inventory from "./pages/Inventory";
+import Accounting from "./pages/Accounting";
 import Complaints from "./pages/Complaints";
 import InternalChat from "./pages/InternalChat";
 import NotFound from "./pages/NotFound";
@@ -205,6 +206,7 @@ const App = () => (
                             <Route path="/products" element={<Products />} />
                             <Route path="/orders" element={<Orders />} />
                             <Route path="/inventory" element={<Inventory />} />
+                            <Route path="/accounting" element={<Accounting />} />
                             <Route path="/complaints" element={<Complaints />} />
                             <Route path="/internal-chat" element={<InternalChat />} />
                             <Route path="/team-reports" element={<TeamReports />} />
