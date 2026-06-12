@@ -17,6 +17,7 @@ import { wahaWebhookRoute } from "./routes/waha/webhook.js";
 import { telegramWebhookRoute } from "./routes/webhooks/telegram.js";
 import { fbWebhookRoute, warnIfFbPagesUnverified } from "./routes/webhooks/fb.js";
 import { fbOauthStartRoute, fbOauthCallbackRoute } from "./routes/fb-oauth.js";
+import { woocommerceWebhookRoute } from "./routes/webhooks/woocommerce.js";
 import { startScheduler, stopScheduler } from "./jobs/scheduler.js";
 import { registerSoulJobs } from "./services/soul/index.js";
 import { registerHermesPipeline } from "./services/hermes/pipeline.js";
@@ -65,6 +66,9 @@ app.route("/api/telegram/webhook", telegramWebhookRoute);
 
 // --- Facebook webhook (machine caller; verify-token + per-page HMAC) ----------
 app.route("/api/webhooks/fb", fbWebhookRoute);
+
+// --- WooCommerce order webhook (machine caller; tenant_id query + optional HMAC) ---
+app.route("/api/webhooks/woocommerce", woocommerceWebhookRoute);
 
 // --- Facebook OAuth callback (browser redirect from Meta; signed-state auth) ---
 app.route("/api/fb/oauth/callback", fbOauthCallbackRoute);

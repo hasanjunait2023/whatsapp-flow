@@ -22,13 +22,12 @@ function disabled(): Promise<FnResult> {
 // Marketing Sequences (admin nurture automation)
 const marketingAutomationCron = (_b: Record<string, unknown>, _c: FnContext) => disabled();
 
-// WooCommerce product/order sync
-const woocommerceSync = (_b: Record<string, unknown>, _c: FnContext) => disabled();
+// WooCommerce product sync + order webhook are now LIVE — see
+// routes/woocommerce-fns.ts + routes/webhooks/woocommerce.ts.
 
 // Bulk group tooling (group-queue-batch + group-batch-processor) is now LIVE —
 // see routes/groups-fns.ts + services/groups/queue-processor.ts.
 
 export const DEFERRED_HANDLERS = {
   "marketing-automation-cron": marketingAutomationCron,
-  "woocommerce-sync": woocommerceSync,
 };

@@ -108,64 +108,24 @@ export function useWooCommerce() {
     }) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const integrationData: any = {
-        tenant_id: tenantId,
-        store_url: storeUrl.replace(/\/$/, ''), // Remove trailing slash
-        is_active: true,
+      // Credentials are encrypted + verified server-side (the table is read-only
+      // + secret-redacted via the generic API). Extra sync prefs go in settings.
+      const settings = {
+        auto_sync_enabled: autoSyncEnabled,
+        sync_interval_hours: syncIntervalHours,
+        sync_orders_enabled: syncOrdersEnabled,
       };
-
-      // Only include credentials if provided (non-empty)
-      if (consumerKey) {
-        integrationData.consumer_key_encrypted = consumerKey;
-      }
-      if (consumerSecret) {
-        integrationData.consumer_secret_encrypted = consumerSecret;
-      }
-
-      // Include auto-sync settings if provided
-      if (autoSyncEnabled !== undefined) {
-        integrationData.auto_sync_enabled = autoSyncEnabled;
-        if (autoSyncEnabled && syncIntervalHours) {
-          integrationData.sync_interval_hours = syncIntervalHours;
-          // Calculate next sync time
-          const nextSync = new Date();
-          nextSync.setHours(nextSync.getHours() + syncIntervalHours);
-          integrationData.next_scheduled_sync = nextSync.toISOString();
-        }
-      }
-      if (syncIntervalHours !== undefined) {
-        integrationData.sync_interval_hours = syncIntervalHours;
-        // Recalculate next sync time
-        const nextSync = new Date();
-        nextSync.setHours(nextSync.getHours() + syncIntervalHours);
-        integrationData.next_scheduled_sync = nextSync.toISOString();
-      }
-
-      // Include order sync setting if provided
-      if (syncOrdersEnabled !== undefined) {
-        integrationData.sync_orders_enabled = syncOrdersEnabled;
-      }
-
-      if (integration) {
-        const { data, error } = await supabase
-          .from('woocommerce_integrations')
-          .update(integrationData)
-          .eq('id', integration.id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        return data;
-      } else {
-        const { data, error } = await supabase
-          .from('woocommerce_integrations')
-          .insert(integrationData)
-          .select()
-          .single();
-
-        if (error) throw error;
-        return data;
-      }
+      const { data, error } = await supabase.functions.invoke('woocommerce-save-integration', {
+        body: {
+          store_url: storeUrl.replace(/\/$/, ''),
+          consumer_key: consumerKey,
+          consumer_secret: consumerSecret,
+          is_active: true,
+          settings,
+        },
+      });
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['woocommerce-integration', tenantId] });
