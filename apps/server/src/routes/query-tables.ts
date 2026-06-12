@@ -392,9 +392,11 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
 
   // === Internal Chat (deferred-v1) ==========================================
   // Only the tenant-scoped rooms table is exposed. internal_chat_members and
-  // internal_messages have NO tenant_id and cannot be safely scoped through the
-  // generic API, so they are intentionally kept OFF the allowlist until Phase 7
-  // builds Internal Chat with a tenant_id column + a dedicated scoped route.
+  // internal_messages need MEMBERSHIP-based scoping (rooms the caller belongs
+  // to) — tenant-only scoping would still leak staff DMs within a tenant. Plus
+  // room creation bulk-inserts members, which can't be safely authorized via
+  // raw generic-API inserts. They are intentionally kept OFF the allowlist
+  // until a dedicated scoped Internal Chat route is built (see BACKLOG).
   internal_chat_rooms: { table: internalChatRooms, tenantColumn: "tenant_id", mutability: "tenant" },
 
   // === Service Boards (deferred-v1; read-only) ==============================

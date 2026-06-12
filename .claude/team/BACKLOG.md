@@ -12,13 +12,25 @@
 - [ ] Phase 6: hardening + launch
 
 ## Later (Phase 7 — deferred modules, behind flags)
-- [ ] Accounting
-- [ ] Internal Chat
-- [ ] Scheduled Reports (email crons)
-- [ ] Marketing Sequences (with ban-risk guardrails)
-- [ ] WooCommerce sync
-- [ ] Service Boards
-- [ ] Bulk Group tooling
+- [ ] Accounting — needs founder ledger model decision
+- [ ] **Internal Chat** — DEDICATED scoped route required (NOT generic /api/query).
+      Tables exist (internal_chat_rooms/members/messages) but members+messages have
+      no tenant_id AND need MEMBERSHIP scoping (rooms the caller is in) — tenant-only
+      scoping leaks staff DMs within a tenant. Build internal-chat-fns.ts with
+      handlers: list-rooms, create-direct/group-room (atomic room+members insert with
+      authz), add/remove-member (room-admin only), send-message (room∈my-rooms guard),
+      mark-read; emit SSE on internal_messages insert; rewrite useInternalChat.tsx to
+      call the fns instead of raw table CRUD. ~focused session.
+- [ ] Scheduled Reports — largely covered by agent_schedules (CEO reports); verify email cron path
+- [ ] Marketing Sequences — DEFERRED by founder (revisit later); needs schema + trigger/step model
+- [ ] WooCommerce sync — needs per-tenant store URL + consumer key/secret; webhook route /api/webhooks/woocommerce not built
+- [ ] Service Boards — read-only stub today
+- [ ] **Bulk Group tooling** — group-batch-processor is stubbed. Build the send queue +
+      worker; MUST route through outboundRateLimiter (high ban-risk) + gate on BanRiskNotice.
+      WAHA Core = single session; full value needs Plus. ~focused session.
+- [ ] **Courier BD** — bdcourier-check / courier-book-parcel / courier-track-parcel stubbed.
+      BLOCKED on founder: pick provider (Steadfast / Pathao / RedX) + API key. Then build
+      services/courier/<provider>.ts + wire the 3 fns + courier_integrations settings UI.
 
 ## Founder action items
 - [ ] Purchase WAHA Plus subscription ($19/mo) — needed before Phase 2 multi-session/media work
