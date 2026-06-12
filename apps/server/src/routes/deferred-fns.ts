@@ -25,12 +25,10 @@ const marketingAutomationCron = (_b: Record<string, unknown>, _c: FnContext) => 
 // WooCommerce product/order sync
 const woocommerceSync = (_b: Record<string, unknown>, _c: FnContext) => disabled();
 
-// Bulk group tooling worker — its queue (group-queue-batch) is deferred-v1, so
-// the batch processor has nothing to run.
-const groupBatchProcessor = (_b: Record<string, unknown>, _c: FnContext) => disabled();
+// Bulk group tooling (group-queue-batch + group-batch-processor) is now LIVE —
+// see routes/groups-fns.ts + services/groups/queue-processor.ts.
 
 export const DEFERRED_HANDLERS = {
   "marketing-automation-cron": marketingAutomationCron,
   "woocommerce-sync": woocommerceSync,
-  "group-batch-processor": groupBatchProcessor,
 };

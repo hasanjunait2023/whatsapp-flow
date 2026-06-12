@@ -4,6 +4,7 @@ import { checkCeoSchedules } from "../services/ceo/index.js";
 import { runMediaCleanup, runWebhookCleanup } from "./cleanup.js";
 import { runSubscriptionReminders } from "./reminders.js";
 import { runWhatsappFollowups } from "./followups.js";
+import { processGroupAddQueue } from "../services/groups/queue-processor.js";
 
 /**
  * Minimal interval-based job scheduler. The plan suggested node-cron, but the
@@ -16,6 +17,7 @@ const WAHA_HEALTH_INTERVAL_MS = 3 * 60 * 1000;
 const JOB_QUEUE_INTERVAL_MS = 5 * 1000;
 const CEO_SCHEDULE_INTERVAL_MS = 60 * 1000;
 const FOLLOWUP_INTERVAL_MS = 2 * 60 * 1000;
+const GROUP_QUEUE_INTERVAL_MS = 60 * 1000;
 const DAILY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 const timers: NodeJS.Timeout[] = [];
@@ -55,6 +57,14 @@ export function startScheduler(): void {
   }, FOLLOWUP_INTERVAL_MS);
   followups.unref();
   timers.push(followups);
+
+  const groupQueue = setInterval(() => {
+    void processGroupAddQueue().catch(() => {
+      // Per-queue failures are recorded on the row; swallow sweep-level errors.
+    });
+  }, GROUP_QUEUE_INTERVAL_MS);
+  groupQueue.unref();
+  timers.push(groupQueue);
 
   const dailySweeps = setInterval(() => {
     void runMediaCleanup().catch(() => {

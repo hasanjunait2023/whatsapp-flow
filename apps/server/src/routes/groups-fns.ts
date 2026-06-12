@@ -273,14 +273,43 @@ export async function groupSendMessage(raw: Record<string, unknown>, ctx: FnCont
 }
 
 /**
- * group-queue-batch: bulk add-to-group tooling is a deferred-v1 feature.
- * Records the queue row so the UI reflects the request, but no batch worker runs.
+ * Enqueue a bulk group-add job. Validates group ownership + the phone list, then
+ * records a group_add_queue row the worker drains in paced, daily-capped batches
+ * (see services/groups/queue-processor.ts). High ban-risk, hence the pacing.
  */
 export async function groupQueueBatch(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
-  return {
-    data: null,
-    error: { message: "feature_disabled_v1", code: "feature_disabled" },
-  };
+  if (!ctx.tenantId) return ok({ success: false, error: "No active tenant" });
+  const groupId = raw.group_id as string | undefined;
+  const phones = Array.isArray(raw.phone_numbers) ? (raw.phone_numbers as unknown[]).map(String).filter(Boolean) : [];
+  if (!groupId) return ok({ success: false, error: "group_id is required" });
+  if (phones.length === 0) return ok({ success: false, error: "phone_numbers must be a non-empty list" });
+
+  const group = loadGroup(groupId, ctx);
+  if ("error" in group) return ok({ success: false, error: group.error });
+
+  const batchSize = Math.min(20, Math.max(1, Number(raw.batch_size) || 5));
+  const intervalMinutes = Math.max(5, Number(raw.interval_minutes) || 30);
+  const scheduledFor = typeof raw.scheduled_for === "string" ? raw.scheduled_for : new Date().toISOString();
+  const id = crypto.randomUUID();
+
+  sqlite
+    .prepare(
+      `INSERT INTO group_add_queue
+         (id, tenant_id, group_id, phone_numbers, batch_size, interval_minutes,
+          processed_count, failed_count, status, scheduled_for, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 0, 'pending', ?, ?)`,
+    )
+    .run(id, ctx.tenantId, group.id, JSON.stringify(phones), batchSize, intervalMinutes, scheduledFor, ctx.userId ?? null);
+  emitChange("group_add_queue", ctx.tenantId, { id });
+  return ok({ success: true, queue_id: id, total: phones.length });
+}
+
+/** group-batch-processor: manual trigger to drain due batches for this tenant. */
+export async function groupBatchProcessor(_raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
+  if (!ctx.tenantId) return ok({ success: false, error: "No active tenant" });
+  const { processGroupAddQueue } = await import("../services/groups/queue-processor.js");
+  const result = await processGroupAddQueue(ctx.tenantId);
+  return ok({ success: true, ...result });
 }
 
 export const GROUP_HANDLERS = {
@@ -292,4 +321,5 @@ export const GROUP_HANDLERS = {
   "group-send-invite": groupSendInvite,
   "group-send-message": groupSendMessage,
   "group-queue-batch": groupQueueBatch,
+  "group-batch-processor": groupBatchProcessor,
 };
