@@ -61,8 +61,8 @@ interface FbMessageEvent {
   message?: { mid?: string; text?: string; attachments?: Array<{ type?: string; payload?: { url?: string } }> };
 }
 
-/** Upserts the fb_contact for an inbound PSID, returns its id. */
-function upsertContact(page: PageRow, psid: string): string {
+/** Upserts the fb_contact for an inbound PSID/IGSID, returns its id. */
+function upsertContact(page: PageRow, psid: string, platform: "facebook" | "instagram"): string {
   const existing = sqlite
     .prepare("SELECT id FROM fb_contacts WHERE page_id = ? AND psid = ? LIMIT 1")
     .get(page.id, psid) as { id: string } | undefined;
@@ -70,16 +70,16 @@ function upsertContact(page: PageRow, psid: string): string {
   const id = crypto.randomUUID();
   sqlite
     .prepare(
-      "INSERT OR IGNORE INTO fb_contacts (id, tenant_id, page_id, psid, last_message_at) VALUES (?, ?, ?, ?, ?)",
+      "INSERT OR IGNORE INTO fb_contacts (id, tenant_id, page_id, psid, platform, last_message_at) VALUES (?, ?, ?, ?, ?, ?)",
     )
-    .run(id, page.tenant_id, page.id, psid, new Date().toISOString());
+    .run(id, page.tenant_id, page.id, psid, platform, new Date().toISOString());
   const row = sqlite
     .prepare("SELECT id FROM fb_contacts WHERE page_id = ? AND psid = ? LIMIT 1")
     .get(page.id, psid) as { id: string };
   return row.id;
 }
 
-function ingestMessage(page: PageRow, event: FbMessageEvent): void {
+function ingestMessage(page: PageRow, event: FbMessageEvent, platform: "facebook" | "instagram"): void {
   const psid = event.sender?.id;
   const msg = event.message;
   if (!psid || !msg?.mid) return;
@@ -88,7 +88,7 @@ function ingestMessage(page: PageRow, event: FbMessageEvent): void {
   const dup = sqlite.prepare("SELECT 1 FROM fb_messages WHERE mid = ? LIMIT 1").get(msg.mid);
   if (dup) return;
 
-  const contactId = upsertContact(page, psid);
+  const contactId = upsertContact(page, psid, platform);
   const att = msg.attachments?.[0];
   const contentType = att?.type ?? "text";
   const ts = event.timestamp ? new Date(event.timestamp).toISOString() : new Date().toISOString();
@@ -124,24 +124,104 @@ function ingestMessage(page: PageRow, event: FbMessageEvent): void {
   emitChange("fb_contacts", page.tenant_id, { id: contactId });
 }
 
+interface IgCommentValue {
+  id?: string;
+  text?: string;
+  from?: { id?: string; username?: string };
+  media?: { id?: string };
+  parent_id?: string;
+}
+
+interface WebhookEntry {
+  id?: string;
+  messaging?: FbMessageEvent[];
+  changes?: Array<{ field?: string; value?: IgCommentValue }>;
+}
+
+/** Stores an inbound Instagram comment (post stub upserted on demand). */
+function ingestIgComment(page: PageRow, igAccountId: string, value: IgCommentValue): void {
+  if (!value.id || !value.media?.id) return;
+  const dup = sqlite
+    .prepare("SELECT 1 FROM fb_post_comments WHERE fb_comment_id = ? LIMIT 1")
+    .get(value.id);
+  if (dup) return;
+
+  const now = new Date().toISOString();
+  const isFromPage = Boolean(value.from?.id && value.from.id === igAccountId);
+  const tx = sqlite.transaction(() => {
+    sqlite
+      .prepare(
+        `INSERT OR IGNORE INTO fb_posts (id, tenant_id, page_id, fb_post_id, post_type, created_time)
+         VALUES (?, ?, ?, ?, 'instagram', ?)`,
+      )
+      .run(crypto.randomUUID(), page.tenant_id, page.id, value.media!.id, now);
+    const post = sqlite
+      .prepare("SELECT id FROM fb_posts WHERE page_id = ? AND fb_post_id = ? LIMIT 1")
+      .get(page.id, value.media!.id) as { id: string };
+    const parent = value.parent_id
+      ? (sqlite
+          .prepare("SELECT id FROM fb_post_comments WHERE fb_comment_id = ? LIMIT 1")
+          .get(value.parent_id) as { id: string } | undefined)
+      : undefined;
+    sqlite
+      .prepare(
+        `INSERT OR IGNORE INTO fb_post_comments
+           (id, tenant_id, page_id, post_id, fb_comment_id, parent_comment_id, platform,
+            commenter_fb_id, commenter_name, is_from_page, message, created_time, is_read)
+         VALUES (?, ?, ?, ?, ?, ?, 'instagram', ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        crypto.randomUUID(),
+        page.tenant_id,
+        page.id,
+        post.id,
+        value.id,
+        parent?.id ?? null,
+        value.from?.id ?? "unknown",
+        value.from?.username ?? null,
+        isFromPage ? 1 : 0,
+        value.text ?? "",
+        now,
+        isFromPage ? 1 : 0,
+      );
+    sqlite
+      .prepare(
+        `UPDATE fb_posts SET comment_count = comment_count + 1,
+                unread_comment_count = unread_comment_count + ?, last_comment_at = ?
+         WHERE id = ?`,
+      )
+      .run(isFromPage ? 0 : 1, now, post.id);
+  });
+  tx();
+  emitChange("fb_post_comments", page.tenant_id, { page_id: page.id });
+}
+
 /** POST — inbound events. Responds 200 fast (Meta requires <20s). */
 fbWebhookRoute.post("/", async (c) => {
   const rawBody = await c.req.text();
   const signature = c.req.header("x-hub-signature-256");
-  let body: { object?: string; entry?: Array<{ id?: string; messaging?: FbMessageEvent[] }> };
+  let body: { object?: string; entry?: WebhookEntry[] };
   try {
     body = JSON.parse(rawBody);
   } catch {
     return c.text("Bad request", 400);
   }
-  if (body.object !== "page") return c.text("EVENT_RECEIVED", 200);
+  const isPage = body.object === "page";
+  const isInstagram = body.object === "instagram";
+  if (!isPage && !isInstagram) return c.text("EVENT_RECEIVED", 200);
 
   for (const entry of body.entry ?? []) {
-    const fbPageId = String(entry.id ?? "").trim();
-    if (!fbPageId) continue;
+    const entryId = String(entry.id ?? "").trim();
+    if (!entryId) continue;
+    // page events key on the FB page id; instagram events on the linked IG
+    // business account id discovered during OAuth connect.
     const page = sqlite
-      .prepare("SELECT id, tenant_id, app_secret FROM facebook_pages WHERE page_id = ? LIMIT 1")
-      .get(fbPageId) as PageRow | undefined;
+      .prepare(
+        isPage
+          ? "SELECT id, tenant_id, app_secret FROM facebook_pages WHERE page_id = ? LIMIT 1"
+          : "SELECT id, tenant_id, app_secret FROM facebook_pages WHERE ig_account_id = ? LIMIT 1",
+      )
+      .get(entryId) as PageRow | undefined;
     if (!page) continue;
 
     // SECURITY: fail closed. A page with no app_secret cannot have its payloads
@@ -150,9 +230,17 @@ fbWebhookRoute.post("/", async (c) => {
     if (!page.app_secret) continue;
     if (!verifySignature(page.app_secret, rawBody, signature)) continue;
 
+    const platform = isPage ? "facebook" : "instagram";
     for (const event of entry.messaging ?? []) {
-      if (event.sender?.id === fbPageId) continue; // skip echoes of our own sends
-      if (event.message) ingestMessage(page, event);
+      if (event.sender?.id === entryId) continue; // skip echoes of our own sends
+      if (event.message) ingestMessage(page, event, platform);
+    }
+    if (isInstagram) {
+      for (const change of entry.changes ?? []) {
+        if (change.field === "comments" && change.value) {
+          ingestIgComment(page, entryId, change.value);
+        }
+      }
     }
   }
   return c.text("EVENT_RECEIVED", 200);

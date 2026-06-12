@@ -188,6 +188,7 @@ interface FbCommentRow {
   page_id: string;
   post_id: string;
   fb_comment_id: string;
+  platform: string;
   fb_page_id: string;
   page_access_token: string | null;
 }
@@ -199,7 +200,7 @@ export async function fbReplyComment(raw: Record<string, unknown>, ctx: FnContex
 
   const comment = sqlite
     .prepare(
-      `SELECT c.id, c.tenant_id, c.page_id, c.post_id, c.fb_comment_id,
+      `SELECT c.id, c.tenant_id, c.page_id, c.post_id, c.fb_comment_id, c.platform,
               p.page_id AS fb_page_id, p.page_access_token AS page_access_token
        FROM fb_post_comments c
        JOIN facebook_pages p ON p.id = c.page_id
@@ -211,9 +212,14 @@ export async function fbReplyComment(raw: Record<string, unknown>, ctx: FnContex
   comment.page_access_token = getPageToken(comment.page_access_token);
   if (!comment.page_access_token) return ok({ error: "Page access token not found" });
 
-  const url = `${GRAPH}/${comment.fb_comment_id}/comments`;
+  // Instagram comments reply via /{ig-comment-id}/replies (no attachments);
+  // Facebook comments via /{comment-id}/comments.
+  const isInstagram = comment.platform === "instagram";
+  const url = isInstagram
+    ? `${GRAPH}/${comment.fb_comment_id}/replies`
+    : `${GRAPH}/${comment.fb_comment_id}/comments`;
   const payload: Record<string, string> = { message: body.message, access_token: comment.page_access_token };
-  if (body.attachment_url) payload.attachment_url = body.attachment_url;
+  if (body.attachment_url && !isInstagram) payload.attachment_url = body.attachment_url;
 
   let fbResult: { id?: string; error?: { message?: string } } = {};
   try {
@@ -234,9 +240,9 @@ export async function fbReplyComment(raw: Record<string, unknown>, ctx: FnContex
   sqlite
     .prepare(
       `INSERT INTO fb_post_comments
-         (id, tenant_id, page_id, post_id, fb_comment_id, parent_comment_id,
+         (id, tenant_id, page_id, post_id, fb_comment_id, parent_comment_id, platform,
           commenter_fb_id, is_from_page, message, sent_by_user_id, created_time, is_read)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 1)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 1)`,
     )
     .run(
       newId,
@@ -245,6 +251,7 @@ export async function fbReplyComment(raw: Record<string, unknown>, ctx: FnContex
       comment.post_id,
       fbResult.id ?? crypto.randomUUID(),
       comment.id,
+      comment.platform,
       comment.fb_page_id,
       body.message,
       ctx.userId ?? null,
@@ -288,14 +295,18 @@ export async function fbRefreshProfile(raw: Record<string, unknown>, ctx: FnCont
   return ok({ success: true, name: profile.name, profile_pic_url: profile.profile_pic });
 }
 
-/** fb-oauth-url: returns the FB Login dialog URL (for popup/new-tab flows). */
-export async function fbOauthUrl(_raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
+/**
+ * fb-oauth-url: returns the FB Login dialog URL (for popup/new-tab flows).
+ * Pass { instagram: false } for Facebook-only connect (no IG permissions asked).
+ */
+export async function fbOauthUrl(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
   if (!isFbConnectConfigured()) {
     return ok({ error: "Facebook connect is not configured" });
   }
   if (!ctx.tenantId) return ok({ error: "No tenant" });
+  const includeInstagram = raw.instagram !== false;
   const state = signState(ctx.tenantId, ctx.userId ?? "");
-  return ok({ url: buildAuthUrl(state) });
+  return ok({ url: buildAuthUrl(state, includeInstagram) });
 }
 
 /** fb-pages-list: connected pages for the tenant, secrets stripped. */

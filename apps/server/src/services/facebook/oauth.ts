@@ -41,6 +41,19 @@ export const FB_OAUTH_SCOPES = [
   "pages_manage_posts",
 ] as const;
 
+/**
+ * Additional permissions for the page's linked Instagram Business/Creator
+ * account (DMs, comments, publishing). Requested by default; skipped when the
+ * customer chooses Facebook-only connect (?instagram=0) — pages without a
+ * linked IG account simply connect as Facebook-only either way.
+ */
+export const IG_OAUTH_SCOPES = [
+  "instagram_basic",
+  "instagram_manage_messages",
+  "instagram_manage_comments",
+  "instagram_content_publish",
+] as const;
+
 export function isFbConnectConfigured(): boolean {
   return Boolean(getFbAppId() && getFbAppSecret());
 }
@@ -87,7 +100,7 @@ export function verifyState(state: string): { tenantId: string; userId: string }
 // --- auth dialog URL ----------------------------------------------------------
 
 /** Facebook OAuth dialog URL; uses FB_LOGIN_CONFIG_ID when set, else scopes. */
-export function buildAuthUrl(state: string): string {
+export function buildAuthUrl(state: string, includeInstagram = true): string {
   const params = new URLSearchParams({
     client_id: getFbAppId(),
     redirect_uri: getFbOauthRedirectUrl(),
@@ -98,7 +111,8 @@ export function buildAuthUrl(state: string): string {
   if (configId) {
     params.set("config_id", configId);
   } else {
-    params.set("scope", FB_OAUTH_SCOPES.join(","));
+    const scopes = includeInstagram ? [...FB_OAUTH_SCOPES, ...IG_OAUTH_SCOPES] : [...FB_OAUTH_SCOPES];
+    params.set("scope", scopes.join(","));
   }
   return `https://www.facebook.com/${FB_GRAPH_VERSION}/dialog/oauth?${params.toString()}`;
 }
@@ -145,6 +159,12 @@ export interface FbUserPage {
   name: string;
   access_token: string;
   picture?: { data?: { url?: string } };
+  /** Linked IG Business/Creator account; absent for Facebook-only pages. */
+  instagram_business_account?: {
+    id?: string;
+    username?: string;
+    profile_picture_url?: string;
+  };
 }
 
 interface AccountsResponse {
@@ -152,18 +172,35 @@ interface AccountsResponse {
   paging?: { next?: string };
 }
 
-/** Lists pages the user manages (page tokens included), following pagination. */
+/**
+ * Lists pages the user manages (page tokens included), following pagination.
+ * instagram_business_account is requested alongside; Meta omits it for pages
+ * with no linked IG account or when IG permissions were not granted, so
+ * Facebook-only connects work identically.
+ */
 export async function fetchUserPages(userToken: string): Promise<FbUserPage[]> {
-  const pages: FbUserPage[] = [];
-  let url =
-    `${GRAPH()}/me/accounts?fields=id,name,access_token,picture{url}&limit=50` +
-    `&access_token=${encodeURIComponent(userToken)}`;
-  for (let i = 0; i < MAX_PAGE_FETCH_PAGES && url; i++) {
-    const batch = await graphGet<AccountsResponse>(url);
-    pages.push(...(batch.data ?? []));
-    url = batch.paging?.next ?? "";
+  const withIg =
+    "id,name,access_token,picture{url},instagram_business_account{id,username,profile_picture_url}";
+  const fbOnly = "id,name,access_token,picture{url}";
+  const fetchAll = async (fields: string): Promise<FbUserPage[]> => {
+    const pages: FbUserPage[] = [];
+    let url =
+      `${GRAPH()}/me/accounts?fields=${encodeURIComponent(fields)}&limit=50` +
+      `&access_token=${encodeURIComponent(userToken)}`;
+    for (let i = 0; i < MAX_PAGE_FETCH_PAGES && url; i++) {
+      const batch = await graphGet<AccountsResponse>(url);
+      pages.push(...(batch.data ?? []));
+      url = batch.paging?.next ?? "";
+    }
+    return pages.filter((p) => p.id && p.access_token);
+  };
+  try {
+    return await fetchAll(withIg);
+  } catch {
+    // IG field can be refused when instagram_basic was not granted —
+    // degrade to a Facebook-only page list rather than failing the connect.
+    return fetchAll(fbOnly);
   }
-  return pages.filter((p) => p.id && p.access_token);
 }
 
 // --- token storage ------------------------------------------------------------
@@ -199,31 +236,87 @@ export interface ConnectedPage {
   id: string;
   page_id: string;
   page_name: string;
+  ig_username: string | null;
 }
 
-/** Upserts the user's pages for the tenant; returns the affected rows. */
-export function upsertConnectedPages(tenantId: string, pages: FbUserPage[]): ConnectedPage[] {
+export interface UpsertPagesResult {
+  connected: ConnectedPage[];
+  /** New pages refused because the tenant's plan page cap was reached. */
+  skipped: Array<{ page_id: string; page_name: string }>;
+  /** Pages with a linked Instagram account among the connected ones. */
+  instagramCount: number;
+}
+
+/** The tenant's page cap from its active subscription's plan (default 1). */
+export function getTenantPageCap(tenantId: string): number {
+  const row = sqlite
+    .prepare(
+      `SELECT COALESCE(p.max_pages, 1) AS max
+         FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+        WHERE s.tenant_id = ? AND s.status IN ('active','trialing','past_due')
+        ORDER BY s.created_at DESC LIMIT 1`,
+    )
+    .get(tenantId) as { max: number } | undefined;
+  return row?.max ?? 1;
+}
+
+/**
+ * Upserts the user's pages for the tenant. Reconnects of already-known pages
+ * are always applied (token refresh); NEW pages beyond `maxPages` are skipped
+ * so the subscription's page cap cannot be bypassed by reconnecting.
+ * Instagram link data is only overwritten when present in the payload, so a
+ * Facebook-only reconnect never wipes an existing IG link.
+ */
+export function upsertConnectedPages(
+  tenantId: string,
+  pages: FbUserPage[],
+  maxPages = Number.POSITIVE_INFINITY,
+): UpsertPagesResult {
   const now = new Date().toISOString();
   const appSecret = getFbAppSecret();
-  const results: ConnectedPage[] = [];
+  const connected: ConnectedPage[] = [];
+  const skipped: Array<{ page_id: string; page_name: string }> = [];
   const upsert = sqlite.transaction(() => {
+    let activeCount = (
+      sqlite
+        .prepare("SELECT COUNT(*) AS n FROM facebook_pages WHERE tenant_id = ? AND status = 'active'")
+        .get(tenantId) as { n: number }
+    ).n;
     for (const page of pages) {
       const encrypted = encryptPageToken(page.access_token);
       const pictureUrl = page.picture?.data?.url ?? null;
+      const ig = page.instagram_business_account;
+      const igId = ig?.id ?? null;
+      const igUsername = ig?.username ?? null;
+      const igPicture = ig?.profile_picture_url ?? null;
       const existing = sqlite
-        .prepare("SELECT id FROM facebook_pages WHERE tenant_id = ? AND page_id = ? LIMIT 1")
-        .get(tenantId, page.id) as { id: string } | undefined;
+        .prepare("SELECT id, status, ig_username FROM facebook_pages WHERE tenant_id = ? AND page_id = ? LIMIT 1")
+        .get(tenantId, page.id) as { id: string; status: string; ig_username: string | null } | undefined;
       if (existing) {
         sqlite
           .prepare(
             `UPDATE facebook_pages
              SET page_access_token = ?, page_name = ?, profile_picture_url = COALESCE(?, profile_picture_url),
-                 app_secret = ?, status = 'active', last_connected_at = ?, updated_at = ?
+                 app_secret = ?, status = 'active', last_connected_at = ?, updated_at = ?,
+                 ig_account_id = COALESCE(?, ig_account_id),
+                 ig_username = COALESCE(?, ig_username),
+                 ig_profile_picture_url = COALESCE(?, ig_profile_picture_url),
+                 ig_connected_at = CASE WHEN ? IS NOT NULL THEN ? ELSE ig_connected_at END
              WHERE id = ?`,
           )
-          .run(encrypted, page.name, pictureUrl, appSecret, now, now, existing.id);
-        results.push({ id: existing.id, page_id: page.id, page_name: page.name });
+          .run(encrypted, page.name, pictureUrl, appSecret, now, now, igId, igUsername, igPicture, igId, now, existing.id);
+        if (existing.status !== "active") activeCount++;
+        connected.push({
+          id: existing.id,
+          page_id: page.id,
+          page_name: page.name,
+          ig_username: igUsername ?? existing.ig_username,
+        });
       } else {
+        if (activeCount >= maxPages) {
+          skipped.push({ page_id: page.id, page_name: page.name });
+          continue;
+        }
         const id = crypto.randomUUID();
         const isFirst = !sqlite
           .prepare("SELECT 1 FROM facebook_pages WHERE tenant_id = ? LIMIT 1")
@@ -232,8 +325,10 @@ export function upsertConnectedPages(tenantId: string, pages: FbUserPage[]): Con
           .prepare(
             `INSERT INTO facebook_pages
                (id, tenant_id, page_id, page_name, page_access_token, profile_picture_url,
-                app_secret, status, is_default, webhook_verify_token, last_connected_at, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
+                app_secret, status, is_default, webhook_verify_token,
+                ig_account_id, ig_username, ig_profile_picture_url, ig_connected_at,
+                last_connected_at, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
           .run(
             id,
@@ -245,16 +340,22 @@ export function upsertConnectedPages(tenantId: string, pages: FbUserPage[]): Con
             appSecret,
             isFirst ? 1 : 0,
             crypto.randomUUID().replace(/-/g, ""),
+            igId,
+            igUsername,
+            igPicture,
+            igId ? now : null,
             now,
             now,
             now,
           );
-        results.push({ id, page_id: page.id, page_name: page.name });
+        activeCount++;
+        connected.push({ id, page_id: page.id, page_name: page.name, ig_username: igUsername });
       }
     }
   });
   upsert();
-  return results;
+  const instagramCount = connected.filter((p) => p.ig_username).length;
+  return { connected, skipped, instagramCount };
 }
 
 // --- webhook subscription -------------------------------------------------------

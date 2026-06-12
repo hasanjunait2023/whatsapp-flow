@@ -19,7 +19,9 @@ const {
   upsertConnectedPages,
   getPageToken,
   encryptPageToken,
+  getTenantPageCap,
   FB_OAUTH_SCOPES,
+  IG_OAUTH_SCOPES,
 } = await import("../src/services/facebook/oauth.js");
 const { fbOauthCallbackRoute, listConnectedPages } = await import("../src/routes/fb-oauth.js");
 const { FB_HANDLERS } = await import("../src/routes/fb-fns.js");
@@ -86,6 +88,19 @@ describe("auth dialog URL", () => {
     expect(FB_OAUTH_SCOPES).toContain("pages_manage_posts");
   });
 
+  it("includes Instagram permissions by default", () => {
+    const url = new URL(buildAuthUrl("state"));
+    const scope = url.searchParams.get("scope") ?? "";
+    for (const perm of IG_OAUTH_SCOPES) expect(scope).toContain(perm);
+  });
+
+  it("omits Instagram permissions for Facebook-only connect", () => {
+    const url = new URL(buildAuthUrl("state", false));
+    const scope = url.searchParams.get("scope") ?? "";
+    expect(scope).not.toContain("instagram_");
+    expect(scope).toContain("pages_messaging");
+  });
+
   it("uses config_id instead of scope when FB_LOGIN_CONFIG_ID is set", () => {
     process.env.FB_LOGIN_CONFIG_ID = "cfg-1";
     const url = new URL(buildAuthUrl("state"));
@@ -110,7 +125,7 @@ describe("page token storage", () => {
 
 describe("upsertConnectedPages", () => {
   it("inserts pages (first = default, active, encrypted token) and updates on reconnect", () => {
-    const connected = upsertConnectedPages(TENANT_A, [
+    const { connected } = upsertConnectedPages(TENANT_A, [
       { id: "FBP-1", name: "Shop One", access_token: "tok-1" },
       { id: "FBP-2", name: "Shop Two", access_token: "tok-2" },
     ]);
@@ -143,6 +158,93 @@ describe("upsertConnectedPages", () => {
       expect(p).not.toHaveProperty("page_access_token");
       expect(p.has_token).toBe(true);
     }
+  });
+
+  it("stores the linked Instagram account and keeps it on a Facebook-only reconnect", () => {
+    const { connected, instagramCount } = upsertConnectedPages(TENANT_A, [
+      {
+        id: "FBP-IG",
+        name: "IG Shop",
+        access_token: "tok-ig",
+        instagram_business_account: { id: "IG-100", username: "igshop", profile_picture_url: "http://x/p.jpg" },
+      },
+    ]);
+    expect(instagramCount).toBe(1);
+    expect(connected[0].ig_username).toBe("igshop");
+
+    // Facebook-only reconnect (no IG payload) must NOT wipe the IG link.
+    upsertConnectedPages(TENANT_A, [{ id: "FBP-IG", name: "IG Shop", access_token: "tok-ig2" }]);
+    const row = sqlite
+      .prepare("SELECT ig_account_id, ig_username FROM facebook_pages WHERE tenant_id = ? AND page_id = 'FBP-IG'")
+      .get(TENANT_A) as { ig_account_id: string; ig_username: string };
+    expect(row.ig_account_id).toBe("IG-100");
+    expect(row.ig_username).toBe("igshop");
+
+    const listed = listConnectedPages(TENANT_A).find((p) => p.page_id === "FBP-IG");
+    expect(listed?.has_instagram).toBe(true);
+    expect(listed?.ig_username).toBe("igshop");
+  });
+
+  it("a page without Instagram connects Facebook-only", () => {
+    const { connected, instagramCount } = upsertConnectedPages(TENANT_A, [
+      { id: "FBP-NOIG", name: "FB Only Shop", access_token: "tok-noig" },
+    ]);
+    expect(connected).toHaveLength(1);
+    expect(instagramCount).toBe(0);
+    expect(connected[0].ig_username).toBeNull();
+  });
+});
+
+describe("plan page cap", () => {
+  const TENANT_B = "bbbb2222-2222-2222-2222-222222222222";
+
+  it("defaults to 1 page without a subscription", () => {
+    expect(getTenantPageCap(TENANT_B)).toBe(1);
+  });
+
+  it("reads max_pages from the active subscription's plan", () => {
+    db.insert(tenants).values({ id: TENANT_B, name: "B", owner_id: "u-b" }).run();
+    sqlite
+      .prepare(
+        "INSERT INTO plans (id, name, max_pages, price_monthly) VALUES ('plan-3p', 'Growth', 3, 20)",
+      )
+      .run();
+    const now = new Date().toISOString();
+    sqlite
+      .prepare(
+        `INSERT INTO subscriptions (id, tenant_id, plan_id, status, created_at, current_period_start, current_period_end)
+         VALUES ('sub-b', ?, 'plan-3p', 'active', ?, ?, ?)`,
+      )
+      .run(TENANT_B, now, now, now);
+    expect(getTenantPageCap(TENANT_B)).toBe(3);
+  });
+
+  it("skips new pages beyond the cap but always allows reconnects", () => {
+    const first = upsertConnectedPages(
+      TENANT_B,
+      [
+        { id: "B-1", name: "B One", access_token: "t1" },
+        { id: "B-2", name: "B Two", access_token: "t2" },
+      ],
+      2,
+    );
+    expect(first.connected).toHaveLength(2);
+    expect(first.skipped).toHaveLength(0);
+
+    const second = upsertConnectedPages(
+      TENANT_B,
+      [
+        { id: "B-1", name: "B One", access_token: "t1b" }, // reconnect: allowed
+        { id: "B-3", name: "B Three", access_token: "t3" }, // new beyond cap: skipped
+      ],
+      2,
+    );
+    expect(second.connected.map((p) => p.page_id)).toEqual(["B-1"]);
+    expect(second.skipped.map((p) => p.page_id)).toEqual(["B-3"]);
+    const count = sqlite
+      .prepare("SELECT COUNT(*) AS n FROM facebook_pages WHERE tenant_id = ?")
+      .get(TENANT_B) as { n: number };
+    expect(count.n).toBe(2);
   });
 });
 

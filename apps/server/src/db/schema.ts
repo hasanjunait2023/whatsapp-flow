@@ -508,6 +508,8 @@ export const plans = sqliteTable("plans", {
   max_agents: integer("max_agents").default(1).notNull(),
   max_instances: integer("max_instances").default(1).notNull(),
   max_messages_per_month: integer("max_messages_per_month").default(1000).notNull(),
+  /** Facebook pages (each with optional linked Instagram) the tenant may connect. */
+  max_pages: integer("max_pages").default(1).notNull(),
   name: text("name").notNull(),
   price_monthly: real("price_monthly").default(0).notNull(),
   price_yearly: real("price_yearly"),
@@ -726,6 +728,12 @@ export const facebookPages = sqliteTable(
     created_at: text("created_at").default(nowIso).notNull(),
     is_default: integer("is_default", { mode: "boolean" }).default(false).notNull(),
     last_connected_at: text("last_connected_at"),
+    // Linked Instagram Business/Creator account (discovered during OAuth connect;
+    // null = Facebook-only page, which is fully supported).
+    ig_account_id: text("ig_account_id"),
+    ig_connected_at: text("ig_connected_at"),
+    ig_profile_picture_url: text("ig_profile_picture_url"),
+    ig_username: text("ig_username"),
     page_access_token: text("page_access_token").notNull(),
     page_id: text("page_id").notNull(),
     page_name: text("page_name").notNull(),
@@ -764,6 +772,8 @@ export const fbContacts = sqliteTable(
     name: text("name"),
     needs_handoff: integer("needs_handoff", { mode: "boolean" }).default(false).notNull(),
     page_id: text("page_id").notNull(),
+    // 'facebook' (Messenger PSID) or 'instagram' (IGSID via the linked IG account).
+    platform: text("platform").default("facebook").notNull(),
     profile_pic_synced_at: text("profile_pic_synced_at"),
     profile_pic_url: text("profile_pic_url"),
     psid: text("psid").notNull(),

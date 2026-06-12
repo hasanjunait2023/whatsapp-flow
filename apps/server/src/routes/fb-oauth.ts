@@ -5,6 +5,7 @@ import {
   exchangeCodeForLongLivedToken,
   fetchUserPages,
   getPageToken,
+  getTenantPageCap,
   isFbConnectConfigured,
   signState,
   subscribePageWebhook,
@@ -33,8 +34,11 @@ fbOauthStartRoute.get("/", (c) => {
   }
   const tenant = getTenant(c);
   if (!tenant.tenantId) return c.json({ error: "No tenant" }, 403);
+  // ?instagram=0 -> Facebook-only connect (IG permissions not requested at all),
+  // for customers without an Instagram account. Default requests both platforms.
+  const includeInstagram = c.req.query("instagram") !== "0";
   const state = signState(tenant.tenantId, tenant.userId ?? "");
-  return c.redirect(buildAuthUrl(state), 302);
+  return c.redirect(buildAuthUrl(state, includeInstagram), 302);
 });
 
 export const fbOauthCallbackRoute = new Hono();
@@ -62,13 +66,24 @@ fbOauthCallbackRoute.get("/", async (c) => {
     const pages = await fetchUserPages(userToken);
     if (pages.length === 0) return fail("no_pages");
 
-    const connected = upsertConnectedPages(bound.tenantId, pages);
-    // Subscribe each page to Messenger + feed (posts/comments) webhooks.
+    // Plan cap: reconnects always allowed, NEW pages beyond max_pages skipped.
+    const cap = getTenantPageCap(bound.tenantId);
+    const result = upsertConnectedPages(bound.tenantId, pages, cap);
+    if (result.connected.length === 0) return fail("page_limit_reached");
+
+    // Subscribe only the pages that were actually connected.
+    const connectedIds = new Set(result.connected.map((p) => p.page_id));
     await Promise.all(
-      pages.map((p) => subscribePageWebhook(p.id, p.access_token)),
+      pages
+        .filter((p) => connectedIds.has(p.id))
+        .map((p) => subscribePageWebhook(p.id, p.access_token)),
     );
     emitChange("facebook_pages", bound.tenantId, {});
-    return c.redirect(`${RESULT_PATH}?fb_connected=${connected.length}`, 302);
+
+    const params = new URLSearchParams({ fb_connected: String(result.connected.length) });
+    if (result.instagramCount > 0) params.set("ig_connected", String(result.instagramCount));
+    if (result.skipped.length > 0) params.set("fb_skipped", String(result.skipped.length));
+    return c.redirect(`${RESULT_PATH}?${params.toString()}`, 302);
   } catch (err) {
     console.error("[fb-oauth] callback failed:", err);
     return fail("exchange_failed");
@@ -82,12 +97,14 @@ export function listConnectedPages(tenantId: string): Array<Record<string, unkno
   const rows = sqlite
     .prepare(
       `SELECT id, page_id, page_name, profile_picture_url, status, is_default,
+              ig_account_id, ig_username, ig_profile_picture_url, ig_connected_at,
               last_connected_at, page_access_token
        FROM facebook_pages WHERE tenant_id = ? ORDER BY created_at ASC`,
     )
     .all(tenantId) as Array<Record<string, unknown> & { page_access_token: string | null }>;
   return rows.map(({ page_access_token, ...safe }) => ({
     ...safe,
+    has_instagram: Boolean(safe.ig_account_id),
     has_token: Boolean(getPageToken(page_access_token)),
   }));
 }

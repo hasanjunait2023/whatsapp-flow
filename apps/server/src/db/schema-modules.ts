@@ -626,6 +626,8 @@ export const fbPostComments = sqliteTable(
     message: text("message"),
     page_id: text("page_id").notNull(),
     parent_comment_id: text("parent_comment_id"),
+    // 'facebook' or 'instagram' (IG comment ids reply via /{id}/replies).
+    platform: text("platform").default("facebook").notNull(),
     post_id: text("post_id").notNull(),
     reply_count: integer("reply_count").default(0),
     sent_by_user_id: text("sent_by_user_id"),
