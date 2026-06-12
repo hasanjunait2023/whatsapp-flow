@@ -32,9 +32,9 @@ export function WooCommerceSettings() {
   const [consumerSecret, setConsumerSecret] = useState('');
   const [isEditing, setIsEditing] = useState(!integration);
 
-  // Generate webhook URL for this tenant
-  const webhookUrl = currentTenant?.id 
-    ? `https://cdkrvztqeuflxilrtnws.supabase.co/functions/v1/woocommerce-order-webhook?tenant_id=${currentTenant.id}`
+  // Generate webhook URL for this tenant (served by this app's origin)
+  const webhookUrl = currentTenant?.id
+    ? `${window.location.origin}/api/webhooks/woocommerce?tenant_id=${currentTenant.id}`
     : '';
 
   const copyWebhookUrl = () => {

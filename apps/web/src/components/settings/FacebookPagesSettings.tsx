@@ -45,7 +45,7 @@ export function FacebookPagesSettings() {
     app_secret: '',
   });
 
-  const webhookUrl = `https://cdkrvztqeuflxilrtnws.supabase.co/functions/v1/fb-webhook`;
+  const webhookUrl = `${window.location.origin}/api/webhooks/fb`;
   const verifyToken = '112233';
   const privacyPolicyDocsUrl = 'https://docs.google.com/document/d/1iY0diu-I2r1M54Zoo0DwkokP0D5zuNi1Q5o3lfysqlE/edit?tab=t.0';
 

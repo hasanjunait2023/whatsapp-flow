@@ -79,7 +79,7 @@ export default function InstanceCard({ instance, onSetDefault, onDelete, onRefre
   const status = statusConfig[instance.status];
   const StatusIcon = status.icon;
 
-  const webhookUrl = `https://cdkrvztqeuflxilrtnws.supabase.co/functions/v1/wasender-webhook/${instance.id}`;
+  const webhookUrl = `${window.location.origin}/api/waha/webhook/${instance.id}`;
 
   const handleCopyWebhook = async () => {
     try {
