@@ -32,6 +32,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { QRCodeSVG } from 'qrcode.react';
 import { cn } from '@/lib/utils';
+import { BanRiskNotice } from './BanRiskNotice';
 
 interface AddInstanceDialogProps {
   open: boolean;
@@ -104,6 +105,23 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
   const { refetch } = useInstances();
   const { currentTenant } = useTenant();
   const { toast } = useToast();
+
+  // Ban-risk disclosure: acknowledged once per tenant, persisted locally.
+  const ackKey = currentTenant ? `wf_ban_ack_${currentTenant.id}` : null;
+  const [riskAccepted, setRiskAccepted] = useState(false);
+  useEffect(() => {
+    if (ackKey) setRiskAccepted(localStorage.getItem(ackKey) === '1');
+  }, [ackKey]);
+  const handleRiskAcceptedChange = useCallback(
+    (accepted: boolean) => {
+      setRiskAccepted(accepted);
+      if (ackKey) {
+        if (accepted) localStorage.setItem(ackKey, '1');
+        else localStorage.removeItem(ackKey);
+      }
+    },
+    [ackKey],
+  );
 
   const applyQrState = useCallback((nextQrCode: string, nextExpiresAt?: string | null) => {
     setQrCode(nextQrCode);
@@ -622,8 +640,14 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
                   </p>
                 </div>
 
-                <Button 
-                  onClick={handleAutoProvision} 
+                <BanRiskNotice
+                  accepted={riskAccepted}
+                  onAcceptedChange={handleRiskAcceptedChange}
+                />
+
+                <Button
+                  onClick={handleAutoProvision}
+                  disabled={!riskAccepted}
                   className="w-full bg-whatsapp hover:bg-whatsapp/90"
                 >
                   <QrCode className="mr-2 h-4 w-4" />
@@ -824,6 +848,10 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
                     Find this in your API dashboard under "Sessions".
                   </p>
                 </div>
+                <BanRiskNotice
+                  accepted={riskAccepted}
+                  onAcceptedChange={handleRiskAcceptedChange}
+                />
               </div>
               <DialogFooter className="mt-6">
                 <Button
@@ -834,7 +862,7 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isLoading}>
+                <Button type="submit" disabled={isLoading || !riskAccepted}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
