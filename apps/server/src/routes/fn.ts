@@ -9,6 +9,7 @@ import { CEO_HANDLERS } from "./ceo-fns.js";
 import { PUSH_HANDLERS } from "./push-fns.js";
 import { PAYMENTS_HANDLERS } from "./payments-fns.js";
 import { COURIER_HANDLERS } from "./courier-fns.js";
+import { INTERNAL_CHAT_HANDLERS } from "./internal-chat-fns.js";
 import { FB_HANDLERS } from "./fb-fns.js";
 import { GROUP_HANDLERS } from "./groups-fns.js";
 import { TEAM_HANDLERS } from "./team-fns.js";
@@ -39,6 +40,7 @@ const HANDLERS: Record<string, FnHandler> = {
   ...PUSH_HANDLERS,
   ...PAYMENTS_HANDLERS,
   ...COURIER_HANDLERS,
+  ...INTERNAL_CHAT_HANDLERS,
   ...FB_HANDLERS,
   ...GROUP_HANDLERS,
   ...TEAM_HANDLERS,
