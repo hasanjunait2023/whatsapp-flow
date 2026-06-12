@@ -4,7 +4,8 @@ import { SUPPORT_WHATSAPP, APP_NAME } from '@/config/branding';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 // যে পেজগুলোতে সাপোর্ট বাটন দেখাবে না
-const HIDDEN_ROUTES = ['/inbox', '/fb-inbox', '/internal-chat', '/admin/inbox'];
+// '/' = public landing page has its own scoped WhatsApp FAB (avoids two green FABs).
+const HIDDEN_ROUTES = ['/', '/inbox', '/fb-inbox', '/internal-chat', '/admin/inbox'];
 
 export function FloatingWhatsAppButton() {
   const location = useLocation();

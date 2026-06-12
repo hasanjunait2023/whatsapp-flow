@@ -90,6 +90,31 @@ export default {
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
         },
+        // Landing-page palette — scoped under `.lp` (see src/styles/landing.css).
+        // Always dark, independent of the app theme / color schemes.
+        lp: {
+          bg: "var(--lp-bg)",
+          "bg-1": "var(--lp-bg-1)",
+          surface: "var(--lp-surface)",
+          "surface-2": "var(--lp-surface-2)",
+          elevated: "var(--lp-elevated)",
+          text: "var(--lp-text)",
+          muted: "var(--lp-text-muted)",
+          dim: "var(--lp-text-dim)",
+          violet: {
+            50: "#EDE9FE",
+            300: "#C4B5FD",
+            400: "#A78BFA",
+            500: "#8B5CF6",
+            600: "#7C3AED",
+            700: "#6D28D9",
+          },
+          green: {
+            400: "#34D399",
+            500: "#25D366",
+            600: "#1EBE5D",
+          },
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

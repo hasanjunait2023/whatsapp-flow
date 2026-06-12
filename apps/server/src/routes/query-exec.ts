@@ -26,6 +26,7 @@ import { db } from "../db/index.js";
 import { QUERY_TABLES, isAllowedTable, type TableConfig } from "./query-tables.js";
 import { parseSelect, hasEmbeds, hydrateEmbeds } from "./query-embed.js";
 import { isVirtualView, executeView } from "./query-views.js";
+import { startTrialForTenant } from "../services/billing/trial.js";
 import type { TenantContext } from "../middleware/tenant.ts";
 
 class QueryError extends Error {
@@ -100,6 +101,7 @@ function tenantScope(
   tableName: string,
   ctx: TenantContext,
   filters: QueryFilter[],
+  op: string,
 ): SQL[] {
   const conds: SQL[] = [];
 
@@ -148,6 +150,12 @@ function tenantScope(
       conds.push(eq(getColumn(cfg, "id"), ctx.userId));
       break;
     case "own-tenant":
+      // Onboarding: a brand-new user creating their FIRST tenant has no active
+      // tenant yet, and an INSERT can't be scoped to a not-yet-existing id. The
+      // new row is still guarded by assertMutable + assertRowAllowed (privilege
+      // columns blocked), so allow the unscoped insert. Reads/updates/deletes
+      // stay strictly scoped to a tenant the caller belongs to.
+      if (op === "insert") break;
       if (ctx.tenantId) conds.push(eq(getColumn(cfg, "id"), ctx.tenantId));
       else throw new QueryError("No active tenant", "no_tenant");
       break;
@@ -309,7 +317,7 @@ export async function executeQuery(
     const cfg = QUERY_TABLES[req.table];
     assertMutable(cfg, req.op, ctx);
     const filters = req.filters ?? [];
-    const scope = tenantScope(cfg, req.table, ctx, filters);
+    const scope = tenantScope(cfg, req.table, ctx, filters, req.op);
     const userConds = filters.map((f) => buildFilter(cfg, f));
     const whereParts = [...scope, ...userConds];
     const where = whereParts.length > 0 ? and(...whereParts) : undefined;
@@ -438,6 +446,22 @@ async function runInsert(
     .insert(cfg.table as any)
     .values(rows)
     .returning()) as Record<string, unknown>[];
+
+  // A brand-new tenant gets a 5-day Pro trial. Best-effort: provisioning the
+  // trial must never fail tenant creation, so it's isolated and swallowed.
+  if (req.table === "tenants") {
+    for (const row of inserted) {
+      const tenantId = row.id;
+      if (typeof tenantId === "string") {
+        try {
+          startTrialForTenant(tenantId);
+        } catch {
+          // non-fatal: tenant exists; the trial can be back-filled if needed.
+        }
+      }
+    }
+  }
+
   return returnedResponse(req, inserted, cfg);
 }
 

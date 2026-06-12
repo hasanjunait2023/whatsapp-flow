@@ -1,5 +1,9 @@
 # DECISIONS
 
+- 2026-06-12 — MISSION 2 CHARTER: high-conversion sales landing page. RESEARCH (BD f-commerce conversion/pricing/pixels) + DESIGN (LANDING_DESIGN.md from dark AI reference) dispatched in parallel; both delivered. Research confirms market white-space: no Bangla-first, COD/courier-aware, bKash-native WhatsApp CRM competitor; 3-tier decoy validated; pixel taxonomy locked.
+- 2026-06-12 — FOUNDER added FLAGSHIP value prop: **customer-data ownership + ban-proofing**. On Meta-owned channels the seller doesn't own their data; a page/number ban = lost customers + lost data. We store their contacts/chats/orders securely (survives a ban), make it exportable/reusable, and offer follow-up + funnel automation to re-engage — plus anti-ban WhatsApp safety. This becomes a hero-adjacent flagship section + a real data-export feature; funnel automation = fast-follow (Marketing module). HONEST scope flagged at GATE 1.
+- 2026-06-12 — Pricing locked by founder: Starter ৳899 (1 WA + 1 FB), Pro ৳1499 most-popular (WA+FB+IG, 2 inst each), Business ৳2799 (5 inst), Enterprise negotiable. 5-day no-card trial. Yearly = 2 months free.
+
 - 2026-06-11 — CHARTER: mission set from founder request + 4 research PDFs. Research dispatched (codebase exploration + WAHA/SQLite/Contabo brief).
 - 2026-06-11 — Founder chose **full SQLite rewrite** over self-hosted Supabase (cost warning given and accepted).
 - 2026-06-11 — **WAHA Plus** ($19/mo), NOWEB engine, pinned stable tag. Core insufficient (1 session, no media send).

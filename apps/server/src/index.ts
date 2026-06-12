@@ -22,6 +22,7 @@ import { startScheduler, stopScheduler } from "./jobs/scheduler.js";
 import { registerSoulJobs } from "./services/soul/index.js";
 import { registerHermesPipeline } from "./services/hermes/pipeline.js";
 import { registerCeoJobs } from "./services/ceo/index.js";
+import { seedPlansIfEmpty } from "./services/billing/seed-plans.js";
 import { PORT, IS_PRODUCTION, WEB_DIST_DIR, warnIfWebhookUnverified, getMasterKey } from "./lib/env.js";
 
 // Fail fast at startup (production only) if the secret-encryption key is missing
@@ -99,6 +100,10 @@ if (IS_PRODUCTION && existsSync(WEB_DIST_DIR)) {
     return c.text("Not found", 404);
   });
 }
+
+// Seed the pricing catalog if it's empty (migrations have already run via the
+// entrypoint). Idempotent and cheap; unblocks checkout on a fresh DB.
+seedPlansIfEmpty();
 
 const server = serve({ fetch: app.fetch, port: PORT });
 

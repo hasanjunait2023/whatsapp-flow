@@ -35,3 +35,4 @@ data/
 *.njsproj
 *.sln
 *.sw?
+.gstack/

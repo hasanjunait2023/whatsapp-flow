@@ -1,0 +1,16 @@
+export { Nav } from "./Nav";
+export { Hero } from "./Hero";
+export { TrustStrip } from "./TrustStrip";
+export { PainPanels } from "./PainPanels";
+export { DataOwnership } from "./DataOwnership";
+export { HowItWorks } from "./HowItWorks";
+export { FeatureSpotlights } from "./FeatureSpotlights";
+export { SocialProof } from "./SocialProof";
+export { Integrations } from "./Integrations";
+export { Pricing } from "./Pricing";
+export { Faq } from "./Faq";
+export { FinalCta } from "./FinalCta";
+export { Footer } from "./Footer";
+export { StickyMobileCta } from "./StickyMobileCta";
+export { LandingWhatsAppFab } from "./LandingWhatsAppFab";
+export { PixelScripts } from "./PixelScripts";

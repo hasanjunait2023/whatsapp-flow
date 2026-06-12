@@ -18,6 +18,7 @@ import { MISC_HANDLERS } from "./misc-fns.js";
 import { DEFERRED_HANDLERS } from "./deferred-fns.js";
 import { ADMIN_HANDLERS } from "./admin-fns.js";
 import { WELCOME_HANDLERS } from "./welcome-fns.js";
+import { EXPORT_HANDLERS } from "./export-fns.js";
 import { uploadChatMediaJson, uploadChatMediaMultipart } from "./upload-fns.js";
 
 export const fnRoute = new Hono();
@@ -50,6 +51,7 @@ const HANDLERS: Record<string, FnHandler> = {
   ...DEFERRED_HANDLERS,
   ...ADMIN_HANDLERS,
   ...WELCOME_HANDLERS,
+  ...EXPORT_HANDLERS,
   "send-message": sendMessage,
   "send-new-message": sendNewMessage,
   "upload-chat-media": uploadChatMediaJson,

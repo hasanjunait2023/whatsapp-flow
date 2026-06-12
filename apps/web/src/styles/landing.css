@@ -1,0 +1,151 @@
+/*
+ * Landing-page design system — scoped under `.lp`.
+ * Imported ONLY by src/pages/Landing.tsx so it never leaks into the app shell.
+ *
+ * The landing page is ALWAYS dark and independent of the app's next-themes /
+ * .scheme-* tokens. See apps/web/LANDING_DESIGN.md §1.1 / §2 for the source of truth.
+ */
+
+.lp {
+  /* ── Background layers (near-black, faint violet undertone) ── */
+  --lp-bg: #08080c;
+  --lp-bg-1: #0c0c13;
+  --lp-surface: #111119;
+  --lp-surface-2: #15151f;
+  --lp-surface-glass: rgba(255, 255, 255, 0.04);
+  --lp-elevated: #16131f;
+
+  /* ── Violet ramp (primary / brand) ── */
+  --lp-violet-50: #ede9fe;
+  --lp-violet-300: #c4b5fd;
+  --lp-violet-400: #a78bfa;
+  --lp-violet-500: #8b5cf6;
+  --lp-violet-600: #7c3aed;
+  --lp-violet-700: #6d28d9;
+
+  /* ── WhatsApp / success green (scarce, meaningful) ── */
+  --lp-green-400: #34d399;
+  --lp-green-500: #25d366;
+  --lp-green-600: #1ebe5d;
+  --lp-green-tint: rgba(37, 211, 102, 0.12);
+
+  /* ── Text & borders ── */
+  --lp-text: #f4f4f6;
+  --lp-text-muted: #a1a1b5;
+  --lp-text-dim: #6e6e85;
+  --lp-border: rgba(255, 255, 255, 0.08);
+  --lp-border-strong: rgba(255, 255, 255, 0.16);
+  --lp-border-violet: rgba(139, 92, 246, 0.45);
+
+  /* ── Fonts ── */
+  --lp-font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --lp-font-bn: "Noto Serif Bengali", serif;
+
+  /* ── Radius ── */
+  --lp-r-sm: 10px;
+  --lp-r-md: 16px;
+  --lp-r-lg: 20px;
+  --lp-r-xl: 28px;
+  --lp-r-pill: 9999px;
+
+  /* ── Shadows / glows (glow + hairline, never gray drop-shadow) ── */
+  --lp-shadow-card: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px -12px rgba(0, 0, 0, 0.7);
+  --lp-shadow-pop: 0 16px 48px -16px rgba(0, 0, 0, 0.8);
+  --lp-glow-violet: 0 0 40px -8px rgba(124, 58, 237, 0.45);
+  --lp-glow-violet-lg: 0 0 120px 10px rgba(124, 58, 237, 0.3);
+  --lp-glow-green: 0 0 24px -6px rgba(37, 211, 102, 0.4);
+
+  /* ── Spacing ── */
+  --lp-space-section: clamp(4rem, 3rem + 6vw, 7.5rem);
+
+  /* ── Type scale (fluid) ── */
+  --lp-text-display: clamp(2.5rem, 1.4rem + 5.2vw, 5rem);
+  --lp-text-h2: clamp(1.75rem, 1.1rem + 2.8vw, 3rem);
+  --lp-text-h3: clamp(1.125rem, 1rem + 0.6vw, 1.375rem);
+  --lp-text-lead: clamp(1.0625rem, 0.95rem + 0.6vw, 1.25rem);
+  --lp-price: clamp(2rem, 1.4rem + 2.6vw, 2.75rem);
+
+  /* ── Motion ── */
+  --lp-dur-fast: 150ms;
+  --lp-dur: 250ms;
+  --lp-dur-slow: 450ms;
+  --lp-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --lp-ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+
+  color-scheme: dark;
+  background: var(--lp-bg);
+  color: var(--lp-text);
+  font-family: var(--lp-font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Force the geometric sans on everything inside the landing surface, overriding
+   the app's global `body { font-family: "Noto Serif Bengali" }`. */
+.lp :where(h1, h2, h3, h4, h5, h6, p, span, a, button, li, input, label, div) {
+  font-family: var(--lp-font-sans);
+}
+
+/* Bangla opt-in: anything tagged lang="bn" or .bn renders in the Bengali serif
+   face (Inter has no Bengali glyphs). */
+.lp :where([lang="bn"], .bn) {
+  font-family: var(--lp-font-bn);
+}
+
+/* Tabular figures for any number-bearing element so prices/stats don't jitter. */
+.lp .lp-tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Display headline: tighten tracking as size grows (handled per-element too). */
+.lp .lp-display {
+  font-size: var(--lp-text-display);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+}
+
+/* Faint dot grid used behind the hero / flagship band. */
+.lp .lp-dot-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Focus-visible ring in the landing's violet, against the dark canvas. */
+.lp :where(a, button, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--lp-violet-400);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Slow hero-orb drift; disabled under reduced motion via the block below. */
+@keyframes lp-orb-drift {
+  0%,
+  100% {
+    transform: translate(-50%, 0) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -3%) scale(1.06);
+  }
+}
+.lp .lp-orb {
+  animation: lp-orb-drift 16s ease-in-out infinite;
+}
+
+/* Plus → × rotation for the FAQ trigger icon. */
+.lp [data-state="open"] .lp-faq-icon {
+  transform: rotate(45deg);
+}
+
+/* Reduce ALL motion inside the landing page when the user asks for it. */
+@media (prefers-reduced-motion: reduce) {
+  .lp *,
+  .lp *::before,
+  .lp *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
