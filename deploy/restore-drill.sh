@@ -47,7 +47,8 @@ echo "[drill] Restored. Running integrity check..."
 # Use the app image (has the better-sqlite3 native binding) but override the
 # entrypoint so it does NOT boot the server (which would demand AUTH_SECRET etc.)
 # — we only want a throwaway node process to open + check the restored copy.
-RESULT="$(docker run --rm --entrypoint node -v /tmp:/tmp whatsapp-flow:latest -e "
+# --user 0: litestream restored the temp file as root, so read it as root too.
+RESULT="$(docker run --rm --user 0 --entrypoint node -v /tmp:/tmp whatsapp-flow:latest -e "
 const Database = require(process.cwd()+'/node_modules/better-sqlite3');
 const db = new Database('$TMP_DB', { readonly: true });
 const ok = db.prepare('PRAGMA integrity_check').get();
