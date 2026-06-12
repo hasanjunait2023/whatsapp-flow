@@ -1,6 +1,6 @@
 import { sqlite } from "../db/index.js";
 import { emitChange } from "../realtime/emitter.js";
-import { UDDOKTAPAY_API_KEY, UDDOKTAPAY_BASE_URL } from "../lib/env.js";
+import { UDDOKTAPAY_API_KEY, UDDOKTAPAY_BASE_URL, AUTH_BASE_URL } from "../lib/env.js";
 import type { FnContext, FnResult } from "./waha/session.js";
 
 /**
@@ -74,6 +74,10 @@ export async function uddoktapayCheckout(raw: Record<string, unknown>, ctx: FnCo
     full_name: body.customer_name,
     email: body.customer_email,
     amount: String(body.amount),
+    // UddoktaPay checkout-v2 requires return URLs. On success it redirects to
+    // redirect_url?invoice_id=... which PaymentSuccess reads to call verify.
+    redirect_url: `${AUTH_BASE_URL}/billing/payment-success`,
+    cancel_url: `${AUTH_BASE_URL}/billing/payment-cancelled`,
     metadata: {
       order_id: orderId,
       subscription_order_id: subscriptionOrderId,
