@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { sqlite } from "../db/index.js";
 import { encryptSecret, decryptSecret } from "../lib/crypto.js";
 import { listProducts, verifyCreds, type WooCreds } from "../services/woocommerce/client.js";
@@ -52,9 +53,9 @@ export const WOO_HANDLERS: Record<string, FnHandler> = {
     if (!/^https?:\/\//.test(storeUrl)) return fail("store_url must start with http(s)://");
 
     const existing = sqlite
-      .prepare("SELECT id, consumer_key_encrypted, consumer_secret_encrypted FROM woocommerce_integrations WHERE tenant_id = ? LIMIT 1")
+      .prepare("SELECT id, consumer_key_encrypted, consumer_secret_encrypted, settings FROM woocommerce_integrations WHERE tenant_id = ? LIMIT 1")
       .get(ctx.tenantId) as
-      | { id: string; consumer_key_encrypted: string; consumer_secret_encrypted: string }
+      | { id: string; consumer_key_encrypted: string; consumer_secret_encrypted: string; settings: string | null }
       | undefined;
 
     // Keep stored secrets when the form leaves them blank (they are redacted on read).
@@ -69,19 +70,36 @@ export const WOO_HANDLERS: Record<string, FnHandler> = {
       return fail(err instanceof Error ? err.message : "Could not connect to the WooCommerce store");
     }
 
+    // Merge settings + ensure a webhook_secret exists. The order webhook is
+    // fail-closed (rejects without a valid HMAC), so every integration MUST have
+    // a secret; the merchant pastes it into WooCommerce's webhook config.
+    let settingsObj: Record<string, unknown> = {};
+    try {
+      settingsObj = existing?.settings ? JSON.parse(existing.settings) : {};
+    } catch {
+      settingsObj = {};
+    }
+    if (body.settings && typeof body.settings === "object") {
+      settingsObj = { ...settingsObj, ...(body.settings as Record<string, unknown>) };
+    }
+    if (typeof settingsObj.webhook_secret !== "string" || !settingsObj.webhook_secret) {
+      settingsObj.webhook_secret = randomBytes(32).toString("hex");
+    }
+    const settings = JSON.stringify(settingsObj);
+    const webhookSecret = settingsObj.webhook_secret as string;
+
     const isActive = body.is_active === false ? 0 : 1;
-    const settings = body.settings != null ? JSON.stringify(body.settings) : null;
     const now = new Date().toISOString();
     if (existing) {
       sqlite
         .prepare(
           `UPDATE woocommerce_integrations
              SET store_url = ?, consumer_key_encrypted = ?, consumer_secret_encrypted = ?,
-                 is_active = ?, settings = COALESCE(?, settings), updated_at = ?
+                 is_active = ?, settings = ?, updated_at = ?
            WHERE id = ?`,
         )
         .run(storeUrl, encKey, encSecret, isActive, settings, now, existing.id);
-      return ok({ success: true, id: existing.id });
+      return ok({ success: true, id: existing.id, webhook_secret: webhookSecret });
     }
     const id = crypto.randomUUID();
     sqlite
@@ -91,7 +109,7 @@ export const WOO_HANDLERS: Record<string, FnHandler> = {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(id, ctx.tenantId, storeUrl, encKey, encSecret, isActive, settings, now, now);
-    return ok({ success: true, id });
+    return ok({ success: true, id, webhook_secret: webhookSecret });
   },
 
   // Pull products from the store into the local catalog (upsert by woo_product_id).

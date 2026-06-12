@@ -48,21 +48,23 @@ woocommerceWebhookRoute.post("/", async (c) => {
 
   const raw = await c.req.text();
 
-  // Optional HMAC verification when a webhook secret is configured.
+  // Fail-closed HMAC verification. The integration always has a webhook_secret
+  // (auto-generated at save). A missing secret or a missing/invalid signature is
+  // rejected — we NEVER trust the tenant_id query string alone.
   let webhookSecret: string | undefined;
   try {
     webhookSecret = integration.settings ? JSON.parse(integration.settings)?.webhook_secret : undefined;
   } catch {
     webhookSecret = undefined;
   }
-  if (webhookSecret) {
-    const sig = c.req.header("x-wc-webhook-signature") ?? "";
-    const expected = createHmac("sha256", webhookSecret).update(raw).digest("base64");
-    const a = Buffer.from(sig);
-    const b = Buffer.from(expected);
-    if (a.length !== b.length || !timingSafeEqual(a, b)) {
-      return c.json({ error: "Invalid signature" }, 401);
-    }
+  if (!webhookSecret) return c.json({ error: "Webhook secret not configured" }, 401);
+  const sig = c.req.header("x-wc-webhook-signature");
+  if (!sig) return c.json({ error: "Missing signature" }, 401);
+  const expected = createHmac("sha256", webhookSecret).update(raw).digest("base64");
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    return c.json({ error: "Invalid signature" }, 401);
   }
 
   let order: WooOrder;

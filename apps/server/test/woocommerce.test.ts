@@ -1,6 +1,13 @@
 import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
 import { useTempDb } from "./helpers.js";
 
+// Make the SSRF guard's DNS resolution hermetic: every host resolves to a
+// public address so tests don't depend on real DNS (the guard logic itself is
+// covered separately in woocommerce-ssrf.test.ts).
+vi.mock("node:dns/promises", () => ({
+  lookup: async () => [{ address: "93.184.216.34", family: 4 }],
+}));
+
 useTempDb();
 process.env.MASTER_KEY = "0".repeat(64);
 
