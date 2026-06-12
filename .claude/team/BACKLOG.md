@@ -12,7 +12,13 @@
 - [ ] Phase 6: hardening + launch
 
 ## Later (Phase 7 — deferred modules, behind flags)
-- [ ] Accounting — needs founder ledger model decision
+- [x] **Accounting** — DONE (expense tracking + categories + monthly P&L summary +
+      recurring-expense generator + /accounting page). LIVE.
+- [x] **Service Boards** — already complete (tables allowlisted + UI). Verified. LIVE.
+- [x] **WooCommerce** — DONE (BYOK save+verify, product sync, fail-closed order webhook,
+      SSRF-guarded). LIVE. Tenant adds store URL + key/secret in Settings.
+- [x] **Pathao courier** — DONE (OAuth password grant, booking, tracking; creds encrypted).
+      LIVE. Follow-up: numeric city/zone/area lookup UI.
 - [x] **Internal Chat** — DONE (dedicated membership-scoped route internal-chat-fns.ts;
       useInternalChat rewritten; cross-tenant + intra-tenant DM authz tested). LIVE.
 - [ ] Scheduled Reports — largely covered by agent_schedules (CEO reports); verify email cron path
