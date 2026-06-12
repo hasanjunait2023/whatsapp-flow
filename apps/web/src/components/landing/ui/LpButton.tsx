@@ -18,11 +18,11 @@ const lpButtonVariants = cva(
     variants: {
       variant: {
         primary:
-          "rounded-[var(--lp-r-md)] bg-lp-violet-500 text-white hover:bg-lp-violet-600 hover:shadow-[var(--lp-glow-violet)]",
+          "rounded-[var(--lp-r-md)] bg-lp-violet-500 text-[color:var(--lp-on-accent)] hover:bg-lp-violet-600 hover:shadow-[var(--lp-glow-violet)]",
         ghost:
           "rounded-[var(--lp-r-md)] border border-[var(--lp-border-strong)] bg-transparent text-lp-text hover:bg-lp-surface-2 hover:border-[var(--lp-border-strong)]",
         whatsapp:
-          "rounded-[var(--lp-r-md)] bg-lp-green-500 text-[#04130a] hover:bg-lp-green-600 hover:shadow-[var(--lp-glow-green)]",
+          "rounded-[var(--lp-r-md)] bg-lp-green-500 text-[color:var(--lp-on-green)] hover:bg-lp-green-600 hover:shadow-[var(--lp-glow-green)]",
       },
       size: {
         md: "h-11 px-5 text-sm",

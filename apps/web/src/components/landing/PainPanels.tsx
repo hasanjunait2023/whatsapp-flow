@@ -50,8 +50,8 @@ export function PainPanels() {
           return (
             <Reveal key={pain.en} delay={i * 0.06}>
               <LpCard className="h-full">
-                <div className="flex h-11 w-11 items-center justify-center rounded-[var(--lp-r-md)] border border-[var(--lp-border)] bg-[linear-gradient(135deg,rgba(248,113,113,0.16),rgba(248,113,113,0.05))]">
-                  <Icon className="h-5 w-5 text-[#f87171]" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-[var(--lp-r-md)] border border-[var(--lp-border)] bg-[linear-gradient(135deg,var(--lp-danger-tint-from),var(--lp-danger-tint-to))]">
+                  <Icon className="h-5 w-5 text-[color:var(--lp-danger)]" />
                 </div>
                 <h3 className="mt-5 text-[var(--lp-text-h3)] font-semibold text-lp-text">{pain.en}</h3>
                 <p lang="bn" className="bn mt-1 text-sm text-lp-violet-300">

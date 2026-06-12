@@ -25,7 +25,7 @@ export function GlowBackdrop({ grid = true, drift = false, className }: GlowBack
           }}
         />
       )}
-      {/* Primary top-center violet orb */}
+      {/* Primary top-center violet orb (alpha tuned per theme via tokens) */}
       <div
         className={cn(
           "absolute left-1/2 top-[-25%] h-[60vw] max-h-[640px] w-[120%] max-w-[1200px] rounded-full",
@@ -34,15 +34,14 @@ export function GlowBackdrop({ grid = true, drift = false, className }: GlowBack
         style={{
           transform: "translateX(-50%)",
           background:
-            "radial-gradient(circle at center, rgba(124,58,237,0.28) 0%, rgba(124,58,237,0.10) 35%, transparent 70%)",
+            "radial-gradient(circle at center, var(--lp-orb-1) 0%, var(--lp-orb-1-mid) 35%, transparent 70%)",
         }}
       />
       {/* Secondary smaller orb, bottom-right */}
       <div
         className="absolute bottom-[-10%] right-[-5%] h-[40vw] max-h-[420px] w-[40vw] max-w-[420px] rounded-full"
         style={{
-          background:
-            "radial-gradient(circle at center, rgba(139,92,246,0.16) 0%, transparent 70%)",
+          background: "radial-gradient(circle at center, var(--lp-orb-2) 0%, transparent 70%)",
         }}
       />
     </div>

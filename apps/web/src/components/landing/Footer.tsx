@@ -110,7 +110,7 @@ function NewsletterForm() {
         </p>
       )}
       {status === "error" && (
-        <p className="mt-2 text-sm text-[#f87171]" role="alert">
+        <p className="mt-2 text-sm text-[color:var(--lp-danger)]" role="alert">
           Please enter a valid email address.
         </p>
       )}

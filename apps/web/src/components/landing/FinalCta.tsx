@@ -14,7 +14,7 @@ export function FinalCta() {
           className="relative overflow-hidden rounded-[var(--lp-r-xl)] border border-[var(--lp-border-violet)] px-6 py-12 text-center shadow-[var(--lp-glow-violet)] md:py-16"
           style={{
             background:
-              "linear-gradient(135deg, rgba(124,58,237,0.18) 0%, rgba(139,92,246,0.06) 60%, transparent 100%)",
+              "linear-gradient(135deg, var(--lp-cta-wash-from) 0%, var(--lp-cta-wash-mid) 60%, transparent 100%)",
           }}
         >
           <div className="relative mx-auto max-w-[720px]">
@@ -24,7 +24,7 @@ export function FinalCta() {
             >
               Stop losing orders to slow replies.
             </h2>
-            <p lang="bn" className="bn mt-3 text-[var(--lp-text-lead)] text-lp-violet-200">
+            <p lang="bn" className="bn mt-3 text-[var(--lp-text-lead)] text-lp-accent-text-strong">
               আজই ফ্রি শুরু করুন — কয়েক মিনিটেই WhatsApp কানেক্ট করুন
             </p>
             <p className="mx-auto mt-3 max-w-[560px] text-[var(--lp-text-body)] text-lp-muted">

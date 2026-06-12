@@ -91,7 +91,8 @@ export default {
           "5": "hsl(var(--chart-5))",
         },
         // Landing-page palette — scoped under `.lp` (see src/styles/landing.css).
-        // Always dark, independent of the app theme / color schemes.
+        // Two themes (light + dark) switched by `data-theme` on the `.lp` root.
+        // Every value resolves a CSS variable so utilities re-theme automatically.
         lp: {
           bg: "var(--lp-bg)",
           "bg-1": "var(--lp-bg-1)",
@@ -100,19 +101,31 @@ export default {
           elevated: "var(--lp-elevated)",
           text: "var(--lp-text)",
           muted: "var(--lp-text-muted)",
-          dim: "var(--lp-text-dim)",
+          // `dim` supports opacity modifiers (bg-lp-dim/50, text-lp-dim/80).
+          dim: "rgb(var(--lp-text-dim-rgb) / <alpha-value>)",
+          // Theme-agnostic semantic aliases (preferred for new code).
+          accent: "rgb(var(--lp-accent-rgb) / <alpha-value>)",
+          "accent-hover": "var(--lp-accent-hover)",
+          "accent-text": "rgb(var(--lp-accent-text-rgb) / <alpha-value>)",
+          "accent-text-strong": "var(--lp-accent-text-strong)",
+          "on-accent": "var(--lp-on-accent)",
+          "green-text": "var(--lp-green-text)",
+          "on-green": "var(--lp-on-green)",
+          danger: "var(--lp-danger)",
+          // Ramp slots use rgb(var() / <alpha-value>) so both solid (bg-lp-violet-500)
+          // and opacity-modified (bg-lp-violet-500/10) utilities re-theme correctly.
           violet: {
-            50: "#EDE9FE",
-            300: "#C4B5FD",
-            400: "#A78BFA",
-            500: "#8B5CF6",
-            600: "#7C3AED",
-            700: "#6D28D9",
+            50: "rgb(var(--lp-violet-50-rgb) / <alpha-value>)",
+            300: "rgb(var(--lp-violet-300-rgb) / <alpha-value>)",
+            400: "rgb(var(--lp-violet-400-rgb) / <alpha-value>)",
+            500: "rgb(var(--lp-violet-500-rgb) / <alpha-value>)",
+            600: "rgb(var(--lp-violet-600-rgb) / <alpha-value>)",
+            700: "rgb(var(--lp-violet-700-rgb) / <alpha-value>)",
           },
           green: {
-            400: "#34D399",
-            500: "#25D366",
-            600: "#1EBE5D",
+            400: "rgb(var(--lp-green-400-rgb) / <alpha-value>)",
+            500: "rgb(var(--lp-green-500-rgb) / <alpha-value>)",
+            600: "rgb(var(--lp-green-600-rgb) / <alpha-value>)",
           },
         },
       },

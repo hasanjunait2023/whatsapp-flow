@@ -99,7 +99,7 @@ function PricingCard({
       {plan.highlighted && plan.badgeBn && (
         <span
           lang="bn"
-          className="bn absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-[var(--lp-r-pill)] bg-lp-violet-500 px-3 py-1 text-xs font-semibold text-white shadow-[var(--lp-glow-violet)]"
+          className="bn absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-[var(--lp-r-pill)] bg-lp-violet-500 px-3 py-1 text-xs font-semibold text-[color:var(--lp-on-accent)] shadow-[var(--lp-glow-violet)]"
         >
           {plan.badgeBn}
         </span>

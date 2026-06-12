@@ -68,7 +68,7 @@ export function DataOwnership() {
         className="pointer-events-none absolute inset-0 -z-0"
         style={{
           background:
-            "linear-gradient(135deg, rgba(124,58,237,0.14) 0%, rgba(139,92,246,0.04) 45%, transparent 75%)",
+            "linear-gradient(135deg, var(--lp-wash-from) 0%, var(--lp-wash-mid) 45%, transparent 75%)",
         }}
         aria-hidden="true"
       />
@@ -110,7 +110,7 @@ export function DataOwnership() {
                         "flex w-full min-w-[180px] flex-col items-center gap-2 rounded-[var(--lp-r-lg)] border p-5 text-center md:w-auto",
                         step.tone === "violet" &&
                           "border-[var(--lp-border-violet)] bg-lp-elevated shadow-[var(--lp-glow-violet)]",
-                        step.tone === "green" && "border-[rgba(52,211,153,0.4)] bg-lp-surface",
+                        step.tone === "green" && "border-[var(--lp-border-green)] bg-lp-surface",
                         step.tone === "neutral" && "border-[var(--lp-border)] bg-lp-surface",
                       )}
                     >
@@ -119,7 +119,7 @@ export function DataOwnership() {
                           "flex h-12 w-12 items-center justify-center rounded-[var(--lp-r-md)]",
                           step.tone === "violet" && "bg-lp-violet-500/15 text-lp-violet-300",
                           step.tone === "green" && "bg-lp-green-500/15 text-lp-green-400",
-                          step.tone === "neutral" && "bg-white/5 text-lp-muted",
+                          step.tone === "neutral" && "bg-[var(--lp-overlay-neutral)] text-lp-muted",
                         )}
                       >
                         <Icon className="h-6 w-6" />
@@ -140,7 +140,7 @@ export function DataOwnership() {
 
             {/* Ban marker overlaid on the flow */}
             <div className="mt-6 flex items-center justify-center gap-2 text-xs text-lp-dim">
-              <Ban className="h-4 w-4 text-[#f87171]" />
+              <Ban className="h-4 w-4 text-[color:var(--lp-danger)]" />
               <span>A page or number ban hits the left side — your vault on the right keeps everything.</span>
             </div>
           </div>
@@ -169,7 +169,7 @@ export function DataOwnership() {
 
         {/* Anti-ban safety callout */}
         <Reveal delay={0.1}>
-          <div className="mt-8 flex flex-col items-start gap-4 rounded-[var(--lp-r-lg)] border border-[rgba(52,211,153,0.35)] bg-lp-green-500/[0.06] p-6 sm:flex-row sm:items-center md:p-8">
+          <div className="mt-8 flex flex-col items-start gap-4 rounded-[var(--lp-r-lg)] border border-[var(--lp-border-green)] bg-[var(--lp-green-wash)] p-6 sm:flex-row sm:items-center md:p-8">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--lp-r-md)] bg-lp-green-500/15 text-lp-green-400">
               <ShieldCheck className="h-6 w-6" />
             </span>

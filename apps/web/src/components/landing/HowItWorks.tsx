@@ -57,7 +57,7 @@ export function HowItWorks() {
                 <span className="lp-tnum absolute right-6 top-6 text-sm font-bold text-lp-violet-500/40">
                   {step.n}
                 </span>
-                <span className="flex h-12 w-12 items-center justify-center rounded-[var(--lp-r-md)] border border-[var(--lp-border)] bg-[linear-gradient(135deg,rgba(139,92,246,0.18),rgba(139,92,246,0.06))] text-lp-violet-400">
+                <span className="flex h-12 w-12 items-center justify-center rounded-[var(--lp-r-md)] border border-[var(--lp-border)] bg-[image:var(--lp-tile-violet)] text-lp-violet-400">
                   <Icon className="h-6 w-6" />
                 </span>
                 <h3 className="mt-5 text-[var(--lp-text-h3)] font-semibold text-lp-text">{step.en}</h3>

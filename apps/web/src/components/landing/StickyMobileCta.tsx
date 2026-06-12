@@ -31,7 +31,7 @@ export function StickyMobileCta({ triggerRef }: StickyMobileCtaProps) {
         <a
           href={signupHref("pro")}
           onClick={() => trackPlanCtaClick("pro")}
-          className="flex h-12 flex-1 items-center justify-center rounded-[var(--lp-r-md)] bg-lp-violet-500 font-semibold text-white transition-colors hover:bg-lp-violet-600"
+          className="flex h-12 flex-1 items-center justify-center rounded-[var(--lp-r-md)] bg-lp-violet-500 font-semibold text-[color:var(--lp-on-accent)] transition-colors hover:bg-lp-violet-600"
         >
           <span lang="bn" className="bn">
             ৫ দিন ফ্রি শুরু করুন
@@ -42,7 +42,7 @@ export function StickyMobileCta({ triggerRef }: StickyMobileCtaProps) {
           target="_blank"
           rel="noopener noreferrer"
           aria-label="WhatsApp support"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--lp-r-md)] bg-lp-green-500 text-[#04130a] shadow-[var(--lp-glow-green)] transition-colors hover:bg-lp-green-600"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[var(--lp-r-md)] bg-lp-green-500 text-[color:var(--lp-on-green)] shadow-[var(--lp-glow-green)] transition-colors hover:bg-lp-green-600"
         >
           <MessageCircle className="h-6 w-6" fill="currentColor" />
         </a>

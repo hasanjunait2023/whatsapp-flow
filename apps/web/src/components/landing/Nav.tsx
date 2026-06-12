@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { NAV_LINKS, WA_SUPPORT_URL, WA_SUPPORT_DISPLAY, signupHref } from "./config";
 import { useScrolled, useScrollSpy } from "./useLandingScroll";
 import { LpButton } from "./ui/LpButton";
+import { ThemeToggle } from "./ui/ThemeToggle";
 
 const SECTION_IDS = NAV_LINKS.map((l) => l.href.replace("#", ""));
 
@@ -78,6 +79,7 @@ export function Nav() {
             <a href="/auth/login" className="text-sm font-medium text-lp-muted transition-colors hover:text-lp-text">
               Log in
             </a>
+            <ThemeToggle />
             <LpButton asChild size="pill">
               <a href={signupHref("pro")}>Get Started</a>
             </LpButton>
@@ -85,6 +87,7 @@ export function Nav() {
 
           {/* Right cluster (mobile) */}
           <div className="flex items-center gap-2 lg:hidden">
+            <ThemeToggle />
             <LpButton asChild size="pill" className="h-10 px-4 text-sm">
               <a href={signupHref("pro")}>Get Started</a>
             </LpButton>

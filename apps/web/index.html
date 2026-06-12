@@ -3,6 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Landing-page theme bootstrap — runs before first paint to prevent a flash of
+      the wrong theme on the marketing page (`.lp`). Resolves the saved choice
+      (localStorage `lp-theme`) or the OS preference, then seeds `<html data-lp-theme>`
+      + color-scheme. The React `useLpTheme` hook reads this seed on first render so
+      the `.lp` root mounts already on the right theme. Independent of the app's
+      next-themes (`.dark` class / `ecomex-theme`) system.
+    -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("lp-theme");
+          if (t !== "light" && t !== "dark") {
+            t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          }
+          document.documentElement.setAttribute("data-lp-theme", t);
+        } catch (e) {
+          document.documentElement.setAttribute("data-lp-theme", "dark");
+        }
+      })();
+    </script>
     <link rel="icon" href="/favicon.png" type="image/png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#16a34a" />

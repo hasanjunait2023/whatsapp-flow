@@ -20,6 +20,7 @@ import {
   LandingWhatsAppFab,
   PixelScripts,
 } from "@/components/landing";
+import { LpThemeProvider } from "@/components/landing/LpThemeContext";
 
 import "@/styles/landing.css";
 
@@ -43,37 +44,41 @@ export default function Landing() {
   }, []);
 
   return (
-    <div className="lp min-h-screen">
-      <PixelScripts />
+    <LpThemeProvider>
+      {(theme) => (
+        <div className="lp min-h-screen" data-theme={theme}>
+          <PixelScripts />
 
-      {/* Skip link — first in DOM, visible on focus */}
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-[var(--lp-r-md)] focus:bg-lp-violet-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
-      >
-        Skip to content
-      </a>
+          {/* Skip link — first in DOM, visible on focus */}
+          <a
+            href="#main"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-[var(--lp-r-md)] focus:bg-lp-violet-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[color:var(--lp-on-accent)]"
+          >
+            Skip to content
+          </a>
 
-      <Nav />
+          <Nav />
 
-      <main id="main" className="pb-20 md:pb-0">
-        <Hero ctaRef={heroCtaRef} />
-        <TrustStrip />
-        <PainPanels />
-        <DataOwnership />
-        <HowItWorks />
-        <FeatureSpotlights />
-        <SocialProof />
-        <Integrations />
-        <Pricing />
-        <Faq />
-        <FinalCta />
-      </main>
+          <main id="main" className="pb-20 md:pb-0">
+            <Hero ctaRef={heroCtaRef} />
+            <TrustStrip />
+            <PainPanels />
+            <DataOwnership />
+            <HowItWorks />
+            <FeatureSpotlights />
+            <SocialProof />
+            <Integrations />
+            <Pricing />
+            <Faq />
+            <FinalCta />
+          </main>
 
-      <Footer />
+          <Footer />
 
-      <StickyMobileCta triggerRef={heroCtaRef} />
-      <LandingWhatsAppFab />
-    </div>
+          <StickyMobileCta triggerRef={heroCtaRef} />
+          <LandingWhatsAppFab />
+        </div>
+      )}
+    </LpThemeProvider>
   );
 }

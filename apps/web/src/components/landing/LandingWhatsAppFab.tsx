@@ -14,7 +14,7 @@ export function LandingWhatsAppFab() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="WhatsApp support"
-      className="group fixed bottom-6 right-6 z-40 hidden h-14 w-14 items-center justify-center rounded-full bg-lp-green-500 text-[#04130a] shadow-[var(--lp-glow-green)] transition-transform [transition-duration:var(--lp-dur)] hover:scale-105 md:flex"
+      className="group fixed bottom-6 right-6 z-40 hidden h-14 w-14 items-center justify-center rounded-full bg-lp-green-500 text-[color:var(--lp-on-green)] shadow-[var(--lp-glow-green)] transition-transform [transition-duration:var(--lp-dur)] hover:scale-105 md:flex"
     >
       <MessageCircle className="h-7 w-7" fill="currentColor" />
       <span

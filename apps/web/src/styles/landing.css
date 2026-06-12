@@ -2,41 +2,20 @@
  * Landing-page design system — scoped under `.lp`.
  * Imported ONLY by src/pages/Landing.tsx so it never leaks into the app shell.
  *
- * The landing page is ALWAYS dark and independent of the app's next-themes /
- * .scheme-* tokens. See apps/web/LANDING_DESIGN.md §1.1 / §2 for the source of truth.
+ * The landing page ships TWO self-contained themes (dark + light), switched via a
+ * `data-theme` attribute on the `.lp` root. This is fully independent of the app's
+ * next-themes / `.dark` / `.scheme-*` system (different attribute, different
+ * storage key `lp-theme`). See apps/web/LANDING_DESIGN.md §1.1 / §2.
+ *
+ * Token layout:
+ *   .lp                       → shared, theme-agnostic tokens (radius, type, motion, spacing)
+ *   .lp, .lp[data-theme=dark] → DARK color tokens (default — bare `.lp` is dark)
+ *   .lp[data-theme=light]     → LIGHT color tokens (re-tuned, not a flipped-contrast hack)
+ *
+ * Both themes meet WCAG AA (4.5:1) for body text and interactive states.
  */
 
 .lp {
-  /* ── Background layers (near-black, faint violet undertone) ── */
-  --lp-bg: #08080c;
-  --lp-bg-1: #0c0c13;
-  --lp-surface: #111119;
-  --lp-surface-2: #15151f;
-  --lp-surface-glass: rgba(255, 255, 255, 0.04);
-  --lp-elevated: #16131f;
-
-  /* ── Violet ramp (primary / brand) ── */
-  --lp-violet-50: #ede9fe;
-  --lp-violet-300: #c4b5fd;
-  --lp-violet-400: #a78bfa;
-  --lp-violet-500: #8b5cf6;
-  --lp-violet-600: #7c3aed;
-  --lp-violet-700: #6d28d9;
-
-  /* ── WhatsApp / success green (scarce, meaningful) ── */
-  --lp-green-400: #34d399;
-  --lp-green-500: #25d366;
-  --lp-green-600: #1ebe5d;
-  --lp-green-tint: rgba(37, 211, 102, 0.12);
-
-  /* ── Text & borders ── */
-  --lp-text: #f4f4f6;
-  --lp-text-muted: #a1a1b5;
-  --lp-text-dim: #6e6e85;
-  --lp-border: rgba(255, 255, 255, 0.08);
-  --lp-border-strong: rgba(255, 255, 255, 0.16);
-  --lp-border-violet: rgba(139, 92, 246, 0.45);
-
   /* ── Fonts ── */
   --lp-font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --lp-font-bn: "Noto Serif Bengali", serif;
@@ -47,13 +26,6 @@
   --lp-r-lg: 20px;
   --lp-r-xl: 28px;
   --lp-r-pill: 9999px;
-
-  /* ── Shadows / glows (glow + hairline, never gray drop-shadow) ── */
-  --lp-shadow-card: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px -12px rgba(0, 0, 0, 0.7);
-  --lp-shadow-pop: 0 16px 48px -16px rgba(0, 0, 0, 0.8);
-  --lp-glow-violet: 0 0 40px -8px rgba(124, 58, 237, 0.45);
-  --lp-glow-violet-lg: 0 0 120px 10px rgba(124, 58, 237, 0.3);
-  --lp-glow-green: 0 0 24px -6px rgba(37, 211, 102, 0.4);
 
   /* ── Spacing ── */
   --lp-space-section: clamp(4rem, 3rem + 6vw, 7.5rem);
@@ -72,7 +44,188 @@
   --lp-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --lp-ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
 
+  /* Smooth theme cross-fade (instant under reduced motion via the block below). */
+  transition:
+    background-color var(--lp-dur) var(--lp-ease),
+    color var(--lp-dur) var(--lp-ease);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * DARK THEME — the premium near-black violet (default for a bare `.lp`).
+ * ──────────────────────────────────────────────────────────────────────────── */
+.lp,
+.lp[data-theme="dark"] {
   color-scheme: dark;
+
+  /* Background layers (near-black, faint violet undertone) */
+  --lp-bg: #08080c;
+  --lp-bg-1: #0c0c13;
+  --lp-surface: #111119;
+  --lp-surface-2: #15151f;
+  --lp-surface-glass: rgba(255, 255, 255, 0.04);
+  --lp-elevated: #16131f;
+
+  /* Violet ramp (primary / brand). Hex for direct var() use; *-rgb triplets feed
+     Tailwind's rgb(var() / <alpha-value>) so opacity modifiers (/10, /40) work. */
+  --lp-violet-50: #ede9fe;
+  --lp-violet-300: #c4b5fd;
+  --lp-violet-400: #a78bfa;
+  --lp-violet-500: #8b5cf6;
+  --lp-violet-600: #7c3aed;
+  --lp-violet-700: #6d28d9;
+  --lp-violet-50-rgb: 237 233 254;
+  --lp-violet-300-rgb: 196 181 253;
+  --lp-violet-400-rgb: 167 139 250;
+  --lp-violet-500-rgb: 139 92 246;
+  --lp-violet-600-rgb: 124 58 237;
+  --lp-violet-700-rgb: 109 40 217;
+  /* Semantic accent aliases (let components stay theme-agnostic). */
+  --lp-accent: #8b5cf6; /* primary fill */
+  --lp-accent-hover: #7c3aed; /* primary fill hover */
+  --lp-accent-text: #a78bfa; /* violet accent text on canvas (AA) */
+  --lp-accent-text-strong: #c4b5fd; /* stronger violet text */
+  --lp-on-accent: #ffffff; /* text/icon on the violet fill */
+  --lp-accent-rgb: 139 92 246;
+  --lp-accent-text-rgb: 167 139 250;
+
+  /* WhatsApp / success green (scarce, meaningful) */
+  --lp-green-400: #34d399; /* success TEXT / ticks on dark (AA) */
+  --lp-green-500: #25d366; /* WhatsApp brand fill */
+  --lp-green-600: #1ebe5d;
+  --lp-green-tint: rgba(37, 211, 102, 0.12);
+  --lp-green-text: #34d399; /* theme-agnostic success text alias */
+  --lp-on-green: #04130a; /* text/icon on the green fill (AA 9.6:1) */
+  --lp-green-400-rgb: 52 211 153;
+  --lp-green-500-rgb: 37 211 102;
+  --lp-green-600-rgb: 30 190 93;
+
+  /* Status (problem cards / form errors) */
+  --lp-danger: #f87171;
+  --lp-danger-tint-from: rgba(248, 113, 113, 0.16);
+  --lp-danger-tint-to: rgba(248, 113, 113, 0.05);
+
+  /* Text & borders — light-on-dark */
+  --lp-text: #f4f4f6;
+  --lp-text-muted: #a1a1b5;
+  --lp-text-dim: #82829a; /* bumped from #6e6e85 → clears AA (4.5:1) for small text on every dark surface */
+  --lp-text-dim-rgb: 130 130 154; /* for bg-lp-dim/50, text-lp-dim/80 opacity modifiers */
+  --lp-border: rgba(255, 255, 255, 0.08);
+  --lp-border-strong: rgba(255, 255, 255, 0.16);
+  --lp-border-violet: rgba(139, 92, 246, 0.45);
+  --lp-border-green: rgba(52, 211, 153, 0.4);
+  --lp-green-wash: rgba(37, 211, 102, 0.06); /* faint green callout fill */
+
+  /* Icon-tile gradient + a neutral overlay that adapts per theme */
+  --lp-tile-violet: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(139, 92, 246, 0.06));
+  --lp-overlay-neutral: rgba(255, 255, 255, 0.05);
+
+  /* Shadows / glows — on dark we rely on glow + hairline, never gray drop-shadow */
+  --lp-shadow-card: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px -12px rgba(0, 0, 0, 0.7);
+  --lp-shadow-pop: 0 16px 48px -16px rgba(0, 0, 0, 0.8);
+  --lp-glow-violet: 0 0 40px -8px rgba(124, 58, 237, 0.45);
+  --lp-glow-violet-lg: 0 0 120px 10px rgba(124, 58, 237, 0.3);
+  --lp-glow-green: 0 0 24px -6px rgba(37, 211, 102, 0.4);
+
+  /* Decorative backdrop tuning (used by GlowBackdrop / hero) */
+  --lp-dot-color: rgba(255, 255, 255, 0.035);
+  --lp-orb-1: rgba(124, 58, 237, 0.28);
+  --lp-orb-1-mid: rgba(124, 58, 237, 0.1);
+  --lp-orb-2: rgba(139, 92, 246, 0.16);
+  --lp-wash-from: rgba(124, 58, 237, 0.14);
+  --lp-wash-mid: rgba(139, 92, 246, 0.04);
+  --lp-cta-wash-from: rgba(124, 58, 237, 0.18);
+  --lp-cta-wash-mid: rgba(139, 92, 246, 0.06);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * LIGHT THEME — soft, comfortable, violet-tinted off-white (NOT pure-white glare).
+ * Violet ramp darkened so it stays vivid + AA on light; green text darkened for AA;
+ * borders flip to dark-on-light hairlines; shadows become real soft elevation.
+ * ──────────────────────────────────────────────────────────────────────────── */
+.lp[data-theme="light"] {
+  color-scheme: light;
+
+  /* Background layers (cool, faint violet undertone — comfortable, low glare) */
+  --lp-bg: #f6f6fb; /* page canvas */
+  --lp-bg-1: #eae9f2; /* alt band / raised — deepened so the banding rhythm reads on light */
+  --lp-surface: #ffffff; /* card base (subtle layering on the off-white canvas) */
+  --lp-surface-2: #f3f2f9; /* card hover / nested */
+  --lp-surface-glass: rgba(255, 255, 255, 0.72); /* frosted glass over the colored backdrop */
+  --lp-elevated: #f6f3ff; /* highlighted pricing card (violet tint) */
+
+  /* Violet ramp re-tuned for light (darker primaries for AA + vividness on light) */
+  --lp-violet-50: #5b21b6; /* "tint text on violet" role inverts → dark violet text on light */
+  --lp-violet-300: #6d28d9; /* stronger violet text on light */
+  --lp-violet-400: #6d28d9; /* accent text on light (was the pale 400 on dark) */
+  --lp-violet-500: #7c3aed; /* primary fill (white-on-violet = 5.7:1 AA) */
+  --lp-violet-600: #6d28d9; /* primary fill hover */
+  --lp-violet-700: #5b21b6; /* borders / deepest violet text */
+  --lp-violet-50-rgb: 91 33 182;
+  --lp-violet-300-rgb: 109 40 217;
+  --lp-violet-400-rgb: 109 40 217;
+  --lp-violet-500-rgb: 124 58 237;
+  --lp-violet-600-rgb: 109 40 217;
+  --lp-violet-700-rgb: 91 33 182;
+  --lp-accent: #7c3aed;
+  --lp-accent-hover: #6d28d9;
+  --lp-accent-text: #6d28d9; /* 6.6:1 on canvas — AA */
+  --lp-accent-text-strong: #5b21b6; /* 8.3:1 on canvas */
+  --lp-on-accent: #ffffff;
+  --lp-accent-rgb: 124 58 237;
+  --lp-accent-text-rgb: 109 40 217;
+
+  /* Green — fill stays WhatsApp green; success TEXT darkens to pass AA on light
+     (≥4.95:1 on every light surface, including the alt band + green-tint chip). */
+  --lp-green-400: #0a7338; /* success TEXT / ticks on light */
+  --lp-green-500: #1aaf53; /* WhatsApp fill, slightly deepened so #04130a icon + edges read on light */
+  --lp-green-600: #15924a;
+  --lp-green-tint: rgba(10, 115, 56, 0.12);
+  --lp-green-text: #0a7338;
+  --lp-on-green: #04130a;
+  --lp-green-400-rgb: 10 115 56;
+  --lp-green-500-rgb: 26 175 83;
+  --lp-green-600-rgb: 21 146 74;
+
+  /* Status */
+  --lp-danger: #dc2626; /* red darkened for AA on light */
+  --lp-danger-tint-from: rgba(220, 38, 38, 0.12);
+  --lp-danger-tint-to: rgba(220, 38, 38, 0.04);
+
+  /* Text & borders — dark-on-light (the inverse hairline, not an inverted dark hack) */
+  --lp-text: #1a1a22; /* readable near-black, not pure #000 */
+  --lp-text-muted: #56566a; /* 6.6:1 on canvas — AA */
+  --lp-text-dim: #65657e; /* 5.2:1 on canvas — AA for small text */
+  --lp-text-dim-rgb: 101 101 126; /* for bg-lp-dim/50, text-lp-dim/80 opacity modifiers */
+  --lp-border: rgba(20, 20, 40, 0.1); /* hairline, dark-on-light */
+  --lp-border-strong: rgba(20, 20, 40, 0.18);
+  --lp-border-violet: rgba(124, 58, 237, 0.4);
+  --lp-border-green: rgba(10, 115, 56, 0.4);
+  --lp-green-wash: rgba(10, 115, 56, 0.07); /* faint green callout fill on light */
+
+  /* Icon-tile gradient (a touch stronger so it reads on white) + neutral overlay */
+  --lp-tile-violet: linear-gradient(135deg, rgba(124, 58, 237, 0.14), rgba(124, 58, 237, 0.05));
+  --lp-overlay-neutral: rgba(20, 20, 40, 0.04);
+
+  /* Shadows / glows — on light we use real soft, violet-tinted elevation (no muddy black) */
+  --lp-shadow-card: 0 1px 2px 0 rgba(20, 20, 50, 0.04), 0 10px 28px -14px rgba(40, 25, 80, 0.16);
+  --lp-shadow-pop: 0 18px 44px -18px rgba(40, 25, 80, 0.24);
+  --lp-glow-violet: 0 10px 36px -12px rgba(124, 58, 237, 0.4);
+  --lp-glow-violet-lg: 0 24px 90px -20px rgba(124, 58, 237, 0.28);
+  --lp-glow-green: 0 10px 26px -10px rgba(26, 175, 83, 0.4);
+
+  /* Decorative backdrop tuning — dark dots + softer, lighter orbs on the off-white */
+  --lp-dot-color: rgba(20, 20, 50, 0.05);
+  --lp-orb-1: rgba(124, 58, 237, 0.16);
+  --lp-orb-1-mid: rgba(124, 58, 237, 0.07);
+  --lp-orb-2: rgba(139, 92, 246, 0.12);
+  --lp-wash-from: rgba(124, 58, 237, 0.1);
+  --lp-wash-mid: rgba(139, 92, 246, 0.03);
+  --lp-cta-wash-from: rgba(124, 58, 237, 0.14);
+  --lp-cta-wash-mid: rgba(124, 58, 237, 0.05);
+}
+
+/* ── Base surface styles (shared; colors come from the active theme above) ── */
+.lp {
   background: var(--lp-bg);
   color: var(--lp-text);
   font-family: var(--lp-font-sans);
@@ -106,15 +259,15 @@
   letter-spacing: -0.03em;
 }
 
-/* Faint dot grid used behind the hero / flagship band. */
+/* Faint dot grid used behind the hero / flagship band — color follows the theme. */
 .lp .lp-dot-grid {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-image: radial-gradient(var(--lp-dot-color) 1px, transparent 1px);
   background-size: 28px 28px;
 }
 
-/* Focus-visible ring in the landing's violet, against the dark canvas. */
+/* Focus-visible ring in the landing's violet, against whatever canvas is active. */
 .lp :where(a, button, input, [tabindex]):focus-visible {
-  outline: 2px solid var(--lp-violet-400);
+  outline: 2px solid var(--lp-accent);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -140,6 +293,7 @@
 
 /* Reduce ALL motion inside the landing page when the user asks for it. */
 @media (prefers-reduced-motion: reduce) {
+  .lp,
   .lp *,
   .lp *::before,
   .lp *::after {
