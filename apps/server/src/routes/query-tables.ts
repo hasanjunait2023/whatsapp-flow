@@ -287,7 +287,8 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
     table: courierIntegrations,
     tenantColumn: "tenant_id",
     mutability: "readonly",
-    redactColumns: ["api_key", "api_secret"],
+    // settings holds Pathao's (encrypted) password — redact the whole blob too.
+    redactColumns: ["api_key", "api_secret", "settings"],
   },
   complaints: { table: complaints, tenantColumn: "tenant_id", mutability: "tenant" },
 

@@ -29,6 +29,8 @@ export function CourierSettings() {
     api_key: '',
     api_secret: '',
     store_id: '',
+    username: '',
+    password: '',
     is_active: false,
     default_pickup_address: {
       name: '',
@@ -90,7 +92,10 @@ export function CourierSettings() {
       store_id: pathaoForm.store_id,
       is_active: pathaoForm.is_active,
       default_pickup_address: pathaoForm.default_pickup_address,
-    });
+      // Pathao OAuth needs the merchant panel login; password is encrypted +
+      // redacted server-side, so it is re-entered on each edit.
+      settings: { username: pathaoForm.username, password: pathaoForm.password },
+    } as Parameters<typeof upsertIntegration.mutateAsync>[0]);
   };
 
   if (integrationsLoading) {
@@ -282,6 +287,27 @@ export function CourierSettings() {
                     onChange={(e) => setPathaoForm({ ...pathaoForm, store_id: e.target.value })}
                     placeholder="Your Pathao Store ID"
                   />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="pathao-username">Merchant Username (email)</Label>
+                    <Input
+                      id="pathao-username"
+                      value={pathaoForm.username}
+                      onChange={(e) => setPathaoForm({ ...pathaoForm, username: e.target.value })}
+                      placeholder="Pathao panel login email"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pathao-password">Merchant Password</Label>
+                    <Input
+                      id="pathao-password"
+                      type="password"
+                      value={pathaoForm.password}
+                      onChange={(e) => setPathaoForm({ ...pathaoForm, password: e.target.value })}
+                      placeholder="Pathao panel password"
+                    />
+                  </div>
                 </div>
 
                 <div className="border-t pt-4">

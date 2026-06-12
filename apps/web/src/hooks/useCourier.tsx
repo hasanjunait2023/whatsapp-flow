@@ -119,6 +119,7 @@ export function useCourier() {
           store_id: data.store_id,
           is_active: data.is_active ?? true,
           default_pickup_address: data.default_pickup_address || {},
+          settings: data.settings || undefined,
         },
       });
 
