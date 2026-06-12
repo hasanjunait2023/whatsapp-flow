@@ -16,6 +16,7 @@ import { adminBillingRoute } from "./routes/admin-billing.js";
 import { wahaWebhookRoute } from "./routes/waha/webhook.js";
 import { telegramWebhookRoute } from "./routes/webhooks/telegram.js";
 import { fbWebhookRoute, warnIfFbPagesUnverified } from "./routes/webhooks/fb.js";
+import { fbOauthStartRoute, fbOauthCallbackRoute } from "./routes/fb-oauth.js";
 import { startScheduler, stopScheduler } from "./jobs/scheduler.js";
 import { registerSoulJobs } from "./services/soul/index.js";
 import { registerHermesPipeline } from "./services/hermes/pipeline.js";
@@ -65,6 +66,9 @@ app.route("/api/telegram/webhook", telegramWebhookRoute);
 // --- Facebook webhook (machine caller; verify-token + per-page HMAC) ----------
 app.route("/api/webhooks/fb", fbWebhookRoute);
 
+// --- Facebook OAuth callback (browser redirect from Meta; signed-state auth) ---
+app.route("/api/fb/oauth/callback", fbOauthCallbackRoute);
+
 // --- authed API --------------------------------------------------------------
 const api = new Hono();
 api.use("*", tenantMiddleware);
@@ -75,6 +79,7 @@ api.route("/media", mediaRoute);
 api.route("/realtime", realtimeRoute);
 api.route("/llm-settings", llmSettingsRoute);
 api.route("/admin/billing", adminBillingRoute);
+api.route("/fb/oauth/start", fbOauthStartRoute);
 app.route("/api", api);
 
 // --- static SPA in production ------------------------------------------------

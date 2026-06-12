@@ -1,6 +1,7 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { facebookPages } from "../../db/schema.js";
+import { getPageToken } from "../facebook/oauth.js";
 
 /**
  * Facebook page ingestion via the Graph API, using the tenant's connected page
@@ -55,7 +56,9 @@ export function findConnectedPage(
     .from(facebookPages)
     .where(conds)
     .all();
-  return rows.find((r) => r.is_default) ?? rows[0];
+  const row = rows.find((r) => r.is_default) ?? rows[0];
+  if (!row) return undefined;
+  return { ...row, page_access_token: getPageToken(row.page_access_token) ?? "" };
 }
 
 export async function ingestFacebookPage(

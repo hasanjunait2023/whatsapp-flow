@@ -1,6 +1,13 @@
 import { sqlite } from "../db/index.js";
 import { emitChange } from "../realtime/emitter.js";
 import { FB_GRAPH_VERSION } from "../lib/env.js";
+import {
+  buildAuthUrl,
+  getPageToken,
+  isFbConnectConfigured,
+  signState,
+} from "../services/facebook/oauth.js";
+import { listConnectedPages } from "./fb-oauth.js";
 import type { FnContext, FnResult } from "./waha/session.js";
 
 /**
@@ -80,7 +87,7 @@ function loadFbContact(contactId: string, ctx: FnContext): FbContactRow | { erro
     .get(contactId) as FbContactRow | undefined;
   if (!row) return { error: "Contact not found" };
   if (!ctx.isAdmin && row.tenant_id !== ctx.tenantId) return { error: "Access denied" };
-  return row;
+  return { ...row, page_access_token: getPageToken(row.page_access_token) };
 }
 
 interface FbSendBody {
@@ -201,6 +208,7 @@ export async function fbReplyComment(raw: Record<string, unknown>, ctx: FnContex
     .get(body.comment_id) as FbCommentRow | undefined;
   if (!comment) return ok({ error: "Comment not found" });
   if (!ctx.isAdmin && comment.tenant_id !== ctx.tenantId) return ok({ error: "Access denied" });
+  comment.page_access_token = getPageToken(comment.page_access_token);
   if (!comment.page_access_token) return ok({ error: "Page access token not found" });
 
   const url = `${GRAPH}/${comment.fb_comment_id}/comments`;
@@ -280,8 +288,45 @@ export async function fbRefreshProfile(raw: Record<string, unknown>, ctx: FnCont
   return ok({ success: true, name: profile.name, profile_pic_url: profile.profile_pic });
 }
 
+/** fb-oauth-url: returns the FB Login dialog URL (for popup/new-tab flows). */
+export async function fbOauthUrl(_raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
+  if (!isFbConnectConfigured()) {
+    return ok({ error: "Facebook connect is not configured" });
+  }
+  if (!ctx.tenantId) return ok({ error: "No tenant" });
+  const state = signState(ctx.tenantId, ctx.userId ?? "");
+  return ok({ url: buildAuthUrl(state) });
+}
+
+/** fb-pages-list: connected pages for the tenant, secrets stripped. */
+export async function fbPagesList(_raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
+  if (!ctx.tenantId) return ok({ error: "No tenant" });
+  return ok({ pages: listConnectedPages(ctx.tenantId) });
+}
+
+/** fb-page-disconnect: marks a page disconnected and clears its token. */
+export async function fbPageDisconnect(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
+  const pageId = raw.page_id as string | undefined;
+  if (!pageId) return ok({ error: "page_id is required" });
+  const page = sqlite
+    .prepare("SELECT id, tenant_id FROM facebook_pages WHERE id = ? LIMIT 1")
+    .get(pageId) as { id: string; tenant_id: string } | undefined;
+  if (!page) return ok({ error: "Page not found" });
+  if (!ctx.isAdmin && page.tenant_id !== ctx.tenantId) return ok({ error: "Access denied" });
+  sqlite
+    .prepare(
+      "UPDATE facebook_pages SET status = 'disconnected', page_access_token = '', updated_at = ? WHERE id = ?",
+    )
+    .run(new Date().toISOString(), page.id);
+  emitChange("facebook_pages", page.tenant_id, { id: page.id });
+  return ok({ success: true });
+}
+
 export const FB_HANDLERS = {
   "fb-send-message": fbSendMessage,
   "fb-reply-comment": fbReplyComment,
   "fb-refresh-profile": fbRefreshProfile,
+  "fb-oauth-url": fbOauthUrl,
+  "fb-pages-list": fbPagesList,
+  "fb-page-disconnect": fbPageDisconnect,
 };

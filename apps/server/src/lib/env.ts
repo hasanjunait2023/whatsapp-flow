@@ -114,6 +114,25 @@ export const FB_GRAPH_VERSION = process.env.FB_GRAPH_VERSION ?? "v21.0";
 export const FB_WEBHOOK_VERIFY_TOKEN = process.env.FB_WEBHOOK_VERIFY_TOKEN ?? "";
 
 /**
+ * Meta app credentials for the Facebook Login (page connect) OAuth flow.
+ * Read lazily so tests can set them per-suite; empty = FB connect disabled.
+ */
+export function getFbAppId(): string {
+  return process.env.FB_APP_ID ?? "";
+}
+export function getFbAppSecret(): string {
+  return process.env.FB_APP_SECRET ?? "";
+}
+/** Optional Facebook Login for Business configuration id (replaces scope list). */
+export function getFbLoginConfigId(): string {
+  return process.env.FB_LOGIN_CONFIG_ID ?? "";
+}
+/** OAuth redirect URI registered in the Meta app; defaults to this server. */
+export function getFbOauthRedirectUrl(): string {
+  return process.env.FB_OAUTH_REDIRECT_URL ?? `${AUTH_BASE_URL}/api/fb/oauth/callback`;
+}
+
+/**
  * Master key for AES-256-GCM encryption of stored secrets (per-tenant API keys).
  * 64 hex chars (32 bytes). Required at runtime by lib/crypto.ts, not at import.
  */
