@@ -5,6 +5,17 @@ import path from "node:path";
  * tooling (drizzle-kit, tests) can import the schema without a full runtime env.
  */
 
+// Dev convenience: load ./.env (apps/server/.env, gitignored) when present.
+// Production gets env from compose env_file; tests set process.env directly
+// before importing this module, so both are excluded.
+if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test") {
+  try {
+    (process as unknown as { loadEnvFile?: () => void }).loadEnvFile?.();
+  } catch {
+    // no .env file — shell environment is the source of truth
+  }
+}
+
 export const DB_PATH = process.env.DB_PATH ?? path.resolve(process.cwd(), "data", "app.db");
 
 export const MEDIA_DIR =
