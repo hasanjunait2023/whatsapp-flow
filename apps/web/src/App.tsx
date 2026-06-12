@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
+const PublicLanding = lazy(() => import("@/pages/Landing"));
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/useAuth";
 import { TenantProvider } from "@/contexts/TenantContext";
@@ -166,6 +168,9 @@ const App = () => (
                         <Routes>
                           {/* Public routes */}
                           <Route path="/" element={<RootRedirect />} />
+                          {/* Direct public landing — always renders, no auth gating */}
+                          <Route path="/home" element={<Suspense fallback={<div className="min-h-screen bg-[#08080c]" />}><PublicLanding /></Suspense>} />
+                          <Route path="/landing" element={<Suspense fallback={<div className="min-h-screen bg-[#08080c]" />}><PublicLanding /></Suspense>} />
                           <Route path="/auth/login" element={<Login />} />
                           <Route path="/auth/signup" element={<Signup />} />
                           <Route path="/invite/:token" element={<AcceptInvitation />} />
