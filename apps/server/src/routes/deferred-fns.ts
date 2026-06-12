@@ -16,10 +16,8 @@ function disabled(): Promise<FnResult> {
   });
 }
 
-// Courier (BD courier risk check + parcel booking/tracking)
-const bdcourierCheck = (_b: Record<string, unknown>, _c: FnContext) => disabled();
-const courierBookParcel = (_b: Record<string, unknown>, _c: FnContext) => disabled();
-const courierTrackParcel = (_b: Record<string, unknown>, _c: FnContext) => disabled();
+// Courier (BD courier risk check + parcel booking/tracking) is now LIVE — see
+// routes/courier-fns.ts (COURIER_HANDLERS). Kept out of this deferred set.
 
 // Marketing Sequences (admin nurture automation)
 const marketingAutomationCron = (_b: Record<string, unknown>, _c: FnContext) => disabled();
@@ -32,9 +30,6 @@ const woocommerceSync = (_b: Record<string, unknown>, _c: FnContext) => disabled
 const groupBatchProcessor = (_b: Record<string, unknown>, _c: FnContext) => disabled();
 
 export const DEFERRED_HANDLERS = {
-  "bdcourier-check": bdcourierCheck,
-  "courier-book-parcel": courierBookParcel,
-  "courier-track-parcel": courierTrackParcel,
   "marketing-automation-cron": marketingAutomationCron,
   "woocommerce-sync": woocommerceSync,
   "group-batch-processor": groupBatchProcessor,

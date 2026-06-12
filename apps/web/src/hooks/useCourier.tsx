@@ -108,20 +108,19 @@ export function useCourier() {
     mutationFn: async (data: Partial<CourierIntegration> & { provider: 'steadfast' | 'pathao' }) => {
       if (!tenantId) throw new Error('No tenant selected');
 
-      const { data: result, error } = await supabase
-        .from('courier_integrations')
-        .upsert({
-          tenant_id: tenantId,
+      // Credentials are encrypted server-side, so save goes through a dedicated
+      // fn (the courier_integrations table is read-only + secret-redacted via
+      // the generic API). Empty api_key/secret leave the stored value untouched.
+      const { data: result, error } = await supabase.functions.invoke('courier-save-integration', {
+        body: {
           provider: data.provider,
           api_key: data.api_key,
           api_secret: data.api_secret,
           store_id: data.store_id,
           is_active: data.is_active ?? true,
           default_pickup_address: data.default_pickup_address || {},
-          settings: data.settings || {},
-        }, { onConflict: 'tenant_id,provider' })
-        .select()
-        .single();
+        },
+      });
 
       if (error) throw error;
       return result;

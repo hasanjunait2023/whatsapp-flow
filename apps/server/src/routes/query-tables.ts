@@ -277,9 +277,18 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
   // === Invoices / Shipments / Courier =======================================
   invoices: { table: invoices, tenantColumn: "tenant_id", mutability: "tenant" },
   invoice_settings: { table: invoiceSettings, tenantColumn: "tenant_id", mutability: "tenant" },
-  shipments: { table: shipments, tenantColumn: "tenant_id", mutability: "tenant" },
-  // courier_integrations holds api_key / api_secret — keep out of the generic
-  // allowlist entirely. (Settings reads a redacted projection via a future route.)
+  // Shipments are created/updated only by the courier fns; expose read-only.
+  shipments: { table: shipments, tenantColumn: "tenant_id", mutability: "readonly" },
+  // courier_integrations holds api_key / api_secret — readable (so Settings can
+  // show provider/is_active/store_id/pickup) but the secret columns are REDACTED,
+  // and it is read-only here: writes go through courier-save-integration (which
+  // encrypts the credentials). See routes/courier-fns.ts.
+  courier_integrations: {
+    table: courierIntegrations,
+    tenantColumn: "tenant_id",
+    mutability: "readonly",
+    redactColumns: ["api_key", "api_secret"],
+  },
   complaints: { table: complaints, tenantColumn: "tenant_id", mutability: "tenant" },
 
   // === Automation / Workflows / Auto-messages ===============================
