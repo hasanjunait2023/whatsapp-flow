@@ -153,6 +153,24 @@ export async function uddoktapayVerify(raw: Record<string, unknown>, ctx: FnCont
   const invoiceId = raw.invoice_id as string | undefined;
   if (!invoiceId) return ok({ success: false, error: "Invoice ID required" });
 
+  // Resolve + authorize the local payment BEFORE calling the gateway, so a
+  // tenant can't trigger verification calls for invoice_ids they don't own.
+  const payment = sqlite
+    .prepare(
+      "SELECT id, tenant_id, subscription_id, amount, status, notes FROM payments WHERE uddoktapay_invoice_id = ? LIMIT 1",
+    )
+    .get(invoiceId) as PaymentRow | undefined;
+  if (!payment) {
+    return ok({ success: false, error: "Payment record not found" });
+  }
+  if (!ctx.isAdmin && payment.tenant_id !== ctx.tenantId) {
+    return ok({ success: false, error: "Forbidden tenant" });
+  }
+
+  if (payment.status === "verified") {
+    return ok({ success: true, message: "Payment already verified", status: "verified", amount: payment.amount });
+  }
+
   let verifyData: {
     status?: string;
     transaction_id?: string;
@@ -175,22 +193,6 @@ export async function uddoktapayVerify(raw: Record<string, unknown>, ctx: FnCont
     }
   } catch (err) {
     return ok({ success: false, error: err instanceof Error ? err.message : "Verification failed" });
-  }
-
-  const payment = sqlite
-    .prepare(
-      "SELECT id, tenant_id, subscription_id, amount, status, notes FROM payments WHERE uddoktapay_invoice_id = ? LIMIT 1",
-    )
-    .get(invoiceId) as PaymentRow | undefined;
-  if (!payment) {
-    return ok({ success: false, error: "Payment record not found", verification_status: verifyData.status });
-  }
-  if (!ctx.isAdmin && payment.tenant_id !== ctx.tenantId) {
-    return ok({ success: false, error: "Forbidden tenant" });
-  }
-
-  if (payment.status === "verified") {
-    return ok({ success: true, message: "Payment already verified", status: "verified", amount: payment.amount });
   }
 
   const isCompleted = verifyData.status === "COMPLETED";

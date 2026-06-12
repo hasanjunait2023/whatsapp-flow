@@ -19,6 +19,9 @@ type RpcHandler = (
 const ok = (data: unknown) => ({ data, error: null });
 const fail = (message: string) => ({ data: null, error: { message } });
 
+/** Upper bound on id arrays expanded into an IN(...) clause (DoS / variable cap). */
+const MAX_IN_IDS = 500;
+
 /** Confirms a contact row belongs to the active tenant (or caller is admin). */
 function assertContactInTenant(contactId: string, ctx: RpcCtx): boolean {
   if (ctx.isAdmin) return true;
@@ -37,6 +40,9 @@ function assertContactInTenant(contactId: string, ctx: RpcCtx): boolean {
 const getLastMessagesForContacts: RpcHandler = async (args, ctx) => {
   const ids = (args.p_contact_ids as string[]) ?? [];
   if (!Array.isArray(ids) || ids.length === 0) return ok([]);
+  // Bound the IN(...) size: caps SQL variable count and prevents an abusive
+  // caller from forcing a huge query. The inbox never needs more per page.
+  if (ids.length > MAX_IN_IDS) return fail(`Too many ids (max ${MAX_IN_IDS})`);
   if (!ctx.tenantId && !ctx.isAdmin) return fail("No active tenant");
 
   const placeholders = ids.map(() => "?").join(",");

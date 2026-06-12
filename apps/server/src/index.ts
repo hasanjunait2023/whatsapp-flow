@@ -20,7 +20,15 @@ import { startScheduler, stopScheduler } from "./jobs/scheduler.js";
 import { registerSoulJobs } from "./services/soul/index.js";
 import { registerHermesPipeline } from "./services/hermes/pipeline.js";
 import { registerCeoJobs } from "./services/ceo/index.js";
-import { PORT, IS_PRODUCTION, WEB_DIST_DIR, warnIfWebhookUnverified } from "./lib/env.js";
+import { PORT, IS_PRODUCTION, WEB_DIST_DIR, warnIfWebhookUnverified, getMasterKey } from "./lib/env.js";
+
+// Fail fast at startup (production only) if the secret-encryption key is missing
+// or malformed. Without this, MASTER_KEY is validated lazily on the first
+// encryptSecret() call (e.g. a tenant saving an API key), surfacing as a
+// confusing mid-request 500 instead of a clean boot failure.
+if (IS_PRODUCTION) {
+  getMasterKey();
+}
 
 const app = new Hono();
 

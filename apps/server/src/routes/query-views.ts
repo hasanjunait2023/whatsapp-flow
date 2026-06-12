@@ -65,6 +65,10 @@ function contactCustomerStatus(req: QueryRequest, ctx: TenantContext): QueryResp
   if (inFilter && Array.isArray(inFilter.value)) {
     const ids = inFilter.value as string[];
     if (ids.length === 0) return { data: [], error: null };
+    // Bound the IN(...) expansion (SQL variable cap / DoS guard).
+    if (ids.length > 500) {
+      return { data: null, error: { message: "Too many contact_id values (max 500)", code: "too_many_ids" } };
+    }
     conds.push(`c.id IN (${ids.map(() => "?").join(",")})`);
     params.push(...ids);
   }

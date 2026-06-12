@@ -337,22 +337,33 @@ export const quickReplies = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
-// message_templates (no tenant_id in source schema)
+// message_templates (tenant-scoped: each tenant manages its own templates)
 // ---------------------------------------------------------------------------
-export const messageTemplates = sqliteTable("message_templates", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  category: text("category").notNull(),
-  channel: text("channel").default("whatsapp").notNull(),
-  content: text("content").notNull(),
-  created_at: text("created_at").default(nowIso),
-  is_active: integer("is_active", { mode: "boolean" }),
-  name: text("name").notNull(),
-  placeholders: text("placeholders", { mode: "json" }),
-  subject: text("subject"),
-  updated_at: text("updated_at").default(nowIso),
-});
+export const messageTemplates = sqliteTable(
+  "message_templates",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    // Nullable at the DB level only because SQLite cannot ADD a NOT NULL column
+    // without a default to an existing table. Tenancy is enforced at the app
+    // layer: query-tables marks tenantColumn "tenant_id" so reads are scoped and
+    // forceTenantOnRow stamps it on every insert.
+    tenant_id: text("tenant_id"),
+    category: text("category").notNull(),
+    channel: text("channel").default("whatsapp").notNull(),
+    content: text("content").notNull(),
+    created_at: text("created_at").default(nowIso),
+    is_active: integer("is_active", { mode: "boolean" }),
+    name: text("name").notNull(),
+    placeholders: text("placeholders", { mode: "json" }),
+    subject: text("subject"),
+    updated_at: text("updated_at").default(nowIso),
+  },
+  (t) => ({
+    tenantIdx: index("message_templates_tenant_id_idx").on(t.tenant_id),
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // tenant_daily_stats (composite PK: tenant_id + stat_date)

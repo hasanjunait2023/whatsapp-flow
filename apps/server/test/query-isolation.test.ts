@@ -118,6 +118,61 @@ describe("tenantViaParent scoping (CRITICAL)", () => {
   });
 });
 
+describe("message_templates tenant scoping (HIGH — audit F1)", () => {
+  beforeAll(() => {
+    sqlite
+      .prepare(
+        `INSERT INTO message_templates (id, tenant_id, category, channel, content, name)
+         VALUES (?, ?, 'greet', 'whatsapp', ?, ?)`,
+      )
+      .run("tpl-a", TENANT_A, "hello A", "A tpl");
+    sqlite
+      .prepare(
+        `INSERT INTO message_templates (id, tenant_id, category, channel, content, name)
+         VALUES (?, ?, 'greet', 'whatsapp', ?, ?)`,
+      )
+      .run("tpl-b", TENANT_B, "B-SECRET-TEMPLATE", "B tpl");
+  });
+
+  it("select returns only the active tenant's templates", async () => {
+    const res = await executeQuery({ table: "message_templates", op: "select", columns: "*" }, ctxFor(TENANT_A));
+    expect(res.error).toBeNull();
+    const rows = res.data as Array<{ id: string }>;
+    expect(rows.map((r) => r.id)).toEqual(["tpl-a"]);
+    expect(JSON.stringify(rows)).not.toContain("B-SECRET-TEMPLATE");
+  });
+
+  it("update cannot reach another tenant's template", async () => {
+    await executeQuery(
+      {
+        table: "message_templates",
+        op: "update",
+        values: { content: "HIJACKED" },
+        filters: [{ column: "id", operator: "eq", value: "tpl-b" }],
+      },
+      ctxFor(TENANT_A),
+    );
+    const row = sqlite.prepare("SELECT content FROM message_templates WHERE id = 'tpl-b'").get() as { content: string };
+    expect(row.content).toBe("B-SECRET-TEMPLATE"); // tenant A could not modify tenant B's row
+  });
+
+  it("insert stamps the active tenant (cannot forge another tenant)", async () => {
+    await executeQuery(
+      {
+        table: "message_templates",
+        op: "insert",
+        values: { id: "tpl-evil", tenant_id: TENANT_B, category: "x", content: "y", name: "z" },
+      },
+      ctxFor(TENANT_A),
+    );
+    const row = sqlite.prepare("SELECT tenant_id FROM message_templates WHERE id = 'tpl-evil'").get() as
+      | { tenant_id: string }
+      | undefined;
+    // forceTenantOnRow rewrites tenant_id to the caller's tenant, not the forged one.
+    expect(row?.tenant_id).toBe(TENANT_A);
+  });
+});
+
 describe("accept-invitation identity binding (HIGH)", () => {
   beforeAll(() => {
     sqlite

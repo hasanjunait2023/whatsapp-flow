@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { sqlite } from "../../db/index.js";
 import { emitChange } from "../../realtime/emitter.js";
 import { CRYPTO_USDT_ADDRESS_TRC20, CRYPTO_USDT_ADDRESS_BEP20 } from "../../lib/env.js";
@@ -49,7 +50,7 @@ function getPlan(planId: string): PlanRow {
  */
 function saltedAmount(baseAmount: number): number {
   for (let i = 0; i < SALT_ATTEMPTS; i++) {
-    const salt = Math.floor(Math.random() * 99) + 1; // 0.01 .. 0.99
+    const salt = randomInt(1, 100); // 0.01 .. 0.99 (CSPRNG — not predictable)
     const candidate = Math.round(baseAmount * 100 + salt) / 100;
     const clash = sqlite
       .prepare(

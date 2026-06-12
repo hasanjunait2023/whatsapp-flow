@@ -83,6 +83,37 @@ async function createSession(body: Record<string, unknown>, ctx: FnContext): Pro
     .get(tenantId) as InstanceRow | undefined;
 
   if (!instance) {
+    // Enforce the plan's instance cap before provisioning a new number.
+    // Without this a tenant could loop create-session to provision unlimited
+    // instances regardless of their subscription (billing bypass). Admins
+    // (incl. impersonation) bypass so support can provision on a tenant's behalf.
+    if (!ctx.isAdmin) {
+      const planRow = sqlite
+        .prepare(
+          `SELECT COALESCE(p.max_instances, 1) AS max
+             FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+            WHERE s.tenant_id = ? AND s.status IN ('active','trialing','past_due')
+            ORDER BY s.created_at DESC LIMIT 1`,
+        )
+        .get(tenantId) as { max: number } | undefined;
+      const cap = planRow?.max ?? 1;
+      const live = sqlite
+        .prepare(
+          `SELECT COUNT(*) AS n FROM whatsapp_instances
+            WHERE tenant_id = ? AND (is_deleted IS NULL OR is_deleted = 0)`,
+        )
+        .get(tenantId) as { n: number };
+      if (live.n >= cap) {
+        return {
+          data: null,
+          error: {
+            message: `Instance limit reached (${cap}). Upgrade your plan to add more numbers.`,
+            code: "INSTANCE_LIMIT_REACHED",
+          },
+        };
+      }
+    }
+
     const tenant = sqlite
       .prepare("SELECT name FROM tenants WHERE id = ? LIMIT 1")
       .get(tenantId) as { name: string } | undefined;

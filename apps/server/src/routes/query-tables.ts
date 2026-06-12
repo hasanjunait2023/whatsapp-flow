@@ -205,7 +205,7 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
     mutability: "tenant",
   },
   quick_replies: { table: quickReplies, tenantColumn: "tenant_id", mutability: "tenant" },
-  message_templates: { table: messageTemplates, tenantColumn: null, mutability: "tenant" },
+  message_templates: { table: messageTemplates, tenantColumn: "tenant_id", mutability: "tenant" },
   tenant_daily_stats: { table: tenantDailyStats, tenantColumn: "tenant_id", mutability: "readonly" },
   notifications: { table: notifications, tenantColumn: "tenant_id", mutability: "tenant" },
   // Usage counters are incremented only by the messaging/webhook server paths
