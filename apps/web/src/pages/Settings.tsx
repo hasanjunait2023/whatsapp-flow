@@ -12,75 +12,63 @@ import { NotificationSettings } from '@/components/settings/NotificationSettings
 import { FeedbackSettings } from '@/components/settings/FeedbackSettings';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { m, pageEnter } from '@/lib/motion';
 import { Zap, Shield, Palette, Building2, User, ShoppingBag, FileText, Truck, Facebook, Send, Star } from 'lucide-react';
+
+const SETTINGS_TABS = [
+  { value: 'profile', label: 'Profile', icon: User },
+  { value: 'workspace', label: 'Workspace', icon: Building2 },
+  { value: 'quick-replies', label: 'Quick Replies', icon: Zap },
+  { value: 'feedback', label: 'Feedback', icon: Star },
+  { value: 'invoice', label: 'Invoice', icon: FileText },
+  { value: 'courier', label: 'Courier', icon: Truck },
+  { value: 'facebook', label: 'Facebook', icon: Facebook },
+  { value: 'integrations', label: 'Integrations', icon: ShoppingBag },
+  { value: 'appearance', label: 'Appearance', icon: Palette },
+  { value: 'notifications', label: 'Telegram', icon: Send },
+  { value: 'security', label: 'Security', icon: Shield },
+] as const;
 
 export default function Settings() {
   const { tab } = useParams();
   const navigate = useNavigate();
-  
+
   // Map URL param to valid tab value, default to 'profile'
-  const validTabs = ['profile', 'workspace', 'quick-replies', 'feedback', 'invoice', 'courier', 'facebook', 'integrations', 'appearance', 'notifications', 'security'];
+  const validTabs = SETTINGS_TABS.map((t) => t.value) as string[];
   const activeTab = tab && validTabs.includes(tab) ? tab : 'profile';
-  
+
   const handleTabChange = (value: string) => {
     navigate(`/settings/${value}`, { replace: true });
   };
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-          <p className="text-muted-foreground">Manage your workspace and profile settings</p>
-        </div>
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
+        {/* Header */}
+        <header className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">Settings</h1>
+          <p className="text-sm text-muted-foreground">Manage your workspace and profile settings</p>
+        </header>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <div className="overflow-x-auto pb-2 -mx-2 px-2">
-            <TabsList className="flex-wrap h-auto p-2 gap-2">
-              <TabsTrigger value="profile" className="gap-2">
-                <User className="h-4 w-4" />
-                <span className="hidden sm:inline">Profile</span>
-              </TabsTrigger>
-              <TabsTrigger value="workspace" className="gap-2">
-                <Building2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Workspace</span>
-              </TabsTrigger>
-              <TabsTrigger value="quick-replies" className="gap-2">
-                <Zap className="h-4 w-4" />
-                <span className="hidden sm:inline">Quick Replies</span>
-              </TabsTrigger>
-              <TabsTrigger value="feedback" className="gap-2">
-                <Star className="h-4 w-4" />
-                <span className="hidden sm:inline">Feedback</span>
-              </TabsTrigger>
-              <TabsTrigger value="invoice" className="gap-2">
-                <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Invoice</span>
-              </TabsTrigger>
-              <TabsTrigger value="courier" className="gap-2">
-                <Truck className="h-4 w-4" />
-                <span className="hidden sm:inline">Courier</span>
-              </TabsTrigger>
-              <TabsTrigger value="facebook" className="gap-2">
-                <Facebook className="h-4 w-4" />
-                <span className="hidden sm:inline">Facebook</span>
-              </TabsTrigger>
-              <TabsTrigger value="integrations" className="gap-2">
-                <ShoppingBag className="h-4 w-4" />
-                <span className="hidden sm:inline">Integrations</span>
-              </TabsTrigger>
-              <TabsTrigger value="appearance" className="gap-2">
-                <Palette className="h-4 w-4" />
-                <span className="hidden sm:inline">Appearance</span>
-              </TabsTrigger>
-              <TabsTrigger value="notifications" className="gap-2">
-                <Send className="h-4 w-4" />
-                <span className="hidden sm:inline">Telegram</span>
-              </TabsTrigger>
-              <TabsTrigger value="security" className="gap-2">
-                <Shield className="h-4 w-4" />
-                <span className="hidden sm:inline">Security</span>
-              </TabsTrigger>
+          {/* Pill tab-track — scrolls horizontally on small screens, no wrap, no page overflow. */}
+          <div className="-mx-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0">
+            <TabsList className="w-max">
+              {SETTINGS_TABS.map(({ value, label, icon: Icon }) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className="h-11 gap-2 sm:h-9"
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{label}</span>
+                </TabsTrigger>
+              ))}
             </TabsList>
           </div>
 
@@ -143,7 +131,7 @@ export default function Settings() {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
+      </m.div>
     </DashboardLayout>
   );
 }
