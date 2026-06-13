@@ -418,7 +418,7 @@ export default function ChatInput({ onSendMessage, disabled, sending, replyingTo
       <div className="flex items-end gap-2 p-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0" disabled={isDisabled}>
+            <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" disabled={isDisabled} aria-label="Attach file">
               <Paperclip className="h-5 w-5 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
@@ -455,12 +455,13 @@ export default function ChatInput({ onSendMessage, disabled, sending, replyingTo
         {/* Quick Replies Button */}
         <Popover open={quickReplyOpen} onOpenChange={setQuickReplyOpen}>
           <PopoverTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-10 w-10 shrink-0" 
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11 shrink-0"
               disabled={isDisabled}
               title="Quick Replies (type / to search)"
+              aria-label="Quick replies"
             >
               <Zap className="h-5 w-5 text-muted-foreground" />
             </Button>
@@ -531,7 +532,7 @@ export default function ChatInput({ onSendMessage, disabled, sending, replyingTo
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={isDisabled}
-            className="min-h-[44px] max-h-[120px] resize-none pr-12"
+            className="min-h-[44px] max-h-[120px] resize-none pr-12 rounded-control bg-muted/50 border-transparent focus-visible:bg-background focus-visible:border-input"
             rows={1}
           />
           <Button 
@@ -561,18 +562,20 @@ export default function ChatInput({ onSendMessage, disabled, sending, replyingTo
           <Button
             onClick={handleSend}
             disabled={isDisabled || sending || !message.trim()}
-            className="h-10 w-10 shrink-0 rounded-full bg-brand hover:bg-brand/90"
+            className="h-11 w-11 shrink-0 rounded-full"
             size="icon"
+            aria-label="Send message"
           >
             {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </Button>
         ) : (
-          <Button 
-            variant="ghost" 
-            className="h-10 w-10 shrink-0" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            className="h-11 w-11 shrink-0"
+            size="icon"
             disabled={isDisabled}
             onClick={() => setShowVoiceRecorder(true)}
+            aria-label="Record voice message"
           >
             <Mic className="h-5 w-5 text-muted-foreground" />
           </Button>

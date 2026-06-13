@@ -187,7 +187,7 @@ export default function Inbox() {
         />
 
          {/* Tabs */}
-         <div className="px-4 py-2 border-b border-border bg-background">
+         <div className="px-4 py-2 border-b border-border bg-card">
            <Tabs value={activeTab} onValueChange={handleTabChange}>
              <TabsList className="w-full max-w-[300px]">
                <TabsTrigger value="chats" className="flex-1 gap-2">
@@ -335,11 +335,11 @@ export default function Inbox() {
  
            {/* Empty state when no contact selected - Desktop only for chats tab */}
            {activeTab === 'chats' && !isMobile && !currentContact && (
-            <div className="flex-1 h-full flex flex-col items-center justify-center bg-muted/30">
-              <div className="h-20 w-20 rounded-full bg-brand/10 flex items-center justify-center mb-6">
-                <MessageCircle className="h-10 w-10 text-brand" />
+            <div className="flex-1 h-full flex flex-col items-center justify-center bg-muted/30 px-6">
+              <div className="h-20 w-20 rounded-card bg-accent flex items-center justify-center mb-6">
+                <MessageCircle className="h-10 w-10 text-primary" />
               </div>
-              <h2 className="text-xl font-semibold text-foreground mb-2">
+              <h2 className="text-xl font-semibold tracking-tight text-foreground mb-2">
                 WhatsCRM Inbox
               </h2>
               <p className="text-muted-foreground text-center max-w-sm">
@@ -350,11 +350,11 @@ export default function Inbox() {
 
            {/* Empty state when no group selected - Desktop only for groups tab */}
            {activeTab === 'groups' && !isMobile && !selectedGroup && (
-             <div className="flex-1 h-full flex flex-col items-center justify-center bg-muted/30">
-               <div className="h-20 w-20 rounded-full bg-brand/10 flex items-center justify-center mb-6">
-                 <Users className="h-10 w-10 text-brand" />
+             <div className="flex-1 h-full flex flex-col items-center justify-center bg-muted/30 px-6">
+               <div className="h-20 w-20 rounded-card bg-accent flex items-center justify-center mb-6">
+                 <Users className="h-10 w-10 text-primary" />
                </div>
-               <h2 className="text-xl font-semibold text-foreground mb-2">
+               <h2 className="text-xl font-semibold tracking-tight text-foreground mb-2">
                  গ্রুপ ইনবক্স
                </h2>
                <p className="text-muted-foreground text-center max-w-sm">

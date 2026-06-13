@@ -1,6 +1,7 @@
 import { Message } from '@/hooks/useMessages';
 import { linkifyText } from '@/lib/linkify';
 import { cn } from '@/lib/utils';
+import { m } from '@/lib/motion';
 import { format } from 'date-fns';
 import { Check, CheckCheck, Clock, AlertCircle, Bot, FileText, Download, MapPin, Reply, User, Smartphone, Trash2, Forward, Square, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -97,7 +98,7 @@ export default function MessageBubble({
             )}
             {message.content && (
               <p className="text-sm whitespace-pre-wrap break-words">
-                {linkifyText(message.content, isOutbound ? 'text-blue-200 hover:underline break-all' : 'text-primary hover:underline break-all')}
+                {linkifyText(message.content, isOutbound ? 'text-primary-foreground underline hover:opacity-80 break-all' : 'text-primary hover:underline break-all')}
               </p>
             )}
           </div>
@@ -118,7 +119,7 @@ export default function MessageBubble({
             )}
             {message.content && (
               <p className="text-sm whitespace-pre-wrap break-words">
-                {linkifyText(message.content, isOutbound ? 'text-blue-200 hover:underline break-all' : 'text-primary hover:underline break-all')}
+                {linkifyText(message.content, isOutbound ? 'text-primary-foreground underline hover:opacity-80 break-all' : 'text-primary hover:underline break-all')}
               </p>
             )}
           </div>
@@ -214,7 +215,7 @@ export default function MessageBubble({
       default:
         return (
           <p className="text-sm whitespace-pre-wrap break-words">
-            {linkifyText(message.content || '', isOutbound ? 'text-blue-200 hover:underline break-all' : 'text-primary hover:underline break-all')}
+            {linkifyText(message.content || '', isOutbound ? 'text-primary-foreground underline hover:opacity-80 break-all' : 'text-primary hover:underline break-all')}
           </p>
         );
     }
@@ -283,23 +284,26 @@ export default function MessageBubble({
         </Button>
       )}
 
-      <div
+      <m.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
         className={cn(
-          'max-w-[70%] rounded-2xl shadow-sm select-text',
+          'max-w-[70%] rounded-2xl shadow-elevation-1 select-text leading-relaxed',
           // Reduced padding for media messages, normal for text
           ['image', 'video', 'sticker'].includes(message.content_type)
             ? 'p-1'
-            : 'px-4 py-2',
+            : 'px-3.5 py-2',
           isOutbound
-            ? 'bg-primary text-primary-foreground rounded-br-md'
-            : 'bg-card border border-border rounded-bl-md'
+            ? 'bg-secondary text-secondary-foreground rounded-br-md'
+            : 'bg-card border border-border text-foreground rounded-bl-md'
         )}
       >
         {/* Show who sent the message */}
         {isOutbound && (message.is_from_ai || isSyncedFromDevice || (message as any).sender_name) && (
           <div className={cn(
             'flex items-center gap-1 text-xs mb-1',
-            isOutbound ? 'text-primary-foreground/70' : 'text-muted-foreground'
+            isOutbound ? 'text-secondary-foreground/70' : 'text-muted-foreground'
           )}>
             {message.is_from_ai ? (
               <>
@@ -335,10 +339,10 @@ export default function MessageBubble({
           <div
             className={cn(
               'flex items-center justify-end gap-1.5 mt-1',
-              isOutbound ? 'text-primary-foreground/70' : 'text-muted-foreground'
+              isOutbound ? 'text-secondary-foreground/60' : 'text-muted-foreground'
             )}
           >
-            <span className="text-[10px]">
+            <span className="text-[10px] tabular-nums">
               {format(new Date(message.sent_at), 'HH:mm')}
             </span>
             {isOutbound && message.status && (
@@ -347,16 +351,16 @@ export default function MessageBubble({
                   <CheckCheck
                     className={cn(
                       'h-4 w-4 transition-colors duration-200',
-                      message.status === 'delivered' && 'text-primary-foreground',
-                      message.status === 'read' && 'text-sky-400'
+                      message.status === 'delivered' && 'text-secondary-foreground/60',
+                      message.status === 'read' && 'text-primary'
                     )}
                   />
                 ) : message.status === 'pending' ? (
-                  <Clock className="h-4 w-4 text-primary-foreground/50" />
+                  <Clock className="h-4 w-4 text-secondary-foreground/40" />
                 ) : message.status === 'failed' ? (
                   <Clock className="h-4 w-4 text-destructive" />
                 ) : (
-                  <Check className="h-4 w-4 text-primary-foreground/70" />
+                  <Check className="h-4 w-4 text-secondary-foreground/60" />
                 )}
               </>
             )}
@@ -364,7 +368,7 @@ export default function MessageBubble({
         )}
 
         {/* Error message hidden - messages will auto-retry */}
-      </div>
+      </m.div>
 
       {/* Reply button for inbound - appears on right */}
       {!isOutbound && onReply && !selectionMode && (

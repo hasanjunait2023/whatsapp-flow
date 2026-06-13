@@ -209,16 +209,16 @@ export default function ContactList({ selectedContact, onSelectContact, instance
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <h2 className="font-semibold text-lg">Inbox</h2>
+            <h2 className="font-semibold text-lg tracking-tight">Inbox</h2>
             {unreadCount > 0 && (
-              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1.5 text-xs font-medium text-white">
+              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground tabular-nums">
                 {unreadCount}
               </span>
             )}
             {handoffCount > 0 && (
-              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-warning px-1.5 text-xs font-medium text-warning-foreground">
-                {handoffCount}
-              </span>
+              <Badge variant="warning-soft" className="text-xs tabular-nums">
+                {handoffCount} handoff
+              </Badge>
             )}
           </div>
           <div className="flex items-center gap-1">
@@ -319,7 +319,7 @@ export default function ContactList({ selectedContact, onSelectContact, instance
             placeholder="Search contacts..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-9 rounded-control bg-muted/50 border-transparent focus-visible:bg-background focus-visible:border-input"
           />
         </div>
         
@@ -375,14 +375,14 @@ export default function ContactList({ selectedContact, onSelectContact, instance
 
       {/* Contact List */}
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-1">
+        <div className="p-2 space-y-0.5">
           {loading && (
             <>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-start gap-3 p-3">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="flex items-center gap-3 px-3 py-3 min-h-[68px]">
                   <Skeleton className="h-12 w-12 rounded-full" />
                   <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3.5 w-32" />
                     <Skeleton className="h-3 w-48" />
                   </div>
                 </div>
@@ -391,12 +391,12 @@ export default function ContactList({ selectedContact, onSelectContact, instance
           )}
 
           {!loading && filteredContacts.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+            <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+              <div className="h-14 w-14 rounded-card bg-muted flex items-center justify-center mb-4">
                 <Users className="h-6 w-6 text-muted-foreground" />
               </div>
-              <p className="text-sm font-medium text-foreground">No contacts found</p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-sm font-semibold text-foreground">No contacts found</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-[220px]">
                 {searchQuery || selectedLabels.length > 0
                   ? 'Try different filters'
                   : 'Contacts will appear when you receive messages'}

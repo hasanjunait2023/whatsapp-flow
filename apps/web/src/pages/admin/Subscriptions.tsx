@@ -7,7 +7,6 @@ import { BulkActionsBar } from '@/components/admin/BulkActionsBar';
 import { MobileTableFilters } from '@/components/admin/MobileTableFilters';
 import SubscriptionTabs, { SubscriptionCategory } from '@/components/admin/SubscriptionTabs';
 import BulkMessageDialog from '@/components/admin/BulkMessageDialog';
-import { ResponsivePageHeader } from '@/components/admin/ResponsivePageHeader';
 import { MobileDataCard } from '@/components/admin/MobileDataCard';
 import { exportToCSV } from '@/lib/csv-export';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +15,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import { EmptyState } from '@/components/ui/empty-state';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { MrrHighlightTile } from '@/components/admin/subscriptions/MrrHighlightTile';
+import { m, pageEnter, staggerContainer, staggerItem } from '@/lib/motion';
+import { cn } from '@/lib/utils';
+import type { BadgeProps } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -41,18 +46,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
-  MoreHorizontal, 
-  RefreshCw, 
-  CreditCard, 
-  Calendar, 
-  ArrowUpRight, 
-  CheckCircle, 
-  Ban, 
-  XCircle, 
+import {
+  MoreHorizontal,
+  RefreshCw,
+  CreditCard,
+  Calendar,
+  ArrowUpRight,
+  CheckCircle,
+  Ban,
+  XCircle,
   Download,
   MessageSquare,
-  Clock
+  Clock,
+  Users,
+  AlertTriangle
 } from 'lucide-react';
 import { format, isAfter, isBefore, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
@@ -61,6 +68,17 @@ import type { FilterConfig, ActiveFilters } from '@/components/admin/TableFilter
 import { Database } from '@/integrations/supabase/types';
 
 type SubscriptionStatus = Database['public']['Enums']['subscription_status'];
+
+type StatusTone = NonNullable<BadgeProps['variant']>;
+
+const STATUS_META: Record<string, { label: string; variant: StatusTone; dot: string }> = {
+  active: { label: 'Active', variant: 'success-soft', dot: 'bg-success' },
+  trialing: { label: 'Trial', variant: 'info-soft', dot: 'bg-info' },
+  past_due: { label: 'Past Due', variant: 'warning-soft', dot: 'bg-warning' },
+  suspended: { label: 'Suspended', variant: 'destructive-soft', dot: 'bg-destructive' },
+  cancelled: { label: 'Cancelled', variant: 'destructive-soft', dot: 'bg-destructive' },
+  expired: { label: 'Expired', variant: 'destructive-soft', dot: 'bg-destructive' },
+};
 
 export default function AdminSubscriptions() {
   const { subscriptions, loading, refetch, updateStatus, updatePlan, extendSubscription, bulkUpdateStatus, bulkChangePlan, bulkExtendSubscriptions } = useAdminSubscriptions();
@@ -140,6 +158,20 @@ export default function AdminSubscriptions() {
     return result;
   }, [subscriptions]);
 
+  // KPI metrics derived from real data (presentation only).
+  const metrics = useMemo(() => {
+    const priceById = new Map(plans.map((p) => [p.id, p.price_monthly] as const));
+    const activeCount = subscriptions.filter((s) => s.status === 'active').length;
+    const trialingCount = subscriptions.filter((s) => s.status === 'trialing').length;
+    const atRiskCount = subscriptions.filter(
+      (s) => s.status === 'past_due' || s.status === 'suspended',
+    ).length;
+    const mrr = subscriptions
+      .filter((s) => s.status === 'active')
+      .reduce((sum, s) => sum + (priceById.get(s.plan_id) ?? 0), 0);
+    return { total: subscriptions.length, activeCount, trialingCount, atRiskCount, mrr };
+  }, [subscriptions, plans]);
+
   // Filter configuration
   const filterConfig: FilterConfig[] = useMemo(() => [
     {
@@ -201,28 +233,25 @@ export default function AdminSubscriptions() {
   const clearSelection = () => setSelectedIds(new Set());
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Active</Badge>;
-      case 'trialing':
-        return <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20">Trial</Badge>;
-      case 'suspended':
-        return <Badge className="bg-red-500/10 text-red-500 border-red-500/20">Suspended</Badge>;
-      case 'cancelled':
-        return <Badge className="bg-gray-500/10 text-gray-500 border-gray-500/20">Cancelled</Badge>;
-      case 'past_due':
-        return <Badge className="bg-orange-500/10 text-orange-500 border-orange-500/20">Past Due</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
+    const meta = STATUS_META[status] ?? {
+      label: status,
+      variant: 'neutral-soft' as const,
+      dot: 'bg-muted-foreground',
+    };
+    return (
+      <Badge variant={meta.variant} className="gap-1.5">
+        <span className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} aria-hidden />
+        {meta.label}
+      </Badge>
+    );
   };
 
   const getDaysRemaining = (periodEnd: string) => {
     const days = differenceInDays(new Date(periodEnd), new Date());
-    if (days < 0) return <span className="text-red-500 font-medium text-xs">{Math.abs(days)}d overdue</span>;
-    if (days === 0) return <span className="text-amber-500 font-medium text-xs">Today</span>;
-    if (days <= 3) return <span className="text-amber-500 font-medium text-xs">{days}d left</span>;
-    return <span className="text-muted-foreground text-xs">{days}d left</span>;
+    if (days < 0) return <span className="text-destructive font-medium text-xs tabular-nums">{Math.abs(days)}d overdue</span>;
+    if (days === 0) return <span className="text-warning font-medium text-xs">Today</span>;
+    if (days <= 3) return <span className="text-warning font-medium text-xs tabular-nums">{days}d left</span>;
+    return <span className="text-muted-foreground text-xs tabular-nums">{days}d left</span>;
   };
 
   const selectedSubscriptionsForMessage = useMemo(() => {
@@ -499,23 +528,73 @@ export default function AdminSubscriptions() {
 
   return (
     <AdminLayout>
-      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
-        <ResponsivePageHeader
-          title="Subscriptions"
-          description="Manage tenant subscriptions"
-          actions={
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleExport}>
-                <Download className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">Export {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}</span>
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => refetch()}>
-                <RefreshCw className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">Refresh</span>
-              </Button>
-            </div>
-          }
-        />
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
+        {/* Header */}
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Subscriptions</h1>
+            <p className="text-sm text-muted-foreground">Manage tenant subscriptions &amp; plans</p>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              className="min-h-[44px] sm:min-h-0"
+            >
+              <Download className="h-4 w-4 md:mr-2" aria-hidden />
+              <span className="hidden md:inline">Export {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={loading}
+              className="min-h-[44px] sm:min-h-0"
+            >
+              <RefreshCw className={cn('h-4 w-4 md:mr-2', loading && 'animate-spin')} aria-hidden />
+              <span className="hidden md:inline">Refresh</span>
+            </Button>
+          </div>
+        </header>
+
+        {/* KPI strip — 3 stat cards + the ONE orange MRR tile */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 lg:grid-cols-4 sm:gap-5"
+        >
+          <KpiCard
+            title="Active"
+            value={metrics.activeCount}
+            icon={CheckCircle}
+            tone="success"
+            loading={loading}
+          />
+          <KpiCard
+            title="On trial"
+            value={metrics.trialingCount}
+            icon={Users}
+            tone="info"
+            loading={loading}
+          />
+          <KpiCard
+            title="At risk"
+            value={metrics.atRiskCount}
+            icon={AlertTriangle}
+            tone={metrics.atRiskCount > 0 ? 'destructive' : 'success'}
+            loading={loading}
+          />
+          <m.div variants={staggerItem}>
+            <MrrHighlightTile mrr={metrics.mrr} loading={loading} />
+          </m.div>
+        </m.div>
 
         {/* Subscription Category Tabs */}
         <SubscriptionTabs
@@ -576,15 +655,25 @@ export default function AdminSubscriptions() {
                   </div>
                 )}
                 {filteredSubscriptions.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-8">
-                    No subscriptions in this category
-                  </div>
+                  <EmptyState
+                    icon={CreditCard}
+                    title="No subscriptions here"
+                    description="No subscriptions match this category yet."
+                    className="py-12"
+                  />
                 ) : (
                   filteredSubscriptions.map((sub) => (
                     <SubscriptionCard key={sub.id} sub={sub} />
                   ))
                 )}
               </div>
+            ) : filteredSubscriptions.length === 0 ? (
+              <EmptyState
+                icon={CreditCard}
+                title="No subscriptions here"
+                description="No subscriptions match this category yet."
+                className="py-12"
+              />
             ) : (
               <Table>
                 <TableHeader>
@@ -611,14 +700,7 @@ export default function AdminSubscriptions() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredSubscriptions.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                        No subscriptions in this category
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredSubscriptions.map((sub) => (
+                  {filteredSubscriptions.map((sub) => (
                       <TableRow key={sub.id} className={selectedIds.has(sub.id) ? 'bg-muted/50' : ''}>
                         <TableCell>
                           <Checkbox
@@ -691,8 +773,7 @@ export default function AdminSubscriptions() {
                           </DropdownMenu>
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
+                    ))}
                 </TableBody>
               </Table>
             )}
@@ -887,7 +968,7 @@ export default function AdminSubscriptions() {
             },
           ]}
         />
-      </div>
+      </m.div>
     </AdminLayout>
   );
 }

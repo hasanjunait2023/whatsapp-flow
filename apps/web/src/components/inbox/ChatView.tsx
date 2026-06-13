@@ -44,6 +44,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
+import { cn } from '@/lib/utils';
 import {
   Tooltip,
   TooltipContent,
@@ -364,7 +365,7 @@ export default function ChatView({ contact, onMarkAsRead, onResolveHandoff, onRe
   }, {} as Record<string, typeof messages>);
 
   return (
-    <div className="flex flex-col h-full bg-background relative">
+    <div className="flex flex-col h-full bg-muted/30 relative">
       {/* Selection Toolbar */}
       <SelectionToolbar
         selectedCount={selectedMessages.length}
@@ -374,16 +375,16 @@ export default function ChatView({ contact, onMarkAsRead, onResolveHandoff, onRe
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <Avatar className="h-10 w-10">
             <AvatarImage src={contact.profile_pic_url || ''} />
-            <AvatarFallback className="bg-brand/10 text-brand font-medium">
+            <AvatarFallback className="bg-accent text-accent-foreground font-medium">
               {initials}
             </AvatarFallback>
           </Avatar>
-          <div>
-            <h3 className="font-medium">{displayName}</h3>
-            <p className="text-xs text-muted-foreground">{contact.phone_number}</p>
+          <div className="min-w-0">
+            <h3 className="font-semibold tracking-tight truncate">{displayName}</h3>
+            <p className="text-xs text-muted-foreground tabular-nums truncate">{contact.phone_number}</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -520,20 +521,31 @@ export default function ChatView({ contact, onMarkAsRead, onResolveHandoff, onRe
           {/* Only show skeleton on initial load when we have no messages yet */}
           {loading && messages.length === 0 && (
             <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className={`flex ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
-                  <Skeleton className="h-16 w-48 rounded-2xl" />
+              {[
+                { side: 'start', w: 'w-52' },
+                { side: 'end', w: 'w-40' },
+                { side: 'start', w: 'w-44' },
+                { side: 'end', w: 'w-56' },
+              ].map((row, i) => (
+                <div key={i} className={cn('flex', row.side === 'end' ? 'justify-end' : 'justify-start')}>
+                  <Skeleton
+                    className={cn(
+                      'h-12 rounded-2xl',
+                      row.w,
+                      row.side === 'end' ? 'rounded-br-md' : 'rounded-bl-md'
+                    )}
+                  />
                 </div>
               ))}
             </div>
           )}
 
           {!loading && messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="h-16 w-16 rounded-full bg-brand/10 flex items-center justify-center mb-4">
-                <MessageCircle className="h-8 w-8 text-brand" />
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="h-16 w-16 rounded-card bg-accent flex items-center justify-center mb-4">
+                <MessageCircle className="h-8 w-8 text-primary" />
               </div>
-              <p className="text-sm font-medium text-foreground">No messages yet</p>
+              <p className="text-sm font-semibold text-foreground">No messages yet</p>
               <p className="text-xs text-muted-foreground mt-1 max-w-xs">
                 Start the conversation by sending a message below.
               </p>
@@ -545,7 +557,7 @@ export default function ChatView({ contact, onMarkAsRead, onResolveHandoff, onRe
             Object.entries(messagesByDate).map(([date, dayMessages]) => (
               <div key={date}>
                 <div className="flex items-center justify-center my-4">
-                  <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                  <span className="text-xs font-medium text-muted-foreground bg-card border border-border px-3 py-1 rounded-full shadow-elevation-1">
                     {formatDateSeparator(new Date(date))}
                   </span>
                 </div>
@@ -575,9 +587,9 @@ export default function ChatView({ contact, onMarkAsRead, onResolveHandoff, onRe
             <div className="flex items-center gap-2 px-2 py-1">
               <Avatar className="h-6 w-6">
                 <AvatarImage src={contact.profile_pic_url || undefined} />
-                <AvatarFallback className="text-xs bg-muted">{initials}</AvatarFallback>
+                <AvatarFallback className="text-xs bg-accent text-accent-foreground">{initials}</AvatarFallback>
               </Avatar>
-              <div className="bg-muted rounded-2xl px-3 py-2 flex items-center gap-1">
+              <div className="bg-card border border-border rounded-2xl rounded-bl-md px-3 py-2 flex items-center gap-1 shadow-elevation-1">
                 <span className="text-xs text-muted-foreground">typing</span>
                 <div className="flex gap-0.5">
                   <span className="animate-bounce text-muted-foreground" style={{ animationDelay: '0ms' }}>.</span>

@@ -11,7 +11,6 @@ import { TenantFeatureDialog, TenantForFeatures } from '@/components/admin/Tenan
 import { TenantResourceOverridesDialog } from '@/components/admin/TenantResourceOverridesDialog';
 import { BulkFeatureDialog } from '@/components/admin/BulkFeatureDialog';
 import { CreateSubscriptionOrderDialog } from '@/components/admin/CreateSubscriptionOrderDialog';
-import { ResponsivePageHeader } from '@/components/admin/ResponsivePageHeader';
 import { MobileDataCard } from '@/components/admin/MobileDataCard';
 import { exportToCSV } from '@/lib/csv-export';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +20,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { EmptyState } from '@/components/ui/empty-state';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { m, pageEnter, staggerContainer } from '@/lib/motion';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +43,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { MoreHorizontal, Search, RefreshCw, Building2, Eye, CheckCircle, Ban, Trash2, Download, Settings2, Sliders, RotateCcw, ShoppingCart, Zap, SlidersHorizontal } from 'lucide-react';
+import { MoreHorizontal, Search, RefreshCw, Building2, Eye, CheckCircle, Ban, Trash2, Download, Settings2, Sliders, RotateCcw, ShoppingCart, Zap, SlidersHorizontal, Clock } from 'lucide-react';
 import { format, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { FEATURE_FLAGS } from '@/hooks/useFeatureAccess';
@@ -141,6 +145,21 @@ export default function AdminTenants() {
     });
   }, [tenants, search, activeFilters, plans]);
 
+  // Platform tenant metrics (derived from the full list — presentation only).
+  const tenantStats = useMemo(() => {
+    const total = tenants.length;
+    let active = 0;
+    let trial = 0;
+    let suspended = 0;
+    for (const t of tenants) {
+      const status = t.subscription_status;
+      if (status === 'active') active += 1;
+      else if (status === 'trialing') trial += 1;
+      else if (status === 'suspended' || status === 'past_due' || status === 'cancelled') suspended += 1;
+    }
+    return { total, active, trial, suspended };
+  }, [tenants]);
+
   const allSelected = filteredTenants.length > 0 && filteredTenants.every((t) => selectedIds.has(t.id));
   const someSelected = filteredTenants.some((t) => selectedIds.has(t.id));
 
@@ -165,19 +184,33 @@ export default function AdminTenants() {
   const clearSelection = () => setSelectedIds(new Set());
 
   const getStatusBadge = (status: string | null) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Active</Badge>;
-      case 'trialing':
-        return <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20">Trial</Badge>;
-      case 'suspended':
-        return <Badge className="bg-red-500/10 text-red-500 border-red-500/20">Suspended</Badge>;
-      case 'cancelled':
-        return <Badge className="bg-gray-500/10 text-gray-500 border-gray-500/20">Cancelled</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
-    }
+    const map: Record<
+      string,
+      { label: string; variant: 'success-soft' | 'info-soft' | 'destructive-soft' | 'warning-soft' | 'neutral-soft'; dot: string }
+    > = {
+      active: { label: 'Active', variant: 'success-soft', dot: 'bg-success' },
+      trialing: { label: 'Trial', variant: 'info-soft', dot: 'bg-info' },
+      suspended: { label: 'Suspended', variant: 'destructive-soft', dot: 'bg-destructive' },
+      past_due: { label: 'Past Due', variant: 'warning-soft', dot: 'bg-warning' },
+      cancelled: { label: 'Cancelled', variant: 'destructive-soft', dot: 'bg-destructive' },
+    };
+    const meta = (status && map[status]) || { label: 'Unknown', variant: 'neutral-soft' as const, dot: 'bg-muted-foreground' };
+    return (
+      <Badge variant={meta.variant} className="gap-1.5">
+        <span className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} aria-hidden />
+        {meta.label}
+      </Badge>
+    );
   };
+
+  const getInitials = (name: string) =>
+    name
+      .split(' ')
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() || '?';
 
   const handleStatusChange = async (tenantId: string, status: 'active' | 'suspended') => {
     try {
@@ -432,13 +465,14 @@ export default function AdminTenants() {
             key: 'activation',
             label: 'Activation',
             render: () => tenant.is_activated ? (
-              <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-xs">
-                <CheckCircle className="h-3 w-3 mr-1" />
+              <Badge variant="success-soft" className="gap-1 text-xs">
+                <CheckCircle className="h-3 w-3" />
                 Activated
               </Badge>
             ) : (
-              <Badge className="bg-warning/10 text-warning border-warning/20 text-xs">
-                ⏳ Pending
+              <Badge variant="warning-soft" className="gap-1 text-xs">
+                <Clock className="h-3 w-3" />
+                Pending
               </Badge>
             ),
           },
@@ -451,9 +485,9 @@ export default function AdminTenants() {
             key: 'stats',
             render: () => (
               <div className="flex justify-between text-xs text-muted-foreground w-full">
-                <span>{tenant.instance_count} instances</span>
-                <span>{tenant.message_count.toLocaleString()} msgs</span>
-                <span>{format(new Date(tenant.created_at), 'MMM d')}</span>
+                <span className="tabular-nums">{tenant.instance_count} instances</span>
+                <span className="tabular-nums">{tenant.message_count.toLocaleString()} msgs</span>
+                <span className="tabular-nums">{format(new Date(tenant.created_at), 'MMM d')}</span>
               </div>
             ),
             className: 'pt-2 border-t mt-2',
@@ -528,23 +562,44 @@ export default function AdminTenants() {
 
   return (
     <AdminLayout>
-      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
-        <ResponsivePageHeader
-          title="Tenants"
-          description="Manage all workspaces"
-          actions={
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleExport}>
-                <Download className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">Export {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}</span>
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => refetch()}>
-                <RefreshCw className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">Refresh</span>
-              </Button>
-            </div>
-          }
-        />
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
+        {/* Header */}
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Tenants</h1>
+            <p className="text-sm text-muted-foreground">
+              Manage every workspace, plan and subscription across the platform
+            </p>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button variant="outline" size="sm" onClick={handleExport} className="min-h-[44px] sm:min-h-0">
+              <Download className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Export {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}</span>
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => refetch()} className="min-h-[44px] sm:min-h-0">
+              <RefreshCw className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Refresh</span>
+            </Button>
+          </div>
+        </header>
+
+        {/* KPI strip — neutral stat cards (no orange tile on a management table page) */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+        >
+          <KpiCard title="Total tenants" value={tenantStats.total} icon={Building2} tone="primary" loading={loading} />
+          <KpiCard title="Active" value={tenantStats.active} icon={CheckCircle} tone="success" loading={loading} />
+          <KpiCard title="On trial" value={tenantStats.trial} icon={Clock} tone="info" loading={loading} />
+          <KpiCard title="Suspended" value={tenantStats.suspended} icon={Ban} tone="destructive" loading={loading} />
+        </m.div>
 
         <Card>
           <CardHeader className="pb-3">
@@ -554,7 +609,7 @@ export default function AdminTenants() {
                   <Building2 className="h-5 w-5" />
                   All Tenants
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="tabular-nums">
                   {filteredTenants.length} of {tenants.length} workspaces
                 </CardDescription>
               </div>
@@ -598,9 +653,13 @@ export default function AdminTenants() {
                   </div>
                 )}
                 {filteredTenants.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-8">
-                    No tenants found
-                  </div>
+                  <EmptyState
+                    icon={Building2}
+                    title="No tenants found"
+                    description={search || Object.keys(activeFilters).length > 0
+                      ? 'No workspaces match your search or filters. Try adjusting them.'
+                      : 'No workspaces have been created on the platform yet.'}
+                  />
                 ) : (
                   filteredTenants.map((tenant) => (
                     <TenantCard key={tenant.id} tenant={tenant} />
@@ -633,9 +692,15 @@ export default function AdminTenants() {
                 </TableHeader>
                 <TableBody>
                   {filteredTenants.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
-                        No tenants found
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={11} className="p-0">
+                        <EmptyState
+                          icon={Building2}
+                          title="No tenants found"
+                          description={search || Object.keys(activeFilters).length > 0
+                            ? 'No workspaces match your search or filters. Try adjusting them.'
+                            : 'No workspaces have been created on the platform yet.'}
+                        />
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -649,9 +714,16 @@ export default function AdminTenants() {
                           />
                         </TableCell>
                         <TableCell>
-                          <div>
-                            <p className="font-medium">{tenant.name}</p>
-                            <p className="text-xs text-muted-foreground">{tenant.slug || 'No slug'}</p>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9">
+                              <AvatarFallback className="bg-muted-soft text-xs font-semibold text-muted-foreground">
+                                {getInitials(tenant.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{tenant.name}</p>
+                              <p className="truncate text-xs text-muted-foreground">{tenant.slug || 'No slug'}</p>
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -660,16 +732,19 @@ export default function AdminTenants() {
                             <p className="text-xs text-muted-foreground">{tenant.owner_email}</p>
                           </div>
                         </TableCell>
-                        <TableCell>{tenant.plan_name || 'No plan'}</TableCell>
+                        <TableCell>
+                          <Badge variant="neutral-soft">{tenant.plan_name || 'No plan'}</Badge>
+                        </TableCell>
                         <TableCell>
                           {tenant.is_activated ? (
-                            <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
-                              <CheckCircle className="h-3 w-3 mr-1" />
+                            <Badge variant="success-soft" className="gap-1">
+                              <CheckCircle className="h-3 w-3" />
                               Activated
                             </Badge>
                           ) : (
-                            <Badge className="bg-warning/10 text-warning border-warning/20">
-                              ⏳ Pending
+                            <Badge variant="warning-soft" className="gap-1">
+                              <Clock className="h-3 w-3" />
+                              Pending
                             </Badge>
                           )}
                         </TableCell>
@@ -697,9 +772,9 @@ export default function AdminTenants() {
                             );
                           })()}
                         </TableCell>
-                        <TableCell className="text-right">{tenant.instance_count}</TableCell>
-                        <TableCell className="text-right">{tenant.message_count.toLocaleString()}</TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
+                        <TableCell className="text-right tabular-nums">{tenant.instance_count}</TableCell>
+                        <TableCell className="text-right tabular-nums">{tenant.message_count.toLocaleString()}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm tabular-nums">
                           {format(new Date(tenant.created_at), 'MMM d, yyyy')}
                         </TableCell>
                         <TableCell>
@@ -880,7 +955,7 @@ export default function AdminTenants() {
           tenant={selectedTenantForResources}
           onSave={handleUpdateResourceOverrides}
         />
-      </div>
+      </m.div>
     </AdminLayout>
   );
 }
