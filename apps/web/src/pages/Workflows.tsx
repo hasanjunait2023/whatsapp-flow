@@ -3,10 +3,15 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useWorkflows, Workflow } from '@/hooks/useWorkflows';
 import WorkflowBuilder from '@/components/workflows/WorkflowBuilder';
 import WorkflowCard from '@/components/workflows/WorkflowCard';
+import { ActiveWorkflowsTile } from '@/components/workflows/ActiveWorkflowsTile';
 import CreateWorkflowDialog from '@/components/workflows/CreateWorkflowDialog';
 import WorkflowTemplatesDialog from '@/components/workflows/WorkflowTemplatesDialog';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { PageHeader } from '@/components/ui/page-header';
+import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { GitBranch } from 'lucide-react';
+import { GitBranch, ListChecks, PlayCircle, PauseCircle } from 'lucide-react';
+import { m, pageEnter, staggerContainer, staggerItem } from '@/lib/motion';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +40,12 @@ export default function Workflows() {
   const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [workflowToDelete, setWorkflowToDelete] = useState<string | null>(null);
+
+  const stats = {
+    total: workflows.length,
+    active: workflows.filter((w) => w.is_active).length,
+    inactive: workflows.filter((w) => !w.is_active).length,
+  };
 
   const handleEdit = async (workflow: Workflow) => {
     const fullWorkflow = await fetchWorkflowWithDetails(workflow.id);
@@ -135,56 +146,105 @@ export default function Workflows() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 space-y-6"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">Workflows</h1>
-            <p className="text-muted-foreground">
-              Build visual automation workflows for your messaging
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <WorkflowTemplatesDialog onImport={handleImportTemplate} />
-            <CreateWorkflowDialog onSubmit={createWorkflow} saving={saving} />
-          </div>
-        </div>
+        <PageHeader
+          title="Workflows"
+          description="Build visual automation workflows for your messaging"
+        >
+          <WorkflowTemplatesDialog onImport={handleImportTemplate} />
+          <CreateWorkflowDialog onSubmit={createWorkflow} saving={saving} />
+        </PageHeader>
+
+        {/* KPI strip — stat cards + the ONE orange active-workflows tile */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+        >
+          <m.div variants={staggerItem}>
+            <KpiCard
+              title="Total Workflows"
+              value={stats.total}
+              icon={ListChecks}
+              tone="info"
+              loading={loading}
+            />
+          </m.div>
+          <m.div variants={staggerItem}>
+            <KpiCard
+              title="Active"
+              value={stats.active}
+              icon={PlayCircle}
+              tone="success"
+              loading={loading}
+            />
+          </m.div>
+          <m.div variants={staggerItem}>
+            <KpiCard
+              title="Inactive"
+              value={stats.inactive}
+              icon={PauseCircle}
+              tone="warning"
+              loading={loading}
+            />
+          </m.div>
+          {/* The single orange surface on this page */}
+          <ActiveWorkflowsTile
+            activeCount={stats.active}
+            totalCount={stats.total}
+            loading={loading}
+          />
+        </m.div>
 
         {/* Workflow Grid */}
         {loading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-40 rounded-lg" />
+              <Skeleton key={i} className="h-44 rounded-card" />
             ))}
           </div>
         ) : workflows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <GitBranch className="h-8 w-8 text-muted-foreground" />
+          <Card className="flex flex-col items-center justify-center px-4 py-16 text-center">
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent">
+              <GitBranch className="h-8 w-8 text-primary" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No workflows yet</h3>
-            <p className="text-muted-foreground max-w-sm mb-4">
+            <h3 className="mb-2 text-lg font-semibold text-foreground">No workflows yet</h3>
+            <p className="mb-6 max-w-sm text-muted-foreground">
               Create your first workflow to automate responses, assign agents, and more.
             </p>
             <div className="flex items-center gap-2">
               <WorkflowTemplatesDialog onImport={handleImportTemplate} />
               <CreateWorkflowDialog onSubmit={createWorkflow} saving={saving} />
             </div>
-          </div>
+          </Card>
         ) : (
-          <div data-tour="workflow-cards" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {workflows.map((workflow) => (
-              <WorkflowCard
-                key={workflow.id}
-                workflow={workflow}
-                onEdit={() => handleEdit(workflow)}
-                onDelete={() => handleDelete(workflow.id)}
-                onToggle={(isActive) => toggleWorkflow(workflow.id, isActive)}
-              />
+          <m.div
+            data-tour="workflow-cards"
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="grid gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-3"
+          >
+            {workflows.map((workflow, index) => (
+              <m.div key={workflow.id} variants={index < 12 ? staggerItem : undefined}>
+                <WorkflowCard
+                  workflow={workflow}
+                  onEdit={() => handleEdit(workflow)}
+                  onDelete={() => handleDelete(workflow.id)}
+                  onToggle={(isActive) => toggleWorkflow(workflow.id, isActive)}
+                />
+              </m.div>
             ))}
-          </div>
+          </m.div>
         )}
-      </div>
+      </m.div>
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

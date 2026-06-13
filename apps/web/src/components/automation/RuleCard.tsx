@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, MessageSquare, UserPlus, Zap, Target } from 'lucide-react';
+import { Trash2, MessageSquare, UserPlus, Zap, Target, ArrowRight } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -70,23 +70,36 @@ export function RuleCard({ rule, onToggle, onDelete }: RuleCardProps) {
   };
 
   return (
-    <Card className={!rule.is_active ? 'opacity-60' : ''}>
+    <Card hover="lift" className={!rule.is_active ? 'opacity-70' : ''}>
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-base font-medium">{rule.name}</CardTitle>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base font-semibold">{rule.name}</CardTitle>
+              <Badge
+                variant={rule.is_active ? 'success-soft' : 'neutral-soft'}
+                className="gap-1.5"
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${rule.is_active ? 'bg-success' : 'bg-muted-foreground'}`}
+                  aria-hidden
+                />
+                {rule.is_active ? 'Active' : 'Paused'}
+              </Badge>
+            </div>
             {rule.description && (
-              <CardDescription className="mt-1">{rule.description}</CardDescription>
+              <CardDescription>{rule.description}</CardDescription>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Switch
               checked={rule.is_active}
               onCheckedChange={(checked) => onToggle(rule.id, checked)}
+              aria-label={rule.is_active ? 'Deactivate rule' : 'Activate rule'}
             />
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive hover:text-destructive">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </AlertDialogTrigger>
@@ -109,19 +122,25 @@ export function RuleCard({ rule, onToggle, onDelete }: RuleCardProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="flex items-center gap-1.5">
+        <div className="flex items-start gap-3 rounded-xl bg-muted-soft px-3 py-2.5">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-info-soft text-info">
             {getTriggerIcon()}
-            <span>When</span>
-          </Badge>
-          <span className="text-sm text-muted-foreground">{getTriggerLabel()}</span>
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">When</p>
+            <p className="truncate text-sm text-foreground">{getTriggerLabel()}</p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="flex items-center gap-1.5">
+        <div className="flex items-start gap-3 rounded-xl bg-muted-soft px-3 py-2.5">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
             {getActionIcon()}
-            <span>Then</span>
-          </Badge>
-          <span className="text-sm text-muted-foreground">{getActionLabel()}</span>
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <ArrowRight className="h-3 w-3" aria-hidden /> Then
+            </p>
+            <p className="truncate text-sm text-foreground">{getActionLabel()}</p>
+          </div>
         </div>
       </CardContent>
     </Card>

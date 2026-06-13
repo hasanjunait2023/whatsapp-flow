@@ -13,7 +13,7 @@ import { FBCommentThreadView } from '@/components/fb-inbox/FBCommentThreadView';
 import { FBCommentDMDialog } from '@/components/fb-inbox/FBCommentDMDialog';
 import { FBCommenterDetailsPanel } from '@/components/fb-inbox/FBCommenterDetailsPanel';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Plus, ArrowLeft } from 'lucide-react';
+import { MessageSquare, MessageSquareText, Plus, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { FBPostComment } from '@/hooks/useFBPostComments';
 
@@ -99,9 +99,9 @@ export default function FBInbox() {
 
   return (
     <DashboardLayout hideMobileNav>
-      <div className="flex h-[calc(100vh-4rem)] md:h-screen overflow-hidden">
+      <div className="flex h-[calc(100vh-4rem)] md:h-screen overflow-hidden bg-background">
         {/* Left Panel - Contact/Post List */}
-        <div className={`w-full md:w-80 lg:w-96 shrink-0 flex flex-col border-r border-border ${
+        <div className={`w-full md:w-80 lg:w-96 shrink-0 flex flex-col border-r border-border bg-card ${
           (selectedContact || selectedPost) && isMobile ? 'hidden' : ''
         }`}>
           {/* Tabs */}
@@ -181,10 +181,11 @@ export default function FBInbox() {
         {selectedContact && isMobile && activeTab === 'messages' && (
           <div className="fixed inset-0 z-50 bg-background md:hidden">
             <div className="h-full flex flex-col">
-              <div className="p-2 border-b border-border flex items-center gap-2">
+              <div className="p-2 border-b border-border bg-card flex items-center gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="min-h-[44px]"
                   onClick={() => setSelectedContact(null)}
                 >
                   <ArrowLeft className="h-4 w-4 mr-1" />
@@ -207,10 +208,11 @@ export default function FBInbox() {
         {selectedPost && isMobile && activeTab === 'comments' && (
           <div className="fixed inset-0 z-50 bg-background md:hidden">
             <div className="h-full flex flex-col">
-              <div className="p-2 border-b border-border flex items-center gap-2">
+              <div className="p-2 border-b border-border bg-card flex items-center gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="min-h-[44px]"
                   onClick={() => setSelectedPost(null)}
                 >
                   <ArrowLeft className="h-4 w-4 mr-1" />
@@ -265,40 +267,44 @@ export default function FBInbox() {
 }
 
 // Empty state component
-function EmptyState({ 
-  hasPages, 
-  pagesLoading, 
-  type 
-}: { 
-  hasPages: boolean; 
+function EmptyState({
+  hasPages,
+  pagesLoading,
+  type
+}: {
+  hasPages: boolean;
   pagesLoading: boolean;
   type: 'messages' | 'comments';
 }) {
+  const Icon = type === 'messages' ? MessageSquare : MessageSquareText;
   return (
-    <div className="flex flex-col items-center justify-center h-full bg-muted/30 text-center p-8">
-      <div className="h-16 w-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
-        <MessageSquare className="h-8 w-8 text-blue-500" />
+    <div className="flex flex-col items-center justify-center h-full bg-muted/30 px-6 text-center">
+      <div
+        className="mb-6 flex h-20 w-20 items-center justify-center rounded-card"
+        style={{ backgroundColor: 'hsl(var(--facebook) / 0.12)' }}
+      >
+        <Icon className="h-10 w-10" style={{ color: 'hsl(var(--facebook))' }} />
       </div>
-      <h3 className="text-lg font-semibold mb-2">
+      <h3 className="mb-2 text-xl font-semibold tracking-tight text-foreground">
         {type === 'messages' ? 'Facebook Messenger Inbox' : 'Facebook Comments'}
       </h3>
-      
+
       {!hasPages && !pagesLoading ? (
         <>
-          <p className="text-muted-foreground mb-4 max-w-md">
-            Connect your Facebook Page to start receiving and replying to 
+          <p className="mb-5 max-w-sm text-sm text-muted-foreground">
+            Connect your Facebook Page to start receiving and replying to
             {type === 'messages' ? ' Messenger conversations' : ' post comments'}.
           </p>
           <Link to="/settings">
-            <Button>
+            <Button className="min-h-[44px]">
               <Plus className="h-4 w-4 mr-2" />
               Connect Facebook Page
             </Button>
           </Link>
         </>
       ) : (
-        <p className="text-muted-foreground max-w-md">
-          {type === 'messages' 
+        <p className="max-w-sm text-sm text-muted-foreground">
+          {type === 'messages'
             ? 'Select a conversation from the left panel to start chatting with your customers.'
             : 'Select a post from the left panel to view and reply to comments.'}
         </p>

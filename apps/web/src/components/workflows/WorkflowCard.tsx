@@ -37,13 +37,20 @@ export default function WorkflowCard({ workflow, onEdit, onDelete, onToggle }: W
   const TriggerIcon = triggerIcons[workflow.trigger_type] || MessageCircle;
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card hover="lift">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-base">{workflow.name}</CardTitle>
-              <Badge variant={workflow.is_active ? 'default' : 'secondary'}>
+              <CardTitle className="text-base font-semibold">{workflow.name}</CardTitle>
+              <Badge
+                variant={workflow.is_active ? 'success-soft' : 'neutral-soft'}
+                className="gap-1.5"
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${workflow.is_active ? 'bg-success' : 'bg-muted-foreground'}`}
+                  aria-hidden
+                />
                 {workflow.is_active ? 'Active' : 'Inactive'}
               </Badge>
             </div>
@@ -73,8 +80,8 @@ export default function WorkflowCard({ workflow, onEdit, onDelete, onToggle }: W
       <CardContent>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-              <TriggerIcon className="h-4 w-4 text-emerald-500" />
+            <div className="h-9 w-9 rounded-lg bg-info-soft flex items-center justify-center">
+              <TriggerIcon className="h-4 w-4 text-info" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Trigger</p>
