@@ -22,27 +22,76 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Headphones, Plus, Loader2, Search, Clock, User, MessageSquare, Send, ArrowLeft, Bot, AlertTriangle } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { m, pageEnter, staggerContainer } from '@/lib/motion';
+import { cn } from '@/lib/utils';
+import { Headphones, Plus, Loader2, Search, User, MessageSquare, Send, ArrowLeft, Bot, Inbox, Loader, CheckCircle2, Timer } from 'lucide-react';
 import { useSupportTickets, useTicketMessages, SupportTicket } from '@/hooks/useSupportTickets';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-const priorityColors: Record<string, string> = {
-  low: 'bg-gray-500',
-  medium: 'bg-yellow-500',
-  high: 'bg-orange-500',
-  urgent: 'bg-red-500',
+type SoftVariant = 'success-soft' | 'warning-soft' | 'info-soft' | 'destructive-soft' | 'neutral-soft';
+
+// Priority → calm pill. Urgent escalates to destructive-soft.
+const priorityMeta: Record<string, { variant: SoftVariant; dot: string }> = {
+  low: { variant: 'neutral-soft', dot: 'bg-muted-foreground' },
+  medium: { variant: 'warning-soft', dot: 'bg-warning' },
+  high: { variant: 'warning-soft', dot: 'bg-warning' },
+  urgent: { variant: 'destructive-soft', dot: 'bg-destructive' },
 };
 
-const statusColors: Record<string, string> = {
-  open: 'bg-blue-500',
-  in_progress: 'bg-yellow-500',
-  waiting: 'bg-purple-500',
-  resolved: 'bg-green-500',
-  closed: 'bg-gray-500',
+// Status → calm pill. open=warning, resolved=success, escalated/closed handled here.
+const statusMeta: Record<string, { variant: SoftVariant; dot: string; label: string }> = {
+  open: { variant: 'warning-soft', dot: 'bg-warning', label: 'open' },
+  in_progress: { variant: 'info-soft', dot: 'bg-info', label: 'in progress' },
+  waiting: { variant: 'info-soft', dot: 'bg-info', label: 'waiting' },
+  resolved: { variant: 'success-soft', dot: 'bg-success', label: 'resolved' },
+  closed: { variant: 'neutral-soft', dot: 'bg-muted-foreground', label: 'closed' },
 };
+
+function getPriorityMeta(priority: string) {
+  return priorityMeta[priority] ?? { variant: 'neutral-soft' as const, dot: 'bg-muted-foreground' };
+}
+
+function getStatusMeta(status: string) {
+  return statusMeta[status] ?? { variant: 'neutral-soft' as const, dot: 'bg-muted-foreground', label: status };
+}
+
+function getInitials(name: string | null | undefined): string {
+  if (!name) return '?';
+  return (
+    name
+      .split(' ')
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() || '?'
+  );
+}
+
+function StatusPill({ status }: { status: string }) {
+  const meta = getStatusMeta(status);
+  return (
+    <Badge variant={meta.variant} className="gap-1.5">
+      <span className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} aria-hidden />
+      {meta.label}
+    </Badge>
+  );
+}
+
+function PriorityPill({ priority }: { priority: string }) {
+  const meta = getPriorityMeta(priority);
+  return (
+    <Badge variant={meta.variant} className="gap-1.5">
+      <span className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} aria-hidden />
+      {priority}
+    </Badge>
+  );
+}
 
 export default function Support() {
   const { tickets, loading, createTicket, updateTicket, assignTicket, resolveTicket } = useSupportTickets();
@@ -90,6 +139,30 @@ export default function Support() {
     return matchesSearch && matchesStatus && matchesCategory;
   });
 
+  // Calm metrics derived from the full ticket list (presentation only — no hook changes).
+  const ticketStats = useMemo(() => {
+    let open = 0;
+    let pending = 0;
+    let resolved = 0;
+    let resolvedHoursTotal = 0;
+    let resolvedCount = 0;
+    for (const t of tickets) {
+      if (t.status === 'open') open += 1;
+      else if (t.status === 'in_progress' || t.status === 'waiting') pending += 1;
+      else if (t.status === 'resolved' || t.status === 'closed') resolved += 1;
+
+      if (t.resolved_at) {
+        const hours = (new Date(t.resolved_at).getTime() - new Date(t.created_at).getTime()) / 3_600_000;
+        if (hours >= 0) {
+          resolvedHoursTotal += hours;
+          resolvedCount += 1;
+        }
+      }
+    }
+    const avgResponse = resolvedCount > 0 ? resolvedHoursTotal / resolvedCount : 0;
+    return { open, pending, resolved, avgResponse };
+  }, [tickets]);
+
   const handleCreateTicket = async () => {
     if (!newTicket.subject.trim()) return;
     setIsSubmitting(true);
@@ -115,7 +188,13 @@ export default function Support() {
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-border space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Support Tickets</h1>
+          {/* On desktop the page header already carries the title; here label the list + count. */}
+          <div className="flex flex-col">
+            <h2 className="text-base font-semibold md:hidden">Support Tickets</h2>
+            <span className="text-sm font-medium text-muted-foreground tabular-nums">
+              {filteredTickets.length} ticket{filteredTickets.length === 1 ? '' : 's'}
+            </span>
+          </div>
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
@@ -260,30 +339,31 @@ export default function Support() {
                 }`}
                 onClick={() => handleSelectTicket(ticket)}
               >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-start justify-between mb-2 gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs font-mono text-muted-foreground">
                       {ticket.ticket_number}
                     </span>
                     {ticket.category === 'error_report' && (
-                      <Badge variant="secondary" className="flex items-center gap-1 text-xs bg-orange-500/20 text-orange-400 border-orange-500/30">
+                      <Badge variant="neutral-soft" className="flex items-center gap-1 text-xs">
                         <Bot className="h-3 w-3" />
                         Auto
                       </Badge>
                     )}
                   </div>
-                  <Badge variant="outline" className="flex items-center gap-1 text-xs">
-                    <span className={`h-1.5 w-1.5 rounded-full ${statusColors[ticket.status]}`} />
-                    {ticket.status}
-                  </Badge>
+                  <StatusPill status={ticket.status} />
                 </div>
-                <h3 className="font-medium text-sm mb-1 line-clamp-1">{ticket.subject}</h3>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <span className={`h-1.5 w-1.5 rounded-full ${priorityColors[ticket.priority]}`} />
-                    {ticket.priority}
-                  </span>
-                  <span>{format(new Date(ticket.created_at), 'MMM d, HH:mm')}</span>
+                <h3 className="font-medium text-sm mb-2 line-clamp-1">{ticket.subject}</h3>
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Avatar className="h-6 w-6 shrink-0">
+                      <AvatarFallback className="bg-muted-soft text-[10px] font-semibold text-muted-foreground">
+                        {getInitials(ticket.assigned_admin_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <PriorityPill priority={ticket.priority} />
+                  </div>
+                  <span className="tabular-nums shrink-0">{format(new Date(ticket.created_at), 'MMM d, HH:mm')}</span>
                 </div>
               </div>
             ))}
@@ -316,6 +396,28 @@ export default function Support() {
     </div>
   );
 
+  const kpiStrip = (
+    <m.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+      className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+    >
+      <KpiCard title="Open" value={ticketStats.open} icon={Inbox} tone="warning" loading={loading} />
+      <KpiCard title="In progress" value={ticketStats.pending} icon={Loader} tone="info" loading={loading} />
+      <KpiCard title="Resolved" value={ticketStats.resolved} icon={CheckCircle2} tone="success" loading={loading} />
+      <KpiCard
+        title="Avg. response"
+        value={ticketStats.avgResponse}
+        decimals={1}
+        format={(v) => `${v.toFixed(1)}h`}
+        icon={Timer}
+        tone="info"
+        loading={loading}
+      />
+    </m.div>
+  );
+
   return (
     <AdminLayout>
       {isMobile ? (
@@ -324,15 +426,31 @@ export default function Support() {
           {mobileView === 'list' ? <TicketListPanel /> : <TicketDetailPanel />}
         </div>
       ) : (
-        // Desktop: Side-by-side layout
-        <div className="flex h-[calc(100vh-0px)]">
-          <div className="w-1/3 border-r border-border flex flex-col">
-            <TicketListPanel />
+        // Desktop: header + calm KPI strip, then side-by-side list/detail
+        <m.div
+          variants={pageEnter}
+          initial="hidden"
+          animate="show"
+          className="flex h-[calc(100vh-0px)] flex-col"
+        >
+          <div className="mx-auto w-full max-w-[1440px] space-y-5 p-4 md:p-6 pb-0">
+            <header className="flex flex-col gap-1">
+              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Support Tickets</h1>
+              <p className="text-sm text-muted-foreground">
+                Triage, assign and resolve tenant support requests
+              </p>
+            </header>
+            {kpiStrip}
           </div>
-          <div className="flex-1 flex flex-col">
-            <TicketDetailPanel />
+          <div className="mx-auto mt-4 flex w-full max-w-[1440px] min-h-0 flex-1 overflow-hidden rounded-card border border-border shadow-elevation-1 m-4 md:m-6">
+            <div className="w-1/3 border-r border-border flex flex-col">
+              <TicketListPanel />
+            </div>
+            <div className="flex-1 flex flex-col">
+              <TicketDetailPanel />
+            </div>
           </div>
-        </div>
+        </m.div>
       )}
     </AdminLayout>
   );
@@ -381,10 +499,8 @@ function TicketDetail({
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-sm font-mono text-muted-foreground">{ticket.ticket_number}</span>
-              <Badge variant="outline" className="flex items-center gap-1">
-                <span className={`h-1.5 w-1.5 rounded-full ${priorityColors[ticket.priority]}`} />
-                {ticket.priority}
-              </Badge>
+              <PriorityPill priority={ticket.priority} />
+              <StatusPill status={ticket.status} />
             </div>
             <h2 className="text-lg sm:text-xl font-bold break-words">{ticket.subject}</h2>
           </div>
@@ -412,7 +528,14 @@ function TicketDetail({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
           <div>
             <span className="text-muted-foreground">Tenant:</span>
-            <p className="font-medium">{ticket.tenant_name || 'N/A'}</p>
+            <div className="mt-1 flex items-center gap-2">
+              <Avatar className="h-6 w-6">
+                <AvatarFallback className="bg-muted-soft text-[10px] font-semibold text-muted-foreground">
+                  {getInitials(ticket.tenant_name)}
+                </AvatarFallback>
+              </Avatar>
+              <p className="font-medium truncate">{ticket.tenant_name || 'N/A'}</p>
+            </div>
           </div>
           <div>
             <span className="text-muted-foreground">Assigned to:</span>
@@ -434,7 +557,7 @@ function TicketDetail({
           </div>
           <div>
             <span className="text-muted-foreground">Created:</span>
-            <p className="font-medium">{format(new Date(ticket.created_at), 'MMM d, yyyy HH:mm')}</p>
+            <p className="font-medium tabular-nums">{format(new Date(ticket.created_at), 'MMM d, yyyy HH:mm')}</p>
           </div>
         </div>
 
@@ -468,7 +591,7 @@ function TicketDetail({
                     message.sender_type === 'admin'
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted'
-                  } ${message.is_internal_note ? 'border-2 border-dashed border-yellow-500' : ''}`}
+                  } ${message.is_internal_note ? 'border-2 border-dashed border-warning' : ''}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <User className="h-3 w-3" />

@@ -78,13 +78,13 @@ export default function InternalChat() {
   if (error) {
     return (
       <DashboardLayout hideMobileNav>
-        <div className="h-[calc(100vh-56px)] md:h-[calc(100vh-0px)] flex items-center justify-center">
-          <div className="text-center text-muted-foreground">
-            <div className="h-20 w-20 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-6">
+        <div className="h-[calc(100vh-56px)] md:h-[calc(100vh-0px)] flex items-center justify-center bg-muted/30 px-6">
+          <div className="max-w-sm text-center">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-card bg-destructive-soft">
               <MessagesSquare className="h-10 w-10 text-destructive" />
             </div>
-            <h3 className="font-medium text-lg text-foreground">Failed to load Team Chat</h3>
-            <p className="text-sm mb-4">{error.message || 'An unexpected error occurred'}</p>
+            <h3 className="text-lg font-semibold tracking-tight text-foreground">Failed to load Team Chat</h3>
+            <p className="mt-1 mb-4 text-sm text-muted-foreground">{error.message || 'An unexpected error occurred'}</p>
             <Button onClick={() => window.location.reload()}>
               Retry
             </Button>
@@ -140,14 +140,14 @@ export default function InternalChat() {
 
         {/* Empty state - Desktop only */}
         {!isMobile && !currentRoom && (
-          <div className="flex-1 flex items-center justify-center bg-muted/30">
-            <div className="text-center text-muted-foreground">
-              <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                <MessagesSquare className="h-10 w-10 text-primary" />
-              </div>
-              <h3 className="font-medium text-lg">Welcome to Team Chat</h3>
-              <p className="text-sm">Select a conversation or start a new one</p>
+          <div className="flex-1 flex flex-col items-center justify-center bg-muted/30 px-6">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-card bg-accent">
+              <MessagesSquare className="h-10 w-10 text-primary" />
             </div>
+            <h3 className="text-xl font-semibold tracking-tight text-foreground mb-2">Welcome to Team Chat</h3>
+            <p className="max-w-sm text-center text-muted-foreground">
+              Select a conversation from the left or start a new one to message your team.
+            </p>
           </div>
         )}
       </div>

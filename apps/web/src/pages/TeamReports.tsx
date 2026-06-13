@@ -3,6 +3,7 @@ import { useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/ui/page-header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { m, pageEnter } from '@/lib/motion';
 import { useTeamReports, ReportPeriod } from '@/hooks/useTeamReports';
 import { TeamReportsDashboard } from '@/components/team-reports/TeamReportsDashboard';
 import { TeamPerformanceTable } from '@/components/team-reports/TeamPerformanceTable';
@@ -43,19 +44,23 @@ export default function TeamReports() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <PageHeader
-            title="Team Reports"
-            description="Monitor team performance, track KPIs, and analyze productivity"
-          />
-          <ReportPeriodSelector 
-            value={period} 
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 py-5 space-y-6"
+      >
+        <PageHeader
+          title="Team Reports"
+          description="Monitor team performance, track KPIs, and analyze productivity"
+        >
+          <ReportPeriodSelector
+            value={period}
             onChange={handlePeriodChange}
             customStart={customStart}
             customEnd={customEnd}
           />
-        </div>
+        </PageHeader>
 
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3 sm:grid-cols-7 lg:w-auto lg:grid-cols-7">
@@ -124,7 +129,7 @@ export default function TeamReports() {
             />
           </TabsContent>
         </Tabs>
-      </div>
+      </m.div>
     </DashboardLayout>
   );
 }

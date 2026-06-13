@@ -150,11 +150,11 @@ export function InternalMessageBubble({
         {message.reply_to && (
           <div
             className={cn(
-              'text-xs rounded-lg px-2 py-1 mb-1 border-l-2 border-primary/50',
-              isOwn ? 'bg-primary/10' : 'bg-muted'
+              'text-xs rounded-lg px-2 py-1 mb-1 border-l-2 border-secondary/40',
+              isOwn ? 'bg-secondary/10' : 'bg-muted'
             )}
           >
-            <span className="font-medium text-primary">
+            <span className="font-medium text-foreground">
               {message.reply_to.sender?.full_name || 'Unknown'}
             </span>
             <p className="truncate text-muted-foreground max-w-48">
@@ -162,13 +162,13 @@ export function InternalMessageBubble({
             </p>
           </div>
         )}
-        
+
         <div
           className={cn(
             'rounded-2xl px-3 py-2 relative',
             isOwn
-              ? 'bg-primary text-primary-foreground rounded-br-md'
-              : 'bg-muted rounded-bl-md'
+              ? 'bg-secondary text-secondary-foreground rounded-br-md'
+              : 'bg-card border border-border text-foreground rounded-bl-md'
           )}
         >
           {renderMedia()}
@@ -184,14 +184,14 @@ export function InternalMessageBubble({
           )}>
             <span className={cn(
               'text-[10px]',
-              isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
+              isOwn ? 'text-secondary-foreground/70' : 'text-muted-foreground'
             )}>
               {formatTime(message.created_at)}
             </span>
             {message.edited_at && (
               <span className={cn(
                 'text-[10px]',
-                isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                isOwn ? 'text-secondary-foreground/70' : 'text-muted-foreground'
               )}>
                 (edited)
               </span>

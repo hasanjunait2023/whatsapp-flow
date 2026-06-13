@@ -11,8 +11,50 @@ import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { m, pageEnter } from '@/lib/motion';
 import { Settings, AlertTriangle, Megaphone, Bell, Cog, Webhook, MessageSquare } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
+
+const ADMIN_SETTINGS_TABS = [
+  { value: 'general', label: 'General', icon: Cog },
+  { value: 'whatsapp', label: 'WhatsApp', icon: MessageSquare },
+  { value: 'integrations', label: 'Integrations', icon: Webhook },
+  { value: 'reminders', label: 'Automated Reminders', icon: Bell },
+] as const;
+
+/** Calm tokenised section header — soft icon chip + title/description, no orange focal. */
+function SectionHeader({
+  icon: Icon,
+  tone,
+  title,
+  description,
+}: {
+  icon: LucideIcon;
+  tone: 'warning' | 'info' | 'neutral';
+  title: string;
+  description: string;
+}) {
+  const toneClass: Record<typeof tone, string> = {
+    warning: 'bg-warning-soft text-warning',
+    info: 'bg-info-soft text-info',
+    neutral: 'bg-muted-soft text-muted-foreground',
+  };
+
+  return (
+    <CardHeader>
+      <div className="flex items-start gap-3">
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${toneClass[tone]}`}>
+          <Icon className="h-5 w-5" aria-hidden />
+        </span>
+        <div className="space-y-1">
+          <CardTitle className="text-base">{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </div>
+      </div>
+    </CardHeader>
+  );
+}
 
 export default function AdminSettings() {
   const { settings, loading, updateSetting } = useAdminSettings();
@@ -45,10 +87,11 @@ export default function AdminSettings() {
   if (loading) {
     return (
       <AdminLayout>
-        <div className="p-6 space-y-6">
+        <div className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6">
           <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-[200px] w-full" />
-          <Skeleton className="h-[200px] w-full" />
+          <Skeleton className="h-10 w-full max-w-md rounded-full" />
+          <Skeleton className="h-[200px] w-full rounded-card" />
+          <Skeleton className="h-[200px] w-full rounded-card" />
         </div>
       </AdminLayout>
     );
@@ -56,48 +99,44 @@ export default function AdminSettings() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">System Settings</h1>
-          <p className="text-muted-foreground">Configure global system settings and automated reminders</p>
-        </div>
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
+        {/* Header */}
+        <header className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">System Settings</h1>
+          <p className="text-sm text-muted-foreground">
+            Configure global system settings and automated reminders
+          </p>
+        </header>
 
         <Tabs defaultValue="general" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="general">
-              <Cog className="h-4 w-4 mr-2" />
-              General
-            </TabsTrigger>
-            <TabsTrigger value="whatsapp">
-              <MessageSquare className="h-4 w-4 mr-2" />
-              WhatsApp
-            </TabsTrigger>
-            <TabsTrigger value="integrations">
-              <Webhook className="h-4 w-4 mr-2" />
-              Integrations
-            </TabsTrigger>
-            <TabsTrigger value="reminders">
-              <Bell className="h-4 w-4 mr-2" />
-              Automated Reminders
-            </TabsTrigger>
-          </TabsList>
+          {/* Pill tab-track — horizontal scroll on small screens, no wrap, no page overflow. */}
+          <div className="-mx-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0">
+            <TabsList className="w-max">
+              {ADMIN_SETTINGS_TABS.map(({ value, label, icon: Icon }) => (
+                <TabsTrigger key={value} value={value} className="h-11 gap-2 sm:h-9">
+                  <Icon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{label}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
           <TabsContent value="general" className="space-y-6">
             {/* Maintenance Mode */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                  <div>
-                    <CardTitle>Maintenance Mode</CardTitle>
-                    <CardDescription>
-                      When enabled, users will see a maintenance message
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
+            <Card className="shadow-elevation-1">
+              <SectionHeader
+                icon={AlertTriangle}
+                tone="warning"
+                title="Maintenance Mode"
+                description="When enabled, users will see a maintenance message"
+              />
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div className="space-y-0.5">
                     <Label>Enable Maintenance Mode</Label>
                     <p className="text-sm text-muted-foreground">
@@ -110,11 +149,11 @@ export default function AdminSettings() {
                     disabled={saving === 'maintenance_mode'}
                   />
                 </div>
-                
+
                 {settings.maintenance_mode && (
-                  <Alert className="bg-yellow-500/10 border-yellow-500/20">
-                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                    <AlertDescription className="text-yellow-600">
+                  <Alert className="border-transparent bg-warning-soft">
+                    <AlertTriangle className="h-4 w-4 text-warning" />
+                    <AlertDescription className="text-warning">
                       Maintenance mode is active. Users cannot access the application.
                     </AlertDescription>
                   </Alert>
@@ -133,20 +172,15 @@ export default function AdminSettings() {
             </Card>
 
             {/* Announcement Banner */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Megaphone className="h-5 w-5 text-primary" />
-                  <div>
-                    <CardTitle>Announcement Banner</CardTitle>
-                    <CardDescription>
-                      Display a global announcement to all users
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
+            <Card className="shadow-elevation-1">
+              <SectionHeader
+                icon={Megaphone}
+                tone="info"
+                title="Announcement Banner"
+                description="Display a global announcement to all users"
+              />
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div className="space-y-0.5">
                     <Label>Show Announcement</Label>
                     <p className="text-sm text-muted-foreground">
@@ -173,18 +207,13 @@ export default function AdminSettings() {
             </Card>
 
             {/* Default Settings */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Settings className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <CardTitle>Default Settings</CardTitle>
-                    <CardDescription>
-                      Configure defaults for new tenants
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
+            <Card className="shadow-elevation-1">
+              <SectionHeader
+                icon={Settings}
+                tone="neutral"
+                title="Default Settings"
+                description="Configure defaults for new tenants"
+              />
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
@@ -194,12 +223,13 @@ export default function AdminSettings() {
                       placeholder="14"
                       defaultValue={settings.default_trial_days || 14}
                       onBlur={(e) => handleSave('default_trial_days', parseInt(e.target.value) || 14)}
+                      className="tabular-nums"
                     />
                     <p className="text-xs text-muted-foreground">
                       Number of days for new tenant trials
                     </p>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label>Grace Period Days</Label>
                     <Input
@@ -207,6 +237,7 @@ export default function AdminSettings() {
                       placeholder="7"
                       defaultValue={settings.grace_period_days || 7}
                       onBlur={(e) => handleSave('grace_period_days', parseInt(e.target.value) || 7)}
+                      className="tabular-nums"
                     />
                     <p className="text-xs text-muted-foreground">
                       Days after payment due before suspension
@@ -232,20 +263,15 @@ export default function AdminSettings() {
 
           <TabsContent value="whatsapp" className="space-y-6">
             {/* WhatsApp Auto Messages Global Control */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5 text-purple-500" />
-                  <div>
-                    <CardTitle>Follow-up Automation</CardTitle>
-                    <CardDescription>
-                      Control automated follow-up messages for Pro plan tenants
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
+            <Card className="shadow-elevation-1">
+              <SectionHeader
+                icon={MessageSquare}
+                tone="info"
+                title="Follow-up Automation"
+                description="Control automated follow-up messages for Pro plan tenants"
+              />
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div className="space-y-0.5">
                     <Label>Enable Follow-up System</Label>
                     <p className="text-sm text-muted-foreground">
@@ -258,26 +284,26 @@ export default function AdminSettings() {
                     disabled={saving === 'whatsapp_followup_enabled'}
                   />
                 </div>
-                
+
                 {settings.whatsapp_followup_enabled && (
-                  <Alert className="bg-green-500/10 border-green-500/20">
-                    <MessageSquare className="h-4 w-4 text-green-500" />
-                    <AlertDescription className="text-green-600">
+                  <Alert className="border-transparent bg-success-soft">
+                    <MessageSquare className="h-4 w-4 text-success" />
+                    <AlertDescription className="text-success">
                       Follow-up system is active. Pro plan tenants can configure follow-up messages.
                     </AlertDescription>
                   </Alert>
                 )}
 
                 {!settings.whatsapp_followup_enabled && (
-                  <Alert className="bg-yellow-500/10 border-yellow-500/20">
-                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                    <AlertDescription className="text-yellow-600">
+                  <Alert className="border-transparent bg-warning-soft">
+                    <AlertTriangle className="h-4 w-4 text-warning" />
+                    <AlertDescription className="text-warning">
                       Follow-up system is disabled. No follow-up messages will be sent.
                     </AlertDescription>
                   </Alert>
                 )}
 
-                <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
                   <strong>Note:</strong> Welcome and Away messages are always available to all tenants. This toggle only controls the follow-up automation feature.
                 </div>
               </CardContent>
@@ -292,7 +318,7 @@ export default function AdminSettings() {
             <ReminderAutomationSettings />
           </TabsContent>
         </Tabs>
-      </div>
+      </m.div>
     </AdminLayout>
   );
 }
