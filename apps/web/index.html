@@ -24,16 +24,19 @@
         }
       })();
     </script>
-    <link rel="icon" href="/favicon.png" type="image/png" />
+    <!-- SVG favicon (~1KB) for modern browsers; small PNG only as a fallback. -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.png" type="image/png" sizes="64x64" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#16a34a" />
     <link rel="apple-touch-icon" href="/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Bengali:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Inter: geometric sans for the marketing landing page (Latin/UI + tabular figures). Bengali stays on Noto Serif Bengali. -->
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Fonts loaded NON-BLOCKING: preload as style, then swap to stylesheet on
+         load so the font fetch never blocks first paint. display=swap keeps text
+         visible meanwhile. One combined request (Inter + Noto Serif Bengali). -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@400;500;600;700&display=swap"></noscript>
     <title>Ecomex Automation - WhatsApp CRM for your business</title>
     <meta name="description" content="Manage your WhatsApp business conversations, automate responses, and grow your business with Ecomex Automation CRM." />
     <meta name="author" content="Ecomex Automation" />

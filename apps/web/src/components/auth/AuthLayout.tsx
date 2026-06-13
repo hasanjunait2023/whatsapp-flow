@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { AppLogo } from '@/components/AppLogo';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-import { ProductVideoPlayer } from './ProductVideoPlayer';
+import { ProductShowcase } from './ProductShowcase';
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -52,8 +52,8 @@ export function AuthLayout({ children }: AuthLayoutProps) {
               </p>
             </div>
             
-            {/* Product Video */}
-            <ProductVideoPlayer />
+            {/* Live product showcase */}
+            <ProductShowcase />
           </div>
           
           {/* Footer Stats */}
@@ -98,7 +98,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         {/* Bottom Footer */}
         <div className="p-4 lg:p-6 text-center">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Ecomex Automation. All rights reserved.
+            © {new Date().getFullYear()} What A App by Ecomex. All rights reserved.
           </p>
         </div>
       </div>

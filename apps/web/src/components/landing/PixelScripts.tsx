@@ -12,20 +12,36 @@ import { trackingConfig } from "@/lib/tracking";
 export function PixelScripts() {
   const { metaPixelId, ga4Id, googleAdsId, tiktokPixelId } = trackingConfig;
 
+  // Trackers load on browser-idle, never competing with the page's first paint
+  // or time-to-interactive. PageView still fires (just a beat later).
   useEffect(() => {
-    if (metaPixelId) injectMetaPixel(metaPixelId);
+    if (metaPixelId) return whenIdle(() => injectMetaPixel(metaPixelId));
   }, [metaPixelId]);
 
   useEffect(() => {
     const gaId = ga4Id || googleAdsId;
-    if (gaId) injectGtag(gaId, ga4Id, googleAdsId);
+    if (gaId) return whenIdle(() => injectGtag(gaId, ga4Id, googleAdsId));
   }, [ga4Id, googleAdsId]);
 
   useEffect(() => {
-    if (tiktokPixelId) injectTiktokPixel(tiktokPixelId);
+    if (tiktokPixelId) return whenIdle(() => injectTiktokPixel(tiktokPixelId));
   }, [tiktokPixelId]);
 
   return null;
+}
+
+/** Runs fn when the browser is idle (rIC), with a setTimeout fallback. Returns a cleanup. */
+function whenIdle(fn: () => void): () => void {
+  const w = window as unknown as {
+    requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+    cancelIdleCallback?: (id: number) => void;
+  };
+  if (typeof w.requestIdleCallback === "function") {
+    const id = w.requestIdleCallback(fn, { timeout: 3000 });
+    return () => w.cancelIdleCallback?.(id);
+  }
+  const id = window.setTimeout(fn, 1200);
+  return () => window.clearTimeout(id);
 }
 
 function once(id: string): boolean {

@@ -366,6 +366,15 @@ body[data-scroll-locked] {
     100% { background-position: -200% 0; }
   }
 
+  /* Gentle vertical float — used by the auth product showcase card. */
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-\[float_6s_ease-in-out_infinite\] { animation: none; }
+  }
+
   /* Hover lift effect */
   .hover-lift {
     @apply transition-all duration-300;

@@ -303,3 +303,18 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Performance: skip rendering deep below-the-fold sections until they near the
+   viewport (content-visibility). contain-intrinsic-size reserves an estimated
+   height so the scrollbar + in-page anchor links stay accurate. Cuts initial
+   layout/paint work — the hero paints without waiting on the rest of the page.
+   --------------------------------------------------------------------------- */
+.lp #how,
+.lp #testimonials,
+.lp #integrations,
+.lp #pricing,
+.lp #faqs {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 640px;
+}
