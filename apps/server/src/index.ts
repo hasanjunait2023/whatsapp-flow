@@ -3,7 +3,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { dbGet } from "./db/raw.js";
+import { dbGet, dbRun } from "./db/raw.js";
 import { auth } from "./auth/index.js";
 import { tenantMiddleware } from "./middleware/tenant.js";
 import { queryRoute } from "./routes/query.js";
@@ -73,6 +73,54 @@ app.route("/api/webhooks/woocommerce", woocommerceWebhookRoute);
 
 // --- Facebook OAuth callback (browser redirect from Meta; signed-state auth) ---
 app.route("/api/fb/oauth/callback", fbOauthCallbackRoute);
+
+// --- Public demo-lead capture (unauthenticated marketing form) ---------------
+// Mounted on the public app BEFORE the authed api router. Writes to
+// marketing_leads (an admin/read-only table via the generic API), so it needs
+// its own validated endpoint instead of a client-side insert.
+app.post("/api/public/demo-lead", async (c) => {
+  let body: Record<string, unknown> = {};
+  try {
+    const raw = await c.req.text();
+    body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+  } catch {
+    return c.json({ error: { message: "Invalid JSON body" } }, 400);
+  }
+
+  const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
+  const fullName = str(body.full_name);
+  const email = str(body.email).toLowerCase();
+  const whatsappNumber = str(body.whatsapp_number);
+  const businessName = str(body.business_name);
+
+  if (!fullName || fullName.length > 200) return c.json({ error: { message: "A valid name is required" } }, 400);
+  if (!email || email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return c.json({ error: { message: "A valid email is required" } }, 400);
+  }
+  if (!whatsappNumber || whatsappNumber.length > 30) {
+    return c.json({ error: { message: "A valid WhatsApp number is required" } }, 400);
+  }
+  if (!businessName || businessName.length > 200) {
+    return c.json({ error: { message: "A valid business name is required" } }, 400);
+  }
+
+  const now = new Date().toISOString();
+  await dbRun(
+    `INSERT INTO marketing_leads
+       (id, full_name, email, whatsapp_number, business_name, source, status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    crypto.randomUUID(),
+    fullName,
+    email,
+    whatsappNumber,
+    businessName,
+    "demo_request",
+    "new",
+    now,
+    now,
+  );
+  return c.json({ success: true });
+});
 
 // --- authed API --------------------------------------------------------------
 const api = new Hono();

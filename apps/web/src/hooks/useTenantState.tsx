@@ -215,15 +215,9 @@ export function useTenantState() {
 
     if (tenantError) throw tenantError;
 
-    const { error: roleError } = await supabase
-      .from('user_roles')
-      .insert({
-        user_id: user.id,
-        tenant_id: tenant.id,
-        role: 'owner',
-      });
-
-    if (roleError) throw roleError;
+    // The owner user_role is created SERVER-SIDE on tenant insert (user_roles is
+    // admin-only via /api/query, so the client cannot grant it). Do not insert it
+    // here — it would be rejected with "Admin privileges required".
 
     // Prefer switching to the newly created tenant.
     localStorage.setItem('currentTenantId', tenant.id);

@@ -14,7 +14,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const demoRequestSchema = z.object({
@@ -48,16 +47,21 @@ export function DemoRequestDialog({ open, onOpenChange, onSuccess }: DemoRequest
   const handleSubmit = async (data: DemoRequestFormData) => {
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from('marketing_leads').insert({
-        full_name: data.fullName,
-        whatsapp_number: data.whatsappNumber,
-        email: data.email,
-        business_name: data.businessName,
-        source: 'demo_request',
-        status: 'warm',
+      const res = await fetch('/api/public/demo-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: data.fullName,
+          whatsapp_number: data.whatsappNumber,
+          email: data.email,
+          business_name: data.businessName,
+        }),
       });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.error?.message ?? 'Failed to submit request');
+      }
 
       // Provide demo credentials
       const demoCredentials = {

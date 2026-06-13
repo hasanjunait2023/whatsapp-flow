@@ -159,7 +159,7 @@ Each phase: trigger → build → files/tables → exit criteria.
 ### P1 — Foundation (1–100 tenants)
 - **Build:** Finish SQLite→PG migration (incl. porting `jobs/queue.ts` off `sqlite.prepare`). Add `pgvector` extension. Ship RAG MVP (§4) on one GPU running TEI. Enforce `tenant_id` on every new table.
 - **Touches:** `db/index.ts`, `jobs/queue.ts`, new `services/rag/`, `services/hermes/agent.ts`, new `embedding_chunks` migration.
-- **Status:** RAG layer **scaffolded** — `embeddings/` provider abstraction (TEI/Ollama/fake) + `services/rag/` (lazy `ensureRagSchema`, chunk, index, retrieve) + tests shipped. Job registration + soul-ingest enqueue + `agent.ts` retrieval injection are documented one-liners deferred until the queue/agent migration lands. See **[docs/RAG.md](RAG.md)**.
+- **Status:** RAG layer **built + wired**. `embeddings/` provider abstraction (TEI/Ollama/fake) + `services/rag/` (lazy `ensureRagSchema`, chunk, index, retrieve) + tests. Wired into `soul/index.ts` (register + enqueue `rag_index`) and `hermes/agent.ts` (retrieval injection, best-effort). Type-clean. Remaining = VPS infra (pgvector extension + Ollama/TEI) via `deploy/rag-setup.sh`, then `rag-doctor` + `backfill-rag`. See **[docs/RAG.md](RAG.md)**.
 - **Exit:** Agent answers from tenant's own `soulSources`; queue runs on Postgres.
 
 ### P2 — Optimization (100–500)

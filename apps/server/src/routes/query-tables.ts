@@ -81,6 +81,7 @@ import {
   adminAccessRequests,
   adminTasks,
   adminNotifications,
+  adminAuditLogs,
   inAppNotifications,
   supportTickets,
   supportTicketMessages,
@@ -339,7 +340,7 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
     mutability: "admin",
     redactColumns: ["token"],
   },
-  team_activity_logs: { table: teamActivityLogs, tenantColumn: "tenant_id", mutability: "readonly" },
+  team_activity_logs: { table: teamActivityLogs, tenantColumn: "tenant_id", mutability: "tenant" },
   team_kpi_targets: { table: teamKpiTargets, tenantColumn: "tenant_id", mutability: "tenant" },
   team_presence_logs: { table: teamPresenceLogs, tenantColumn: "tenant_id", mutability: "tenant" },
   team_work_sessions: { table: teamWorkSessions, tenantColumn: "tenant_id", mutability: "tenant" },
@@ -356,6 +357,10 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
   admin_access_requests: { table: adminAccessRequests, tenantColumn: null, mutability: "admin" },
   admin_tasks: { table: adminTasks, tenantColumn: null, mutability: "admin" },
   admin_notifications: { table: adminNotifications, tenantColumn: null, mutability: "admin" },
+  // Admin action / impersonation audit trail: admins write entries and read the
+  // log; not tenant-scoped (global). Exposed so the admin audit UI + the shared
+  // audit logger work via /api/query.
+  admin_audit_logs: { table: adminAuditLogs, tenantColumn: null, mutability: "admin" },
   in_app_notifications: { table: inAppNotifications, tenantColumn: "tenant_id", mutability: "tenant" },
   support_tickets: { table: supportTickets, tenantColumn: "tenant_id", mutability: "tenant" },
   // support_ticket_messages has no tenant_id; scope through its parent ticket.
@@ -379,7 +384,7 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
   scheduled_report_logs: { table: scheduledReportLogs, tenantColumn: "tenant_id", mutability: "readonly" },
   reminder_settings: { table: reminderSettings, tenantColumn: null, mutability: "admin" },
   reminder_logs: { table: reminderLogs, tenantColumn: "tenant_id", mutability: "readonly" },
-  onboarding_jobs: { table: onboardingJobs, tenantColumn: "tenant_id", mutability: "readonly" },
+  onboarding_jobs: { table: onboardingJobs, tenantColumn: "tenant_id", mutability: "tenant" },
 
   // === Marketing (deferred-v1; admin pages read these) ======================
   marketing_leads: { table: marketingLeads, tenantColumn: null, mutability: "admin" },
@@ -415,7 +420,7 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
   service_lists: { table: serviceLists, tenantColumn: "tenant_id", mutability: "tenant" },
   service_cards: { table: serviceCards, tenantColumn: "tenant_id", mutability: "tenant" },
   service_labels: { table: serviceLabels, tenantColumn: "tenant_id", mutability: "tenant" },
-  service_card_activity: { table: serviceCardActivity, tenantColumn: "tenant_id", mutability: "readonly" },
+  service_card_activity: { table: serviceCardActivity, tenantColumn: "tenant_id", mutability: "tenant" },
 };
 
 export function isAllowedTable(name: string): boolean {

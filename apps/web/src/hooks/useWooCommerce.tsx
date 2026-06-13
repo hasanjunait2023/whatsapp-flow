@@ -170,10 +170,9 @@ export function useWooCommerce() {
     mutationFn: async () => {
       if (!integration) throw new Error('No integration to delete');
 
-      const { error } = await supabase
-        .from('woocommerce_integrations')
-        .delete()
-        .eq('id', integration.id);
+      const { error } = await supabase.functions.invoke('woocommerce-disconnect', {
+        body: {},
+      });
 
       if (error) throw error;
     },

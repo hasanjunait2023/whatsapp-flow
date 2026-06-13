@@ -1,4 +1,4 @@
-import { dbGet, dbTx } from "../../db/raw.js";
+import { dbGet, dbRun, dbTx } from "../../db/raw.js";
 
 /**
  * Free-trial provisioning for brand-new tenants.
@@ -21,6 +21,30 @@ const TRIAL_PLAN_ID = "pro";
 /** Adds whole days to a Date, returning a new Date (no mutation). */
 function addDays(from: Date, days: number): Date {
   return new Date(from.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+/**
+ * Provisions a brand-new tenant for its creating user: makes them the OWNER and
+ * starts the trial. This MUST run server-side because user_roles is admin-only
+ * mutable via /api/query — a regular onboarding user cannot grant themselves a
+ * role from the client, so without this they'd create a tenant they can't access
+ * ("Forbidden tenant" on every read). Best-effort + idempotent.
+ */
+export async function provisionNewTenant(tenantId: string, ownerUserId: string): Promise<void> {
+  if (!tenantId || !ownerUserId) return;
+  const nowIso = new Date().toISOString();
+  // Owner membership (idempotent on the (user_id, tenant_id) unique index).
+  await dbRun(
+    `INSERT INTO user_roles (id, user_id, tenant_id, role, created_at, updated_at)
+       VALUES (?, ?, ?, 'owner', ?, ?)
+       ON CONFLICT (user_id, tenant_id) DO NOTHING`,
+    crypto.randomUUID(),
+    ownerUserId,
+    tenantId,
+    nowIso,
+    nowIso,
+  );
+  await startTrialForTenant(tenantId);
 }
 
 /**

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { rawDb } from "../../db/index.js";
+import { ragQuery } from "./db.js";
 import { resolveEmbeddingClient } from "../../embeddings/registry.js";
 import type { EmbeddingClient } from "../../embeddings/types.js";
 import { ensureRagSchema } from "./schema.js";
@@ -12,8 +12,8 @@ import { toVectorLiteral } from "./vector.js";
  * tenant_id. Vector search and tenant isolation are one SQL statement — the
  * reason pgvector beats a separate vector store here (no cross-store sync).
  *
- * All DB access goes through rawDb (async, works on prod pg + test PGlite);
- * this module never imports the not-yet-migrated synchronous `sqlite` surface.
+ * All DB access goes through ragQuery (the dedicated pgvector DB when
+ * RAG_DATABASE_URL is set, else the app DB) — async, works on prod pg + PGlite.
  */
 
 export interface IndexSourceInput {
@@ -30,7 +30,7 @@ export interface IndexSourceInput {
 export async function indexSource(input: IndexSourceInput): Promise<number> {
   await ensureRagSchema();
 
-  await rawDb.query(
+  await ragQuery(
     `DELETE FROM embedding_chunks WHERE tenant_id = $1 AND source_type = $2 AND source_id = $3`,
     [input.tenantId, input.sourceType, input.sourceId],
   );
@@ -42,7 +42,7 @@ export async function indexSource(input: IndexSourceInput): Promise<number> {
   const vectors = await client.embed(chunks);
 
   for (let i = 0; i < chunks.length; i++) {
-    await rawDb.query(
+    await ragQuery(
       `INSERT INTO embedding_chunks
          (id, tenant_id, source_type, source_id, chunk_index, chunk_text, embedding)
        VALUES ($1, $2, $3, $4, $5, $6, $7::vector)`,
@@ -75,7 +75,7 @@ export async function retrieveContext(input: RetrieveInput): Promise<string[]> {
   const [queryVec] = await client.embed([input.query]);
   if (!queryVec) return [];
 
-  const res = await rawDb.query(
+  const res = await ragQuery(
     `SELECT chunk_text FROM embedding_chunks
      WHERE tenant_id = $1
      ORDER BY embedding <=> $2::vector

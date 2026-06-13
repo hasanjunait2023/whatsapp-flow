@@ -196,7 +196,7 @@ export async function createAdminUser(raw: Record<string, unknown>, ctx: FnConte
   const body = raw as CreateAdminBody;
   let userId = body.user_id ?? null;
   if (!userId && body.email) {
-    const u = (await dbGet("SELECT id FROM user WHERE lower(email) = lower(?) LIMIT 1", body.email)) as
+    const u = (await dbGet("SELECT id FROM \"user\" WHERE lower(email) = lower(?) LIMIT 1", body.email)) as
       | { id: string }
       | undefined;
     userId = u?.id ?? null;

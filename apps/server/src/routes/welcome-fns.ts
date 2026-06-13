@@ -280,7 +280,7 @@ export async function fbBackfillProfiles(raw: Record<string, unknown>, ctx: FnCo
 
   const remaining = (
     (await dbGet(
-      "SELECT COUNT(*) AS n FROM fb_contacts WHERE tenant_id = ? AND (name IS NULL OR profile_pic_url IS NULL)",
+      "SELECT COUNT(*)::int AS n FROM fb_contacts WHERE tenant_id = ? AND (name IS NULL OR profile_pic_url IS NULL)",
       tenantId,
     )) as { n: number }
   ).n;

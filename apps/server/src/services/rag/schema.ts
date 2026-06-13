@@ -1,4 +1,4 @@
-import { rawDb } from "../../db/index.js";
+import { ragQuery } from "./db.js";
 import { EMBEDDING_DIMS } from "../../embeddings/types.js";
 
 /**
@@ -20,8 +20,8 @@ export function ensureRagSchema(): Promise<void> {
 }
 
 async function doEnsure(): Promise<void> {
-  await rawDb.query(`CREATE EXTENSION IF NOT EXISTS vector`);
-  await rawDb.query(`
+  await ragQuery(`CREATE EXTENSION IF NOT EXISTS vector`);
+  await ragQuery(`
     CREATE TABLE IF NOT EXISTS embedding_chunks (
       id           uuid PRIMARY KEY,
       tenant_id    text NOT NULL,
@@ -33,17 +33,17 @@ async function doEnsure(): Promise<void> {
       created_at   timestamptz NOT NULL DEFAULT now()
     )
   `);
-  await rawDb.query(
+  await ragQuery(
     `CREATE INDEX IF NOT EXISTS embedding_chunks_tenant_idx ON embedding_chunks (tenant_id)`,
   );
-  await rawDb.query(
+  await ragQuery(
     `CREATE UNIQUE INDEX IF NOT EXISTS embedding_chunks_source_uidx
        ON embedding_chunks (tenant_id, source_type, source_id, chunk_index)`,
   );
   // ANN index for cosine search. Best-effort: older pgvector lacks HNSW; the
   // tenant-filtered query still works via exact scan until this exists.
   try {
-    await rawDb.query(
+    await ragQuery(
       `CREATE INDEX IF NOT EXISTS embedding_chunks_hnsw
          ON embedding_chunks USING hnsw (embedding vector_cosine_ops)`,
     );

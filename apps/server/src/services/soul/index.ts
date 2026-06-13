@@ -8,6 +8,7 @@ import { crawlWebsite } from "./ingest-website.js";
 import { ingestFacebookPage } from "./ingest-facebook.js";
 import { synthesizeSoul, type SoulProfile } from "./synthesize.js";
 import { buildSystemPrompt } from "./prompt-builder.js";
+import { RAG_INDEX_JOB, ragIndexHandler } from "../rag/job.js";
 
 /**
  * Soul lifecycle orchestration:
@@ -121,7 +122,16 @@ async function runSoulIngestion(payload: unknown): Promise<void> {
             error: null,
           })
           .where(eq(soulSources.id, source.id));
-        if (text) texts.push(text);
+        if (text) {
+          texts.push(text);
+          // RAG: index this source's text for retrieval (deduped per source).
+          await enqueueJob({
+            kind: RAG_INDEX_JOB,
+            tenantId,
+            payload: { tenantId, sourceType: "soul_source", sourceId: source.id, text },
+            dedupeKey: `rag:soul_source:${source.id}`,
+          });
+        }
       } catch (err) {
         await db
           .update(soulSources)
@@ -216,4 +226,5 @@ export async function getApprovedSystemPrompt(tenantId: string): Promise<string 
 
 export function registerSoulJobs(): void {
   registerJobHandler(SOUL_INGEST_JOB, runSoulIngestion);
+  registerJobHandler(RAG_INDEX_JOB, ragIndexHandler);
 }

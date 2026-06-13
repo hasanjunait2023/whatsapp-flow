@@ -3,6 +3,7 @@ import { resolveLlm } from "../../llm/registry.js";
 import { checkBudget, recordUsage } from "../../llm/usage.js";
 import type { LlmMessage } from "../../llm/types.js";
 import { getApprovedSystemPrompt } from "../soul/index.js";
+import { retrieveContext, formatContext } from "../rag/index.js";
 import { HERMES_TOOLS, executeHermesTool } from "./tools.js";
 
 /**
@@ -108,7 +109,21 @@ export async function runHermesAgent(
   const resolved = await resolveLlm(tenantId);
   const model = (await getModelOverride(tenantId)) ?? resolved.model;
 
-  const messages: LlmMessage[] = [{ role: "system", content: systemPrompt }, ...history];
+  // RAG: augment the system prompt with the tenant's most relevant knowledge
+  // chunks for the latest user turn. Best-effort — embedding/DB issues must
+  // never block a reply, so fall back to the base prompt on any error.
+  const latestUserText = history.filter((m) => m.role === "user").at(-1)?.content ?? "";
+  let augmentedPrompt = systemPrompt;
+  if (latestUserText) {
+    try {
+      const chunks = await retrieveContext({ tenantId, query: latestUserText });
+      augmentedPrompt = systemPrompt + formatContext(chunks);
+    } catch {
+      // retrieval unavailable (no pgvector / embedding server down) — use base prompt
+    }
+  }
+
+  const messages: LlmMessage[] = [{ role: "system", content: augmentedPrompt }, ...history];
   const totalUsage = { promptTokens: 0, completionTokens: 0 };
   const executedTools: Array<{ name: string; arguments: Record<string, unknown> }> = [];
 

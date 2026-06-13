@@ -13,6 +13,7 @@ import type { FnContext, FnResult } from "./waha/session.js";
  */
 
 const ok = (data: unknown): FnResult => ({ data, error: null });
+const fail = (message: string): FnResult => ({ data: null, error: { message } });
 
 async function isOwner(userId: string, tenantId: string): Promise<boolean> {
   const row = (await dbGet(
@@ -21,6 +22,18 @@ async function isOwner(userId: string, tenantId: string): Promise<boolean> {
     tenantId,
   )) as { role: string } | undefined;
   return row?.role === "owner";
+}
+
+/** Caller must be an owner/admin of the tenant (or a system admin) to manage members. */
+async function canManage(ctx: FnContext): Promise<boolean> {
+  if (ctx.isAdmin) return true;
+  if (!ctx.tenantId) return false;
+  const row = (await dbGet(
+    "SELECT role FROM user_roles WHERE user_id = ? AND tenant_id = ? LIMIT 1",
+    ctx.userId,
+    ctx.tenantId,
+  )) as { role: string } | undefined;
+  return row?.role === "owner" || row?.role === "admin";
 }
 
 interface CreateBody {
@@ -206,8 +219,131 @@ export async function acceptInvitation(raw: Record<string, unknown>, ctx: FnCont
   return ok({ success: true, tenant_id: inv.tenant_id, role: inv.role });
 }
 
+interface InviteMemberBody {
+  email?: string;
+  role?: string;
+}
+
+/** team-invite-member: owner/admin only; creates a pending invitation (token kept secret). */
+export async function inviteMember(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
+  if (!ctx.tenantId) return fail("No active tenant");
+  if (!(await canManage(ctx))) return fail("Only owners and managers can invite members");
+  const body = raw as InviteMemberBody;
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const role = typeof body.role === "string" ? body.role : "";
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("A valid email is required");
+  if (email.length > 255) return fail("Email is too long");
+  if (!["manager", "agent"].includes(role)) return fail("Invalid role. Must be 'manager' or 'agent'");
+
+  const existing = (await dbGet(
+    "SELECT id FROM team_invitations WHERE tenant_id = ? AND email = ? AND accepted_at IS NULL LIMIT 1",
+    ctx.tenantId,
+    email,
+  )) as { id: string } | undefined;
+  if (existing) return fail("This email has already been invited");
+
+  const id = crypto.randomUUID();
+  const token = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  await dbRun(
+    "INSERT INTO team_invitations (id, tenant_id, email, role, token, invited_by, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    id,
+    ctx.tenantId,
+    email,
+    role,
+    token,
+    ctx.userId,
+    now,
+    expiresAt,
+  );
+  // Never return the token (secret join credential).
+  return ok({ id, tenant_id: ctx.tenantId, email, role, invited_by: ctx.userId, created_at: now, expires_at: expiresAt });
+}
+
+interface CancelInvitationBody {
+  invitation_id?: string;
+}
+
+/** team-cancel-invitation: owner/admin only; deletes a pending invitation scoped to the tenant. */
+export async function cancelInvitation(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
+  if (!ctx.tenantId) return fail("No active tenant");
+  if (!(await canManage(ctx))) return fail("Only owners and managers can cancel invitations");
+  const body = raw as CancelInvitationBody;
+  const invitationId = typeof body.invitation_id === "string" ? body.invitation_id : "";
+  if (!invitationId) return fail("invitation_id is required");
+  const result = await dbRun(
+    "DELETE FROM team_invitations WHERE id = ? AND tenant_id = ?",
+    invitationId,
+    ctx.tenantId,
+  );
+  if (result.changes === 0) return fail("Invitation not found");
+  return ok({ success: true });
+}
+
+interface SetRoleBody {
+  user_id?: string;
+  role?: string;
+}
+
+/** team-set-member-role: owner/admin only; cannot change own role; member must exist. */
+export async function setMemberRole(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
+  if (!ctx.tenantId) return fail("No active tenant");
+  if (!(await canManage(ctx))) return fail("Only owners and managers can change roles");
+  const body = raw as SetRoleBody;
+  const userId = typeof body.user_id === "string" ? body.user_id : "";
+  const role = typeof body.role === "string" ? body.role : "";
+  if (!userId) return fail("user_id is required");
+  if (!["manager", "agent"].includes(role)) return fail("Invalid role. Must be 'manager' or 'agent'");
+  if (userId === ctx.userId) return fail("You cannot change your own role");
+
+  const target = (await dbGet(
+    "SELECT role FROM user_roles WHERE user_id = ? AND tenant_id = ? LIMIT 1",
+    userId,
+    ctx.tenantId,
+  )) as { role: string } | undefined;
+  if (!target) return fail("Target user is not a member of this tenant");
+  if (target.role === "owner") return fail("Cannot change the owner's role");
+
+  const now = new Date().toISOString();
+  await dbRun(
+    "UPDATE user_roles SET role = ?, updated_at = ? WHERE user_id = ? AND tenant_id = ?",
+    role,
+    now,
+    userId,
+    ctx.tenantId,
+  );
+  return ok({ success: true });
+}
+
+interface RemoveMemberBody {
+  user_id?: string;
+}
+
+/** team-remove-member: owner/admin only; cannot remove self or the owner. */
+export async function removeMember(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
+  if (!ctx.tenantId) return fail("No active tenant");
+  if (!(await canManage(ctx))) return fail("Only owners and managers can remove members");
+  const body = raw as RemoveMemberBody;
+  const userId = typeof body.user_id === "string" ? body.user_id : "";
+  if (!userId) return fail("user_id is required");
+  if (userId === ctx.userId) return fail("You cannot remove yourself");
+
+  const result = await dbRun(
+    "DELETE FROM user_roles WHERE user_id = ? AND tenant_id = ? AND role != 'owner'",
+    userId,
+    ctx.tenantId,
+  );
+  if (result.changes === 0) return fail("Member not found or cannot be removed");
+  return ok({ success: true });
+}
+
 export const TEAM_HANDLERS = {
   "create-team-member": createTeamMember,
   "reset-team-member-password": resetTeamMemberPassword,
   "accept-invitation": acceptInvitation,
+  "team-invite-member": inviteMember,
+  "team-cancel-invitation": cancelInvitation,
+  "team-set-member-role": setMemberRole,
+  "team-remove-member": removeMember,
 };

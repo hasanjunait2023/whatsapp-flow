@@ -15,15 +15,17 @@ All additive, conflict-free with the in-flight SQLite→Postgres migration. New 
 
 | File | Purpose |
 |------|---------|
-| `apps/server/src/embeddings/types.ts` | `EmbeddingClient` interface, `EMBEDDING_DIMS = 1024` |
-| `apps/server/src/embeddings/providers/tei.ts` | TEI HTTP client (`POST /embed`) |
-| `apps/server/src/embeddings/providers/ollama.ts` | Ollama client (`POST /api/embed`) |
+| `apps/server/src/embeddings/types.ts` | `EmbeddingClient` interface, env-driven `EMBEDDING_DIMS` |
+| `apps/server/src/embeddings/providers/gemini.ts` | Gemini client (`batchEmbedContents`) — **P1 default** |
+| `apps/server/src/embeddings/providers/tei.ts` | TEI HTTP client (self-hosted BGE-M3, later) |
+| `apps/server/src/embeddings/providers/ollama.ts` | Ollama client (self-hosted, later) |
 | `apps/server/src/embeddings/registry.ts` | `resolveEmbeddingClient()` from env + deterministic `fakeClient` for tests |
+| `apps/server/src/services/rag/db.ts` | `ragQuery()` — dedicated pgvector DB (RAG_DATABASE_URL) or app-DB fallback |
 | `apps/server/src/services/rag/schema.ts` | `ensureRagSchema()` — idempotent DDL (extension + table + indexes) |
 | `apps/server/src/services/rag/chunk.ts` | `chunkText()` — paragraph-packed windows + overlap |
 | `apps/server/src/services/rag/vector.ts` | pgvector literal `[]` serialise/parse |
 | `apps/server/src/services/rag/index.ts` | `indexSource()`, `retrieveContext()`, `formatContext()` |
-| `apps/server/src/services/rag/job.ts` | `RAG_INDEX_JOB` + `ragIndexHandler` (not registered yet) |
+| `apps/server/src/services/rag/job.ts` | `RAG_INDEX_JOB` + `ragIndexHandler` (registered in soul jobs) |
 | `apps/server/test/rag-unit.test.ts` | pure-logic tests (no DB) |
 | `apps/server/test/rag-db.test.ts` | DB integration, self-skips without pgvector |
 
@@ -51,108 +53,56 @@ LIMIT $3;
 
 ---
 
-## VPS setup
+## Architecture on this VPS
 
-### 1. Install pgvector in Postgres
+The Contabo box is RAM-bound (≈1.5 GB free) and its app DB is the shared
+`postiz-postgres` (`postgres:17-alpine`, no pgvector). So at P1:
 
-The app talks to a shared Postgres. The server needs the `vector` extension available
-so `CREATE EXTENSION` (run automatically by `ensureRagSchema`) succeeds.
+- **Vectors → a dedicated `pgvector/pgvector:pg17` container** (`whatsapp-flow-ragdb`,
+  ~40 MB), on the `whatsapp-flow_wf_net` network, reachable as host `ragdb`. Keeps
+  vectors off the shared DB; no restart of postiz-postgres. The app points at it via
+  `RAG_DATABASE_URL`; `ragQuery()` falls back to the app DB only when that's unset.
+- **Embeddings → Gemini API** (`text-embedding-004`, 768-dim, strong Bengali). Zero VPS
+  RAM/GPU. Self-hosted BGE-M3 (TEI/Ollama providers already in the abstraction) moves in
+  at roadmap P5 on a dedicated GPU box — an env change, no code change.
 
-- **Debian/Ubuntu package:** `sudo apt-get install postgresql-16-pgvector` (match your PG major), then restart Postgres.
-- **Docker Postgres:** switch the image to `pgvector/pgvector:pg16` (drop-in superset of `postgres:16`).
+### Provision the vector DB
 
-The app role needs `CREATE` on the database to create the extension the first time, or a
-superuser runs `CREATE EXTENSION vector;` once.
+Already provisioned on the VPS by `deploy/rag-setup.sh` (idempotent). It created the
+container, enabled `vector`, and wrote `RAG_DATABASE_URL` to `/srv/whatsapp-flow/.rag.env`
+(root-only). Re-run the script to recreate if needed.
 
-### 2. Run an embedding server
-
-**Option A — TEI (GPU, production, fastest):**
-
-```yaml
-# add to docker-compose.yml (VPS). GPU host required.
-  embeddings:
-    image: ghcr.io/huggingface/text-embeddings-inference:1.5
-    command: ["--model-id", "BAAI/bge-m3"]
-    ports: ["8080:80"]
-    deploy:
-      resources:
-        reservations:
-          devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
-    restart: unless-stopped
-```
-
-**Option B — Ollama (CPU, fine for P1 small corpora, no GPU):**
+### Server environment (app)
 
 ```bash
-# on the VPS
-ollama pull bge-m3
-# serves on :11434
+EMBEDDING_PROVIDER=gemini
+EMBEDDING_MODEL=text-embedding-004
+EMBEDDING_DIMS=768
+GEMINI_API_KEY=<your key>          # free from aistudio.google.com; no platform key existed
+RAG_DATABASE_URL=<from /srv/whatsapp-flow/.rag.env>
 ```
 
-### 3. Server environment
+In tests `EMBEDDING_PROVIDER` defaults to `fake` (deterministic, no network) and
+`RAG_DATABASE_URL` is unset, so `ragQuery` uses the PGlite app DB.
 
-```bash
-# tei (Option A)
-EMBEDDING_PROVIDER=tei
-EMBEDDING_URL=http://embeddings:80        # compose service; or http://127.0.0.1:8080
-EMBEDDING_MODEL=BAAI/bge-m3
-EMBEDDING_DIMS=1024
-
-# ollama (Option B)
-EMBEDDING_PROVIDER=ollama
-EMBEDDING_URL=http://127.0.0.1:11434
-EMBEDDING_MODEL=bge-m3
-EMBEDDING_DIMS=1024
-```
-
-In tests `EMBEDDING_PROVIDER` defaults to `fake` (deterministic, no network).
-
-> **If you change `EMBEDDING_DIMS`,** also change the `vector(1024)` column width in
-> `services/rag/schema.ts`. The model output width and the column must match.
+> **`EMBEDDING_DIMS` is the single source of truth** for the `vector(N)` column width
+> (read by `services/rag/schema.ts`) and the client. Model width, this env, and the
+> column must agree: BGE-M3 = 1024, Gemini text-embedding-004 = 768, OpenAI 3-small = 1536.
+> Changing it after data exists requires re-creating `embedding_chunks` + re-backfilling.
 
 ---
 
-## Post-migration wiring
+## Wiring — DONE
 
-These three steps touch `queue.ts` / `agent.ts` / the soul service — files the Postgres
-migration currently owns (they still import the removed synchronous `sqlite`). Do them
-**after** the migration lands so there's no conflict or broken import.
+All three integration points are wired in (the Postgres migration has landed, so the
+queue/agent/soul files are async and safe to touch):
 
-**1. Register the index job** (where `registerSoulJobs()` / `registerHermesPipeline()` are wired at boot):
+1. **Index job registered** — `RAG_INDEX_JOB` → `ragIndexHandler` in `services/soul/index.ts` `registerSoulJobs()`.
+2. **Enqueue on ingest** — the soul ingest loop enqueues `rag_index` (deduped per source) whenever a source's `content_text` is fetched.
+3. **Agent retrieval** — `services/hermes/agent.ts` calls `retrieveContext` + `formatContext` to augment the system prompt before the LLM call. Best-effort: any retrieval error falls back to the base prompt, so a down embedding server never blocks replies.
 
-```ts
-import { registerJobHandler } from "../../jobs/queue.js";
-import { RAG_INDEX_JOB, ragIndexHandler } from "../rag/job.js";
-registerJobHandler(RAG_INDEX_JOB, ragIndexHandler);
-```
-
-**2. Enqueue indexing when a knowledge source changes** (in the soul service, after a
-`soul_sources` row is inserted/updated):
-
-```ts
-import { enqueueJob } from "../../jobs/queue.js";
-import { RAG_INDEX_JOB } from "../rag/job.js";
-enqueueJob({
-  kind: RAG_INDEX_JOB,
-  tenantId,
-  payload: { tenantId, sourceType: "soul_source", sourceId, text },
-  dedupeKey: `rag:soul_source:${sourceId}`,
-});
-```
-
-**3. Inject retrieved context into the agent** (`services/hermes/agent.ts`, just before
-building `messages` from `systemPrompt`):
-
-```ts
-import { retrieveContext, formatContext } from "../rag/index.js";
-const latestUser = history.filter((m) => m.role === "user").at(-1)?.content ?? "";
-const ctx = latestUser ? await retrieveContext({ tenantId, query: latestUser }) : [];
-const augmentedPrompt = systemPrompt + formatContext(ctx);
-// use augmentedPrompt in: { role: "system", content: augmentedPrompt }
-```
-
-A one-time backfill for existing tenants: iterate `soul_sources` and call `indexSource`
-for each (or enqueue `RAG_INDEX_JOB`).
+A one-time backfill for tenants whose knowledge was ingested before RAG existed:
+`tsx src/scripts/backfill-rag.ts` (see below).
 
 ---
 

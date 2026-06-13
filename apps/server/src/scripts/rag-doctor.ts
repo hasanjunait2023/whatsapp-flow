@@ -1,5 +1,5 @@
-import { rawDb } from "../db/index.js";
 import { ensureRagSchema } from "../services/rag/schema.js";
+import { ragQuery, hasDedicatedRagDb } from "../services/rag/db.js";
 import { resolveEmbeddingClient } from "../embeddings/registry.js";
 import { indexSource, retrieveContext } from "../services/rag/index.js";
 
@@ -31,6 +31,8 @@ async function check(name: string, fn: () => Promise<void>): Promise<boolean> {
 export async function ragDoctor(): Promise<boolean> {
   let ok = true;
 
+  console.log(`RAG DB: ${hasDedicatedRagDb() ? "dedicated (RAG_DATABASE_URL)" : "app DB fallback"}`);
+
   ok = (await check("pgvector extension + embedding_chunks schema", async () => {
     await ensureRagSchema();
   })) && ok;
@@ -50,9 +52,9 @@ export async function ragDoctor(): Promise<boolean> {
     if (hits[0] !== text) throw new Error("retrieved chunk did not match indexed text");
   })) && ok;
 
-  await rawDb
-    .query(`DELETE FROM embedding_chunks WHERE source_type = $1`, [DOCTOR_SOURCE_TYPE])
-    .catch(() => {});
+  await ragQuery(`DELETE FROM embedding_chunks WHERE source_type = $1`, [DOCTOR_SOURCE_TYPE]).catch(
+    () => {},
+  );
 
   return ok;
 }

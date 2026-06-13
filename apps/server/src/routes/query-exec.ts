@@ -26,7 +26,7 @@ import { db } from "../db/index.js";
 import { QUERY_TABLES, isAllowedTable, type TableConfig } from "./query-tables.js";
 import { parseSelect, hasEmbeds, hydrateEmbeds } from "./query-embed.js";
 import { isVirtualView, executeView } from "./query-views.js";
-import { startTrialForTenant } from "../services/billing/trial.js";
+import { provisionNewTenant } from "../services/billing/trial.js";
 import type { TenantContext } from "../middleware/tenant.ts";
 
 class QueryError extends Error {
@@ -436,7 +436,13 @@ async function runInsert(
 ): Promise<QueryResponse> {
   const rows = toRows(req.values).map((r) => {
     assertRowAllowed(cfg, ctx, r);
-    return forceTenantOnRow(cfg, ctx, r);
+    const scoped = forceTenantOnRow(cfg, ctx, r);
+    // A tenant is always owned by its creator — never trust a client-supplied
+    // owner_id (forging it would mint a tenant under another user's account).
+    if (req.table === "tenants") {
+      return { ...scoped, owner_id: ctx.userId };
+    }
+    return scoped;
   });
   if (rows.length === 0) {
     throw new QueryError("No values to insert", "no_values");
@@ -447,16 +453,17 @@ async function runInsert(
     .values(rows)
     .returning()) as Record<string, unknown>[];
 
-  // A brand-new tenant gets a 5-day Pro trial. Best-effort: provisioning the
-  // trial must never fail tenant creation, so it's isolated and swallowed.
+  // A brand-new tenant: make the creator its OWNER (user_roles is admin-only via
+  // /api/query, so the client cannot do this) and start the 5-day Pro trial.
+  // Best-effort: provisioning must never fail tenant creation, so it's swallowed.
   if (req.table === "tenants") {
     for (const row of inserted) {
       const tenantId = row.id;
       if (typeof tenantId === "string") {
         try {
-          await startTrialForTenant(tenantId);
+          await provisionNewTenant(tenantId, ctx.userId);
         } catch {
-          // non-fatal: tenant exists; the trial can be back-filled if needed.
+          // non-fatal: tenant exists; ownership/trial can be back-filled if needed.
         }
       }
     }

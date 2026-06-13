@@ -1,10 +1,9 @@
 import { indexSource } from "./index.js";
 
 /**
- * Background-job handler for re-indexing a knowledge source. NOT registered yet:
- * registration imports jobs/queue.ts, which is mid-migration (still references
- * the removed synchronous `sqlite` export). Wire this in once the migration
- * lands — see docs/RAG.md "Post-migration wiring".
+ * Background-job handler for re-indexing a knowledge source. Registered in
+ * services/soul/index.ts registerSoulJobs() and enqueued from the soul ingest
+ * loop when a source's content_text is fetched.
  */
 
 export const RAG_INDEX_JOB = "rag_index";

@@ -1,25 +1,39 @@
 import { teiClient } from "./providers/tei.js";
 import { ollamaClient } from "./providers/ollama.js";
+import { geminiClient } from "./providers/gemini.js";
 import { EMBEDDING_DIMS, type EmbeddingClient } from "./types.js";
 
 /**
  * Resolves the active embedding client from environment. Reads process.env
- * directly (not lib/env.ts) to stay decoupled from the in-flight Postgres
- * migration that owns that file.
+ * directly (not lib/env.ts) to stay decoupled from the Postgres migration that
+ * owns that file.
  *
- *   EMBEDDING_PROVIDER  tei | ollama | fake   (default: tei in prod, fake in test)
- *   EMBEDDING_URL       base URL of the embedding server
- *   EMBEDDING_MODEL     model id (default BAAI/bge-m3)
- *   EMBEDDING_DIMS      vector width (default 1024; must match the DB column)
+ *   EMBEDDING_PROVIDER  gemini | tei | ollama | fake  (default: gemini in prod, fake in test)
+ *   EMBEDDING_URL       base URL of a self-hosted server (tei/ollama)
+ *   EMBEDDING_MODEL     model id (per-provider default below)
+ *   EMBEDDING_DIMS      vector width — MUST match the model and the DB column
+ *   EMBEDDING_API_KEY   key for API providers (falls back to GEMINI_API_KEY for gemini)
  */
 
-const MODEL = process.env.EMBEDDING_MODEL ?? "BAAI/bge-m3";
 const DIMS = Number(process.env.EMBEDDING_DIMS ?? EMBEDDING_DIMS);
 
 function providerName(): string {
   const explicit = process.env.EMBEDDING_PROVIDER?.toLowerCase();
   if (explicit) return explicit;
-  return process.env.NODE_ENV === "test" ? "fake" : "tei";
+  return process.env.NODE_ENV === "test" ? "fake" : "gemini";
+}
+
+function modelFor(provider: string): string {
+  if (process.env.EMBEDDING_MODEL) return process.env.EMBEDDING_MODEL;
+  switch (provider) {
+    case "gemini":
+      return "text-embedding-004";
+    case "tei":
+    case "ollama":
+      return "BAAI/bge-m3";
+    default:
+      return "fake";
+  }
 }
 
 /**
@@ -36,7 +50,6 @@ export function fakeClient(model = "fake", dims = DIMS): EmbeddingClient {
         const vec = new Array<number>(dims);
         let norm = 0;
         for (let i = 0; i < dims; i++) {
-          // cheap deterministic hash of (text, i) -> [-1, 1)
           let h = 2166136261 ^ i;
           for (let c = 0; c < text.length; c++) {
             h = Math.imul(h ^ text.charCodeAt(c), 16777619);
@@ -58,15 +71,24 @@ let cached: EmbeddingClient | null = null;
 export function resolveEmbeddingClient(): EmbeddingClient {
   if (cached) return cached;
   const name = providerName();
+  const model = modelFor(name);
   switch (name) {
+    case "gemini": {
+      const key = process.env.EMBEDDING_API_KEY ?? process.env.GEMINI_API_KEY;
+      if (!key) {
+        throw new Error("EMBEDDING_PROVIDER=gemini but no GEMINI_API_KEY / EMBEDDING_API_KEY set");
+      }
+      cached = geminiClient(key, model, DIMS);
+      break;
+    }
     case "tei":
-      cached = teiClient(process.env.EMBEDDING_URL ?? "http://127.0.0.1:8080", MODEL, DIMS);
+      cached = teiClient(process.env.EMBEDDING_URL ?? "http://127.0.0.1:8080", model, DIMS);
       break;
     case "ollama":
-      cached = ollamaClient(process.env.EMBEDDING_URL ?? "http://127.0.0.1:11434", MODEL, DIMS);
+      cached = ollamaClient(process.env.EMBEDDING_URL ?? "http://127.0.0.1:11434", model, DIMS);
       break;
     case "fake":
-      cached = fakeClient(MODEL, DIMS);
+      cached = fakeClient(model, DIMS);
       break;
     default:
       throw new Error(`Unknown EMBEDDING_PROVIDER: ${name}`);

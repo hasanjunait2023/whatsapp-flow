@@ -103,7 +103,7 @@ export async function adminResetUserPassword(raw: Record<string, unknown>, ctx: 
   const userId = raw.user_id as string | undefined;
   if (!userId) return ok({ success: false, error: "user_id is required" });
 
-  const target = (await dbGet("SELECT id, email FROM user WHERE id = ? LIMIT 1", userId)) as
+  const target = (await dbGet("SELECT id, email FROM \"user\" WHERE id = ? LIMIT 1", userId)) as
     | { id: string; email: string | null }
     | undefined;
   if (!target) return ok({ success: false, error: "User not found" });

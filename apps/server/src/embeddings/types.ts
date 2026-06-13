@@ -5,8 +5,13 @@
  * length `dims`; the RAG layer serialises them to a pgvector literal.
  */
 
-/** BGE-M3 output width. The embedding_chunks.embedding column is vector(EMBEDDING_DIMS). */
-export const EMBEDDING_DIMS = 1024;
+/**
+ * Vector width. The embedding_chunks.embedding column is vector(EMBEDDING_DIMS),
+ * so the model output width, this constant, and the column MUST agree. Env-driven
+ * because it varies by model: BGE-M3 = 1024, Gemini text-embedding-004 = 768,
+ * OpenAI text-embedding-3-small = 1536.
+ */
+export const EMBEDDING_DIMS = Number(process.env.EMBEDDING_DIMS ?? 1024);
 
 export interface EmbeddingClient {
   /** Model identifier, for logging/observability. */

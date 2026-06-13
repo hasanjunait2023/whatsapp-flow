@@ -214,4 +214,12 @@ export const WOO_HANDLERS: Record<string, FnHandler> = {
       return fail(message);
     }
   },
+
+  // Disconnect: remove the tenant's WooCommerce integration. Scoped to the
+  // caller's active tenant — the table is read-only via the generic API.
+  "woocommerce-disconnect": async (_body, ctx) => {
+    if (!ctx.tenantId) return fail("No active tenant");
+    await dbRun("DELETE FROM woocommerce_integrations WHERE tenant_id = ?", ctx.tenantId);
+    return ok({ success: true });
+  },
 };
