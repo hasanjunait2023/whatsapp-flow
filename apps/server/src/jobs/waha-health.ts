@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbAll, dbRun } from "../db/raw.js";
 import { emitChange } from "../realtime/emitter.js";
 import { wahaClient, sessionNameForInstance, type WahaSessionStatus } from "../waha/client.js";
 
@@ -20,12 +20,10 @@ function mapStatus(status: WahaSessionStatus): string {
 
 /** Runs one health sweep over all connectable instances. */
 export async function runWahaHealthCheck(): Promise<void> {
-  const instances = sqlite
-    .prepare(
-      `SELECT id, tenant_id, status FROM whatsapp_instances
-       WHERE session_id IS NOT NULL AND (is_deleted IS NULL OR is_deleted = 0)`,
-    )
-    .all() as InstanceRow[];
+  const instances = (await dbAll(
+    `SELECT id, tenant_id, status FROM whatsapp_instances
+       WHERE session_id IS NOT NULL AND (is_deleted IS NOT TRUE)`,
+  )) as InstanceRow[];
 
   for (const instance of instances) {
     const sessionName = sessionNameForInstance(instance.id);
@@ -39,9 +37,12 @@ export async function runWahaHealthCheck(): Promise<void> {
 
       const newStatus = mapStatus(session.status);
       if (newStatus !== instance.status) {
-        sqlite
-          .prepare("UPDATE whatsapp_instances SET status = ?, last_status_at = ? WHERE id = ?")
-          .run(newStatus, new Date().toISOString(), instance.id);
+        await dbRun(
+          "UPDATE whatsapp_instances SET status = ?, last_status_at = ? WHERE id = ?",
+          newStatus,
+          new Date().toISOString(),
+          instance.id,
+        );
         emitChange("whatsapp_instances", instance.tenant_id, {
           id: instance.id,
           status: newStatus,
@@ -51,11 +52,12 @@ export async function runWahaHealthCheck(): Promise<void> {
       // WAHA unreachable or session missing — mark disconnected once.
       if (instance.status !== "disconnected") {
         const message = error instanceof Error ? error.message : "health check failed";
-        sqlite
-          .prepare(
-            "UPDATE whatsapp_instances SET status = 'disconnected', connection_error = ?, last_status_at = ? WHERE id = ?",
-          )
-          .run(message, new Date().toISOString(), instance.id);
+        await dbRun(
+          "UPDATE whatsapp_instances SET status = 'disconnected', connection_error = ?, last_status_at = ? WHERE id = ?",
+          message,
+          new Date().toISOString(),
+          instance.id,
+        );
         emitChange("whatsapp_instances", instance.tenant_id, {
           id: instance.id,
           status: "disconnected",

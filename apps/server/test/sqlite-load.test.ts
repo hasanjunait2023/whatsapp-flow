@@ -1,99 +1,104 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import Database from "better-sqlite3";
 import { useTempDb } from "./helpers.js";
 
-// Capture the temp DB path so a second (reader) connection can open the same file.
-const DB_PATH = useTempDb();
+useTempDb();
 
-const { sqlite } = await import("../src/db/index.js");
-const { runMigrations } = await import("../src/db/migrate.js");
 const { db } = await import("../src/db/index.js");
+const { dbGet, dbRun, dbTx } = await import("../src/db/raw.js");
+const { runMigrations } = await import("../src/db/migrate.js");
 const { tenants, contacts } = await import("../src/db/schema.js");
 
 const TENANT = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const MSG_COUNT = 2000;
 
-beforeAll(() => {
-  runMigrations();
-  db.insert(tenants).values({ id: TENANT, name: "Load", owner_id: "u" }).run();
-  db.insert(contacts)
-    .values({ id: "c1", tenant_id: TENANT, wa_id: "w@s", phone_number: "1", instance_id: "i1" })
-    .run();
+beforeAll(async () => {
+  await runMigrations();
+  await db.insert(tenants).values({ id: TENANT, name: "Load", owner_id: "u" });
+  await db
+    .insert(contacts)
+    .values({ id: "c1", tenant_id: TENANT, wa_id: "w@s", phone_number: "1", instance_id: "i1" });
 });
 
 /**
- * Phase-6 write-load / single-writer-contention check. The architecture bets on
- * one better-sqlite3 connection (serialized writer) + WAL readers holding up
- * under the webhook ingest path on a shared box. These tests lock in the PRAGMA
- * config and prove a high-volume transactional insert + a concurrent reader work.
+ * Phase-6 write-load / write-contention check, ported to Postgres (PGlite).
+ * The architecture bets on the storage layer holding up under the webhook
+ * ingest path: a high-volume transactional insert, the wa_message_id UNIQUE
+ * dedup guarantee, and concurrent writes all completing without errors.
+ *
+ * NOTE (pg port): the original sqlite-specific bits — the WAL/busy_timeout/
+ * synchronous PRAGMA assertions and the second readonly better-sqlite3 file
+ * connection — have no PGlite analogue (PGlite is a single in-process WASM
+ * instance, not a shared file with WAL). They are replaced below with the
+ * equivalent pg behavior: a storage-health/connectivity check and a concurrent-
+ * writes test driven through the async helpers.
  */
-describe("SQLite production PRAGMA config", () => {
-  it("applies WAL, busy_timeout, foreign_keys, and synchronous=NORMAL", () => {
-    expect(String(sqlite.pragma("journal_mode", { simple: true })).toLowerCase()).toBe("wal");
-    expect(Number(sqlite.pragma("busy_timeout", { simple: true }))).toBe(5000);
-    expect(Number(sqlite.pragma("foreign_keys", { simple: true }))).toBe(1);
-    // synchronous: 0=OFF, 1=NORMAL, 2=FULL — NORMAL is the WAL throughput sweet spot.
-    expect(Number(sqlite.pragma("synchronous", { simple: true }))).toBe(1);
+describe("Postgres storage is reachable for the ingest path", () => {
+  it("connects and exposes the messages table the webhook path writes to", async () => {
+    const ok = (await dbGet("SELECT COUNT(*)::int AS n FROM messages")) as { n: number };
+    expect(ok.n).toBe(0);
   });
 });
 
 describe("write throughput (webhook ingest shape)", () => {
-  it("inserts a large batch in one transaction with no contention errors", () => {
-    const insert = sqlite.prepare(
-      `INSERT INTO messages (id, tenant_id, contact_id, direction, content, content_type, wa_message_id)
-       VALUES (?, ?, ?, 'inbound', ?, 'text', ?)`,
-    );
-    const insertMany = sqlite.transaction((n: number) => {
-      for (let i = 0; i < n; i++) {
-        insert.run(`m-${i}`, TENANT, "c1", `body ${i}`, `wamid-${i}`);
+  it("inserts a large batch in one transaction with no contention errors", async () => {
+    const start = performance.now();
+    await dbTx(async (tx) => {
+      for (let i = 0; i < MSG_COUNT; i++) {
+        await tx.run(
+          `INSERT INTO messages (id, tenant_id, contact_id, direction, content, content_type, wa_message_id)
+           VALUES (?, ?, ?, 'inbound', ?, 'text', ?)`,
+          `m-${i}`,
+          TENANT,
+          "c1",
+          `body ${i}`,
+          `wamid-${i}`,
+        );
       }
     });
-
-    const start = performance.now();
-    insertMany(MSG_COUNT);
     const elapsedMs = performance.now() - start;
 
-    const count = sqlite
-      .prepare("SELECT COUNT(*) AS n FROM messages WHERE tenant_id = ?")
-      .get(TENANT) as { n: number };
+    const count = (await dbGet(
+      "SELECT COUNT(*)::int AS n FROM messages WHERE tenant_id = ?",
+      TENANT,
+    )) as { n: number };
     expect(count.n).toBe(MSG_COUNT);
     // Generous ceiling — a smoke bound to catch a pathological regression, not a
-    // micro-benchmark. NORMAL+WAL inserts thousands/sec even on slow disks.
-    expect(elapsedMs).toBeLessThan(5000);
+    // micro-benchmark. PGlite still inserts thousands/sec.
+    expect(elapsedMs).toBeLessThan(15000);
   });
 
-  it("upholds the messages(wa_message_id) UNIQUE dedup guarantee under load", () => {
-    const dup = sqlite.prepare(
-      `INSERT INTO messages (id, tenant_id, contact_id, direction, content, content_type, wa_message_id)
-       VALUES (?, ?, 'c1', 'inbound', 'x', 'text', 'wamid-0')`,
-    );
+  it("upholds the messages(wa_message_id) UNIQUE dedup guarantee under load", async () => {
     // wamid-0 already exists from the batch above.
-    expect(() => dup.run("dup-id", TENANT)).toThrow(/UNIQUE/i);
+    await expect(
+      dbRun(
+        `INSERT INTO messages (id, tenant_id, contact_id, direction, content, content_type, wa_message_id)
+         VALUES (?, ?, 'c1', 'inbound', 'x', 'text', 'wamid-0')`,
+        "dup-id",
+        TENANT,
+      ),
+    ).rejects.toThrow(/duplicate key|unique/i);
   });
 });
 
-describe("WAL concurrent reader (no SQLITE_BUSY)", () => {
-  it("a separate read connection sees committed rows while the writer holds the main connection", () => {
-    const reader = new Database(DB_PATH, { readonly: true });
-    reader.pragma("busy_timeout = 5000");
-    try {
-      const before = reader.prepare("SELECT COUNT(*) AS n FROM messages").get() as { n: number };
+describe("concurrent writers (no lost rows, no errors)", () => {
+  it("commits all rows when many inserts run concurrently", async () => {
+    const before = (await dbGet("SELECT COUNT(*)::int AS n FROM messages")) as { n: number };
 
-      // Writer commits more rows on the main connection.
-      const insert = sqlite.prepare(
-        `INSERT INTO messages (id, tenant_id, contact_id, direction, content, content_type, wa_message_id)
-         VALUES (?, ?, 'c1', 'inbound', 'y', 'text', ?)`,
-      );
-      const tx = sqlite.transaction(() => {
-        for (let i = 0; i < 50; i++) insert.run(`r-${i}`, TENANT, `wamid-r-${i}`);
-      });
-      tx();
+    // Fire 50 independent inserts concurrently — the pg pool / PGlite must
+    // serialize them safely and lose none.
+    await Promise.all(
+      Array.from({ length: 50 }, (_, i) =>
+        dbRun(
+          `INSERT INTO messages (id, tenant_id, contact_id, direction, content, content_type, wa_message_id)
+           VALUES (?, ?, 'c1', 'inbound', 'y', 'text', ?)`,
+          `r-${i}`,
+          TENANT,
+          `wamid-r-${i}`,
+        ),
+      ),
+    );
 
-      // Reader (WAL) can read concurrently and sees the committed delta — no busy error.
-      const after = reader.prepare("SELECT COUNT(*) AS n FROM messages").get() as { n: number };
-      expect(after.n).toBe(before.n + 50);
-    } finally {
-      reader.close();
-    }
+    const after = (await dbGet("SELECT COUNT(*)::int AS n FROM messages")) as { n: number };
+    expect(after.n).toBe(before.n + 50);
   });
 });

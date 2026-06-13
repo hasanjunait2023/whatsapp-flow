@@ -7,6 +7,9 @@
 #     127.0.0.1:3500 (loopback) — nginx reverse-proxies to it.
 #   * WAHA has NO host port: the app reaches it over the compose network at
 #     http://waha:3000. WAHA reaches the app's webhook at http://app:3500.
+#   * DATABASE: Postgres lives in the EXISTING postiz-postgres container
+#     (db `whatsapp_flow`, role `wf_user`). The app joins postiz's network to
+#     reach it at host `postiz-postgres:5432`. Never touch postiz's own db.
 #   * Everything additive — never touch postiz/cobalt/searxng or their volumes.
 #   * mem_limits are mandatory; the box is RAM-tight (swap exhausted at Phase 0).
 #
@@ -18,11 +21,16 @@ name: whatsapp-flow
 networks:
   wf_net:
     driver: bridge
+  # The shared postiz network where postiz-postgres lives. Created by the postiz
+  # stack; we attach to it read-only (additive — we never manage it).
+  postiz_net:
+    external: true
+    name: postiz-app_postiz-network
 
 volumes:
-  sqlite_data:    # /data/sqlite  — SQLite DB + WAL (replicated by litestream)
   media_data:     # /data/media   — tenant media (backed up by restic)
   waha_data:      # /data/waha    — WAHA Plus session persistence (backed up by restic)
+  pg_backup:      # /backup       — nightly pg_dump output (backed up by restic to R2)
 
 services:
   # -------------------------------------------------------------------------
@@ -38,9 +46,10 @@ services:
       - .env.production
     environment:
       # Pin the runtime wiring here so it can't drift from the env file.
+      # DATABASE_URL is a secret (carries the wf_user password) and comes from
+      # .env.production, NOT pinned here.
       NODE_ENV: production
       PORT: "3500"
-      DB_PATH: /data/sqlite/app.db
       MEDIA_DIR: /data/media
       WEB_DIST_DIR: /app/apps/web/dist
       # WAHA over the compose network (container-to-container, no host port).
@@ -53,10 +62,10 @@ services:
       # Loopback only. 3500 chosen because 3000 is taken on the host (Phase 0).
       - "127.0.0.1:3500:3500"
     volumes:
-      - sqlite_data:/data/sqlite
       - media_data:/data/media
     networks:
       - wf_net
+      - postiz_net
     depends_on:
       - waha
     mem_limit: 1500m
@@ -108,30 +117,40 @@ services:
     mem_limit: 2500m
 
   # -------------------------------------------------------------------------
-  # litestream — continuous SQLite WAL replication to Cloudflare R2.
-  # Reads the same DB volume read-mostly; config in litestream.yml.
+  # pg-backup — nightly logical dump of the whatsapp_flow database to a volume,
+  # which restic then ships to R2. Replaces litestream (SQLite-only). Connects
+  # to the shared postiz-postgres over postiz_net using DATABASE_URL.
   # -------------------------------------------------------------------------
-  litestream:
-    image: litestream/litestream:0.3.14
+  pg-backup:
+    image: postgres:17-alpine
     restart: unless-stopped
-    command: ["replicate", "-config", "/etc/litestream.yml"]
     env_file:
       - .env.production
     volumes:
-      - sqlite_data:/data/sqlite
-      - ./litestream.yml:/etc/litestream.yml:ro
+      - pg_backup:/backup
     networks:
-      - wf_net
-    depends_on:
-      - app
+      - postiz_net
     mem_limit: 256m
+    # Daily at 03:15: dump+gzip, then prune dumps older than 7 days.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          ts=$$(date +%Y%m%dT%H%M%SZ)
+          pg_dump "$$DATABASE_URL" | gzip > "/backup/whatsapp_flow_$$ts.sql.gz" \
+            && echo "[pg-backup] wrote whatsapp_flow_$$ts.sql.gz" \
+            || echo "[pg-backup] dump FAILED at $$ts"
+          find /backup -name 'whatsapp_flow_*.sql.gz' -mtime +7 -delete
+          sleep 86400
+        done
 
   # -------------------------------------------------------------------------
-  # restic-backup — periodic snapshot of media + WAHA sessions to R2.
+  # restic-backup — periodic snapshot of media + WAHA sessions + pg dumps to R2.
   #
-  # SQLite is covered by litestream (continuous WAL); restic covers the blob
-  # state litestream does not: /data/media and /data/waha. Runs an internal
-  # cron loop (default daily 03:30) and exits only on error.
+  # Postgres logical dumps (pg-backup volume), tenant media, and WAHA sessions
+  # are snapshotted to R2. Runs an internal cron loop (default daily 03:30) and
+  # exits only on error.
   # -------------------------------------------------------------------------
   restic-backup:
     image: mazzolino/restic:1.8.2
@@ -147,13 +166,14 @@ services:
       # blank them out unless duplicated into .env. restic reads R2 via the AWS_*
       # names, which .env.production sets to the R2 key values.
       BACKUP_CRON: "0 30 3 * * *"
-      # Source paths (mounted read-only below).
-      RESTIC_BACKUP_SOURCES: /data/media /data/waha
+      # Source paths (mounted read-only below): media, WAHA sessions, pg dumps.
+      RESTIC_BACKUP_SOURCES: /data/media /data/waha /backup
       # Keep a rolling window; prune old snapshots after each run.
       RESTIC_FORGET_ARGS: --keep-daily 7 --keep-weekly 4 --prune
     volumes:
       - media_data:/data/media:ro
       - waha_data:/data/waha:ro
+      - pg_backup:/backup:ro
     networks:
       - wf_net
     mem_limit: 256m

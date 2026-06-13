@@ -3,7 +3,8 @@ import { useTempDb } from "./helpers.js";
 
 useTempDb();
 
-const { db, sqlite } = await import("../src/db/index.js");
+const { db } = await import("../src/db/index.js");
+const { dbGet, dbRun } = await import("../src/db/raw.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { sendMessage } = await import("../src/routes/messaging.js");
 const { outboundRateLimiter } = await import("../src/lib/rate-limiter.js");
@@ -18,45 +19,37 @@ const CTX = { userId: "user-1", tenantId: TENANT, isAdmin: false };
 const OTHER_TENANT = "oooo9999-9999-9999-9999-999999999999";
 const OTHER_INSTANCE = "oinst888-8888-8888-8888-888888888888";
 
-beforeAll(() => {
-  runMigrations();
-  db.insert(tenants)
-    .values([
-      { id: TENANT, name: "M", owner_id: "u" },
-      { id: OTHER_TENANT, name: "Other", owner_id: "u2" },
-    ])
-    .run();
-  db.insert(subscriptions)
-    .values({
-      id: "sub-1",
-      tenant_id: TENANT,
-      plan_id: "p",
+beforeAll(async () => {
+  await runMigrations();
+  await db.insert(tenants).values([
+    { id: TENANT, name: "M", owner_id: "u" },
+    { id: OTHER_TENANT, name: "Other", owner_id: "u2" },
+  ]);
+  await db.insert(subscriptions).values({
+    id: "sub-1",
+    tenant_id: TENANT,
+    plan_id: "p",
+    status: "active",
+    current_period_start: "2026-01-01",
+    current_period_end: "2026-12-31",
+  });
+  await db.insert(whatsappInstances).values([
+    { id: INSTANCE, tenant_id: TENANT, name: "WA", status: "active", session_id: "default" },
+    {
+      id: OTHER_INSTANCE,
+      tenant_id: OTHER_TENANT,
+      name: "OtherWA",
       status: "active",
-      current_period_start: "2026-01-01",
-      current_period_end: "2026-12-31",
-    })
-    .run();
-  db.insert(whatsappInstances)
-    .values([
-      { id: INSTANCE, tenant_id: TENANT, name: "WA", status: "active", session_id: "default" },
-      {
-        id: OTHER_INSTANCE,
-        tenant_id: OTHER_TENANT,
-        name: "OtherWA",
-        status: "active",
-        session_id: "default",
-      },
-    ])
-    .run();
-  db.insert(contacts)
-    .values({
-      id: CONTACT,
-      tenant_id: TENANT,
-      instance_id: INSTANCE,
-      wa_id: "15551112222@c.us",
-      phone_number: "15551112222",
-    })
-    .run();
+      session_id: "default",
+    },
+  ]);
+  await db.insert(contacts).values({
+    id: CONTACT,
+    tenant_id: TENANT,
+    instance_id: INSTANCE,
+    wa_id: "15551112222@c.us",
+    phone_number: "15551112222",
+  });
 });
 
 beforeEach(() => {
@@ -93,9 +86,10 @@ describe("send-message function", () => {
     expect(sent).toMatchObject({ session: "default", chatId: "15551112222@c.us", text: "hi there" });
 
     // Outbound row was marked sent with the wa_message_id.
-    const row = sqlite
-      .prepare("SELECT status, wa_message_id, direction FROM messages WHERE id = ?")
-      .get(res.data.message_id as string) as { status: string; wa_message_id: string; direction: string };
+    const row = (await dbGet(
+      "SELECT status, wa_message_id, direction FROM messages WHERE id = ?",
+      res.data.message_id as string,
+    )) as { status: string; wa_message_id: string; direction: string };
     expect(row.status).toBe("sent");
     expect(row.direction).toBe("outbound");
     expect(row.wa_message_id).toBe("true_15551112222_WAID");
@@ -103,16 +97,13 @@ describe("send-message function", () => {
 
   it("returns the message-limit contract when usage exceeds the plan cap", async () => {
     // Set usage at the default cap (1000) so the next send is blocked.
-    sqlite
-      .prepare(
-        "INSERT INTO usage_counters (id, tenant_id, period_start, period_end, messages_sent) VALUES (?, ?, ?, ?, 1000)",
-      )
-      .run(
-        "uc-1",
-        TENANT,
-        new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10),
-        "2026-12-31",
-      );
+    await dbRun(
+      "INSERT INTO usage_counters (id, tenant_id, period_start, period_end, messages_sent) VALUES (?, ?, ?, ?, 1000)",
+      "uc-1",
+      TENANT,
+      new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10),
+      "2026-12-31",
+    );
 
     const res = (await sendMessage(
       { contact_id: CONTACT, content: "blocked" },
@@ -125,7 +116,7 @@ describe("send-message function", () => {
     expect(res.data.max).toBe(1000);
     expect(res.data.upgrade_required).toBe(true);
 
-    sqlite.prepare("DELETE FROM usage_counters WHERE id = 'uc-1'").run();
+    await dbRun("DELETE FROM usage_counters WHERE id = 'uc-1'");
   });
 
   it("blocks a proactive send once the per-number hourly cap is hit", async () => {
@@ -153,9 +144,10 @@ describe("send-message function", () => {
       CTX,
     )) as { data: Record<string, unknown> };
     expect(res.data.success).toBe(false);
-    const row = sqlite
-      .prepare("SELECT status FROM messages WHERE id = ?")
-      .get(res.data.message_id as string) as { status: string };
+    const row = (await dbGet(
+      "SELECT status FROM messages WHERE id = ?",
+      res.data.message_id as string,
+    )) as { status: string };
     expect(row.status).toBe("pending");
   });
 
@@ -174,9 +166,9 @@ describe("send-message function", () => {
     // No WAHA send must have happened.
     expect(fetchSpy.mock.calls.some(([url]) => String(url).endsWith("/api/sendText"))).toBe(false);
     // No outbound row should have been created for this attempt.
-    const count = sqlite
-      .prepare("SELECT COUNT(*) AS n FROM messages WHERE content = 'leak'")
-      .get() as { n: number };
+    const count = (await dbGet(
+      "SELECT COUNT(*)::int AS n FROM messages WHERE content = 'leak'",
+    )) as { n: number };
     expect(count.n).toBe(0);
   });
 
@@ -191,12 +183,12 @@ describe("send-message function", () => {
 
   it("ignores a foreign reply_to_id (cross-tenant) and sends without a reply target", async () => {
     // Plant a message under the OTHER tenant; its id must not be usable as a reply.
-    sqlite
-      .prepare(
-        `INSERT INTO messages (id, tenant_id, instance_id, contact_id, direction, status, content_type, wa_message_id)
+    await dbRun(
+      `INSERT INTO messages (id, tenant_id, instance_id, contact_id, direction, status, content_type, wa_message_id)
          VALUES ('foreign-msg', ?, ?, NULL, 'inbound', 'delivered', 'text', 'foreign-wamid')`,
-      )
-      .run(OTHER_TENANT, OTHER_INSTANCE);
+      OTHER_TENANT,
+      OTHER_INSTANCE,
+    );
 
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ id: "sent-id" }), { status: 200 }),

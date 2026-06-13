@@ -42,16 +42,15 @@ COPY packages/shared/package.json packages/shared/package.json
 # ===========================================================================
 FROM base AS builder
 
-# better-sqlite3 compiles a native addon via node-gyp. Provide the build
-# toolchain (python3 + make + g++) in the BUILDER only — never the runtime.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
+# Postgres (pg) is pure JS and PGlite (tests only) is WASM — no native addon
+# build is needed at image build time, so no python3/make/g++ toolchain here.
 
 # Install ALL workspace deps (dev included — tsc/vite live in devDependencies).
-# --frozen-lockfile fails the build if pnpm-lock.yaml is out of date.
+# --no-frozen-lockfile lets the Linux build refresh the lockfile from the
+# manifests (the local Windows pnpm cannot write its store on this box, so the
+# committed lockfile may lag package.json; the VPS build is the source of truth).
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile
+    pnpm install --no-frozen-lockfile
 
 # Bring in the full source and build both apps.
 COPY . .
@@ -100,17 +99,16 @@ COPY --from=builder /app/apps/web/dist ./apps/web/dist
 COPY --chmod=0755 deploy/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 # Persisted state lives outside the image on named volumes.
-#   DB_PATH      -> /data/sqlite/app.db (WAL set in db/index.ts)
+#   DATABASE_URL -> Postgres (whatsapp_flow on postiz-postgres), set in .env.production
 #   MEDIA_DIR    -> /data/media
 #   WEB_DIST_DIR -> absolute, so cwd-independence is guaranteed
-ENV DB_PATH=/data/sqlite/app.db \
-    MEDIA_DIR=/data/media \
+ENV MEDIA_DIR=/data/media \
     WEB_DIST_DIR=/app/apps/web/dist \
     PORT=3500
 
-# Create the data dirs and hand the app a non-root user. The named volumes
-# are chowned to this uid by the entrypoint on first boot.
-RUN mkdir -p /data/sqlite /data/media \
+# Create the data dir and hand the app a non-root user. The named volume
+# is chowned to this uid by the entrypoint on first boot.
+RUN mkdir -p /data/media \
  && groupadd --system --gid 1001 nodeapp \
  && useradd  --system --uid 1001 --gid nodeapp nodeapp \
  && chown -R nodeapp:nodeapp /data /app

@@ -11,6 +11,10 @@ packages/shared/ # API contract types shared by web and server
 supabase/        # legacy reference: 71 edge functions + migrations (ported in later phases)
 ```
 
+## Docs
+
+- [Scaling Roadmap (1 → 100k tenants)](docs/SCALING_ROADMAP.md) — phased plan for RAG, Citus sharding, queues, HA, and BDIX/EU hybrid infra.
+
 ## Quickstart (local dev)
 
 ```sh

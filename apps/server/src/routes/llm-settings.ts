@@ -43,17 +43,14 @@ function redacted(row: typeof llmSettings.$inferSelect | undefined) {
   };
 }
 
-llmSettingsRoute.get("/", (c) => {
+llmSettingsRoute.get("/", async (c) => {
   const ctx = getTenant(c);
   if (!ctx.tenantId) {
     return c.json({ error: "No active tenant" }, 400);
   }
-  const row = db
-    .select()
-    .from(llmSettings)
-    .where(eq(llmSettings.tenant_id, ctx.tenantId))
-    .limit(1)
-    .all()[0];
+  const row = (
+    await db.select().from(llmSettings).where(eq(llmSettings.tenant_id, ctx.tenantId)).limit(1)
+  )[0];
   return c.json({ data: redacted(row), error: null });
 });
 
@@ -96,26 +93,22 @@ llmSettingsRoute.put("/", async (c) => {
     patch.is_byok = Boolean(body.api_key);
   }
 
-  const existing = db
-    .select({ id: llmSettings.id })
-    .from(llmSettings)
-    .where(eq(llmSettings.tenant_id, ctx.tenantId))
-    .limit(1)
-    .all()[0];
+  const existing = (
+    await db
+      .select({ id: llmSettings.id })
+      .from(llmSettings)
+      .where(eq(llmSettings.tenant_id, ctx.tenantId))
+      .limit(1)
+  )[0];
 
   if (existing) {
-    db.update(llmSettings).set(patch).where(eq(llmSettings.id, existing.id)).run();
+    await db.update(llmSettings).set(patch).where(eq(llmSettings.id, existing.id));
   } else {
-    db.insert(llmSettings)
-      .values({ tenant_id: ctx.tenantId, ...patch })
-      .run();
+    await db.insert(llmSettings).values({ tenant_id: ctx.tenantId, ...patch });
   }
 
-  const row = db
-    .select()
-    .from(llmSettings)
-    .where(eq(llmSettings.tenant_id, ctx.tenantId))
-    .limit(1)
-    .all()[0];
+  const row = (
+    await db.select().from(llmSettings).where(eq(llmSettings.tenant_id, ctx.tenantId)).limit(1)
+  )[0];
   return c.json({ data: redacted(row), error: null });
 });

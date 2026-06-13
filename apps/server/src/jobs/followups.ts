@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbGet, dbAll, dbRun } from "../db/raw.js";
 import { sendMessage } from "../routes/messaging.js";
 
 /**
@@ -27,10 +27,10 @@ interface MediaItem {
   caption?: string;
 }
 
-function followupEnabled(): boolean {
-  const row = sqlite
-    .prepare("SELECT value FROM system_settings WHERE key = 'whatsapp_followup_enabled' LIMIT 1")
-    .get() as { value: unknown } | undefined;
+async function followupEnabled(): Promise<boolean> {
+  const row = (await dbGet(
+    "SELECT value FROM system_settings WHERE key = 'whatsapp_followup_enabled' LIMIT 1",
+  )) as { value: unknown } | undefined;
   if (!row) return false;
   const value = typeof row.value === "string" ? safeJson(row.value) : row.value;
   if (value === true) return true;
@@ -45,11 +45,11 @@ function safeJson(raw: string): unknown {
   }
 }
 
-function setStatus(id: string, status: string, skipReason?: string): void {
+async function setStatus(id: string, status: string, skipReason?: string): Promise<void> {
   if (skipReason) {
-    sqlite.prepare("UPDATE whatsapp_followup_queue SET status = ?, skip_reason = ? WHERE id = ?").run(status, skipReason, id);
+    await dbRun("UPDATE whatsapp_followup_queue SET status = ?, skip_reason = ? WHERE id = ?", status, skipReason, id);
   } else {
-    sqlite.prepare("UPDATE whatsapp_followup_queue SET status = ? WHERE id = ?").run(status, id);
+    await dbRun("UPDATE whatsapp_followup_queue SET status = ? WHERE id = ?", status, id);
   }
 }
 
@@ -61,14 +61,14 @@ export interface FollowupResult {
 
 /** whatsapp-followup-cron: send due follow-ups, skipping replied/ordered contacts. */
 export async function runWhatsappFollowups(): Promise<FollowupResult> {
-  if (!followupEnabled()) return { processed: 0, sent: 0, skipped: 0 };
+  if (!(await followupEnabled())) return { processed: 0, sent: 0, skipped: 0 };
 
-  const due = sqlite
-    .prepare(
-      `SELECT id, tenant_id, contact_id, instance_id, created_at FROM whatsapp_followup_queue
+  const due = (await dbAll(
+    `SELECT id, tenant_id, contact_id, instance_id, created_at FROM whatsapp_followup_queue
        WHERE status = 'pending' AND scheduled_for <= ? LIMIT ?`,
-    )
-    .all(new Date().toISOString(), BATCH_LIMIT) as QueueItem[];
+    new Date().toISOString(),
+    BATCH_LIMIT,
+  )) as QueueItem[];
 
   let processed = 0;
   let sent = 0;
@@ -77,35 +77,37 @@ export async function runWhatsappFollowups(): Promise<FollowupResult> {
   for (const item of due) {
     processed += 1;
     // Skip if the contact ordered. Orders are scoped to the queue row's tenant.
-    const ordered = sqlite
-      .prepare(
-        `SELECT 1 FROM orders WHERE contact_id = ? AND tenant_id = ?
+    const ordered = await dbGet(
+      `SELECT 1 FROM orders WHERE contact_id = ? AND tenant_id = ?
            AND status IN ('confirmed','processing','shipped','delivered','completed') LIMIT 1`,
-      )
-      .get(item.contact_id, item.tenant_id);
+      item.contact_id,
+      item.tenant_id,
+    );
     if (ordered) {
-      setStatus(item.id, "skipped", "order_placed");
+      await setStatus(item.id, "skipped", "order_placed");
       skipped += 1;
       continue;
     }
 
     // Skip if the contact replied since the queue row was created.
-    const replied = sqlite
-      .prepare(
-        "SELECT 1 FROM messages WHERE contact_id = ? AND tenant_id = ? AND direction = 'inbound' AND created_at > ? LIMIT 1",
-      )
-      .get(item.contact_id, item.tenant_id, item.created_at);
+    const replied = await dbGet(
+      "SELECT 1 FROM messages WHERE contact_id = ? AND tenant_id = ? AND direction = 'inbound' AND created_at > ? LIMIT 1",
+      item.contact_id,
+      item.tenant_id,
+      item.created_at,
+    );
     if (replied) {
-      setStatus(item.id, "skipped", "customer_replied");
+      await setStatus(item.id, "skipped", "customer_replied");
       skipped += 1;
       continue;
     }
 
-    const settings = sqlite
-      .prepare("SELECT followup_message, followup_media_items FROM whatsapp_auto_messages WHERE tenant_id = ? LIMIT 1")
-      .get(item.tenant_id) as { followup_message: string | null; followup_media_items: unknown } | undefined;
+    const settings = (await dbGet(
+      "SELECT followup_message, followup_media_items FROM whatsapp_auto_messages WHERE tenant_id = ? LIMIT 1",
+      item.tenant_id,
+    )) as { followup_message: string | null; followup_media_items: unknown } | undefined;
     if (!settings?.followup_message) {
-      setStatus(item.id, "skipped", "no_message_configured");
+      await setStatus(item.id, "skipped", "no_message_configured");
       skipped += 1;
       continue;
     }
@@ -132,10 +134,14 @@ export async function runWhatsappFollowups(): Promise<FollowupResult> {
       );
     }
 
-    sqlite
-      .prepare("INSERT INTO whatsapp_auto_message_log (id, tenant_id, contact_id, message_type, sent_at) VALUES (?, ?, ?, 'followup', ?)")
-      .run(crypto.randomUUID(), item.tenant_id, item.contact_id, new Date().toISOString());
-    setStatus(item.id, "sent");
+    await dbRun(
+      "INSERT INTO whatsapp_auto_message_log (id, tenant_id, contact_id, message_type, sent_at) VALUES (?, ?, ?, 'followup', ?)",
+      crypto.randomUUID(),
+      item.tenant_id,
+      item.contact_id,
+      new Date().toISOString(),
+    );
+    await setStatus(item.id, "sent");
     sent += 1;
   }
 

@@ -107,8 +107,8 @@ export async function synthesizeSoul(
   tenantId: string,
   sourcesText: string,
 ): Promise<SoulProfile> {
-  checkBudget(tenantId);
-  const { provider, model, apiKey, temperature } = resolveLlm(tenantId);
+  await checkBudget(tenantId);
+  const { provider, model, apiKey, temperature } = await resolveLlm(tenantId);
 
   const result = await provider.chat(
     {
@@ -127,7 +127,7 @@ export async function synthesizeSoul(
     apiKey,
   );
 
-  recordUsage(tenantId, "soul", provider.name, model, result.usage);
+  await recordUsage(tenantId, "soul", provider.name, model, result.usage);
 
   if (!result.text) {
     throw new Error("Soul synthesis returned no content");

@@ -9,7 +9,8 @@ process.env.FB_OAUTH_REDIRECT_URL = "http://localhost:3000/api/fb/oauth/callback
 process.env.MASTER_KEY = "a".repeat(64);
 delete process.env.FB_LOGIN_CONFIG_ID;
 
-const { db, sqlite } = await import("../src/db/index.js");
+const { db } = await import("../src/db/index.js");
+const { dbGet, dbAll, dbRun } = await import("../src/db/raw.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { tenants } = await import("../src/db/schema.js");
 const {
@@ -30,9 +31,9 @@ import { Hono } from "hono";
 const TENANT_A = "aaaa1111-1111-1111-1111-111111111111";
 const USER_A = "user-a";
 
-beforeAll(() => {
-  runMigrations();
-  db.insert(tenants).values({ id: TENANT_A, name: "A", owner_id: USER_A }).run();
+beforeAll(async () => {
+  await runMigrations();
+  await db.insert(tenants).values({ id: TENANT_A, name: "A", owner_id: USER_A });
 });
 
 describe("signed OAuth state", () => {
@@ -124,35 +125,37 @@ describe("page token storage", () => {
 });
 
 describe("upsertConnectedPages", () => {
-  it("inserts pages (first = default, active, encrypted token) and updates on reconnect", () => {
-    const { connected } = upsertConnectedPages(TENANT_A, [
+  it("inserts pages (first = default, active, encrypted token) and updates on reconnect", async () => {
+    const { connected } = await upsertConnectedPages(TENANT_A, [
       { id: "FBP-1", name: "Shop One", access_token: "tok-1" },
       { id: "FBP-2", name: "Shop Two", access_token: "tok-2" },
     ]);
     expect(connected).toHaveLength(2);
 
-    const rows = sqlite
-      .prepare("SELECT page_id, page_name, page_access_token, status, is_default FROM facebook_pages WHERE tenant_id = ? ORDER BY page_id")
-      .all(TENANT_A) as Array<{ page_id: string; page_name: string; page_access_token: string; status: string; is_default: number }>;
+    const rows = (await dbAll(
+      "SELECT page_id, page_name, page_access_token, status, is_default FROM facebook_pages WHERE tenant_id = ? ORDER BY page_id",
+      TENANT_A,
+    )) as Array<{ page_id: string; page_name: string; page_access_token: string; status: string; is_default: boolean }>;
     expect(rows).toHaveLength(2);
     expect(rows[0].status).toBe("active");
-    expect(rows[0].is_default).toBe(1);
-    expect(rows[1].is_default).toBe(0);
+    expect(rows[0].is_default).toBe(true);
+    expect(rows[1].is_default).toBe(false);
     expect(rows[0].page_access_token).not.toBe("tok-1");
     expect(getPageToken(rows[0].page_access_token)).toBe("tok-1");
 
     // Reconnect with a refreshed token + renamed page: updates, no duplicate row.
-    upsertConnectedPages(TENANT_A, [{ id: "FBP-1", name: "Shop One Renamed", access_token: "tok-1b" }]);
-    const after = sqlite
-      .prepare("SELECT page_name, page_access_token FROM facebook_pages WHERE tenant_id = ? AND page_id = 'FBP-1'")
-      .all(TENANT_A) as Array<{ page_name: string; page_access_token: string }>;
+    await upsertConnectedPages(TENANT_A, [{ id: "FBP-1", name: "Shop One Renamed", access_token: "tok-1b" }]);
+    const after = (await dbAll(
+      "SELECT page_name, page_access_token FROM facebook_pages WHERE tenant_id = ? AND page_id = 'FBP-1'",
+      TENANT_A,
+    )) as Array<{ page_name: string; page_access_token: string }>;
     expect(after).toHaveLength(1);
     expect(after[0].page_name).toBe("Shop One Renamed");
     expect(getPageToken(after[0].page_access_token)).toBe("tok-1b");
   });
 
-  it("lists pages without exposing tokens", () => {
-    const pages = listConnectedPages(TENANT_A);
+  it("lists pages without exposing tokens", async () => {
+    const pages = await listConnectedPages(TENANT_A);
     expect(pages.length).toBeGreaterThan(0);
     for (const p of pages) {
       expect(p).not.toHaveProperty("page_access_token");
@@ -160,8 +163,8 @@ describe("upsertConnectedPages", () => {
     }
   });
 
-  it("stores the linked Instagram account and keeps it on a Facebook-only reconnect", () => {
-    const { connected, instagramCount } = upsertConnectedPages(TENANT_A, [
+  it("stores the linked Instagram account and keeps it on a Facebook-only reconnect", async () => {
+    const { connected, instagramCount } = await upsertConnectedPages(TENANT_A, [
       {
         id: "FBP-IG",
         name: "IG Shop",
@@ -173,20 +176,21 @@ describe("upsertConnectedPages", () => {
     expect(connected[0].ig_username).toBe("igshop");
 
     // Facebook-only reconnect (no IG payload) must NOT wipe the IG link.
-    upsertConnectedPages(TENANT_A, [{ id: "FBP-IG", name: "IG Shop", access_token: "tok-ig2" }]);
-    const row = sqlite
-      .prepare("SELECT ig_account_id, ig_username FROM facebook_pages WHERE tenant_id = ? AND page_id = 'FBP-IG'")
-      .get(TENANT_A) as { ig_account_id: string; ig_username: string };
+    await upsertConnectedPages(TENANT_A, [{ id: "FBP-IG", name: "IG Shop", access_token: "tok-ig2" }]);
+    const row = (await dbGet(
+      "SELECT ig_account_id, ig_username FROM facebook_pages WHERE tenant_id = ? AND page_id = 'FBP-IG'",
+      TENANT_A,
+    )) as { ig_account_id: string; ig_username: string };
     expect(row.ig_account_id).toBe("IG-100");
     expect(row.ig_username).toBe("igshop");
 
-    const listed = listConnectedPages(TENANT_A).find((p) => p.page_id === "FBP-IG");
+    const listed = (await listConnectedPages(TENANT_A)).find((p) => p.page_id === "FBP-IG");
     expect(listed?.has_instagram).toBe(true);
     expect(listed?.ig_username).toBe("igshop");
   });
 
-  it("a page without Instagram connects Facebook-only", () => {
-    const { connected, instagramCount } = upsertConnectedPages(TENANT_A, [
+  it("a page without Instagram connects Facebook-only", async () => {
+    const { connected, instagramCount } = await upsertConnectedPages(TENANT_A, [
       { id: "FBP-NOIG", name: "FB Only Shop", access_token: "tok-noig" },
     ]);
     expect(connected).toHaveLength(1);
@@ -198,29 +202,27 @@ describe("upsertConnectedPages", () => {
 describe("plan page cap", () => {
   const TENANT_B = "bbbb2222-2222-2222-2222-222222222222";
 
-  it("defaults to 1 page without a subscription", () => {
-    expect(getTenantPageCap(TENANT_B)).toBe(1);
+  it("defaults to 1 page without a subscription", async () => {
+    expect(await getTenantPageCap(TENANT_B)).toBe(1);
   });
 
-  it("reads max_pages from the active subscription's plan", () => {
-    db.insert(tenants).values({ id: TENANT_B, name: "B", owner_id: "u-b" }).run();
-    sqlite
-      .prepare(
-        "INSERT INTO plans (id, name, max_pages, price_monthly) VALUES ('plan-3p', 'Growth', 3, 20)",
-      )
-      .run();
+  it("reads max_pages from the active subscription's plan", async () => {
+    await db.insert(tenants).values({ id: TENANT_B, name: "B", owner_id: "u-b" });
+    await dbRun("INSERT INTO plans (id, name, max_pages, price_monthly) VALUES ('plan-3p', 'Growth', 3, 20)");
     const now = new Date().toISOString();
-    sqlite
-      .prepare(
-        `INSERT INTO subscriptions (id, tenant_id, plan_id, status, created_at, current_period_start, current_period_end)
+    await dbRun(
+      `INSERT INTO subscriptions (id, tenant_id, plan_id, status, created_at, current_period_start, current_period_end)
          VALUES ('sub-b', ?, 'plan-3p', 'active', ?, ?, ?)`,
-      )
-      .run(TENANT_B, now, now, now);
-    expect(getTenantPageCap(TENANT_B)).toBe(3);
+      TENANT_B,
+      now,
+      now,
+      now,
+    );
+    expect(await getTenantPageCap(TENANT_B)).toBe(3);
   });
 
-  it("skips new pages beyond the cap but always allows reconnects", () => {
-    const first = upsertConnectedPages(
+  it("skips new pages beyond the cap but always allows reconnects", async () => {
+    const first = await upsertConnectedPages(
       TENANT_B,
       [
         { id: "B-1", name: "B One", access_token: "t1" },
@@ -231,7 +233,7 @@ describe("plan page cap", () => {
     expect(first.connected).toHaveLength(2);
     expect(first.skipped).toHaveLength(0);
 
-    const second = upsertConnectedPages(
+    const second = await upsertConnectedPages(
       TENANT_B,
       [
         { id: "B-1", name: "B One", access_token: "t1b" }, // reconnect: allowed
@@ -241,9 +243,9 @@ describe("plan page cap", () => {
     );
     expect(second.connected.map((p) => p.page_id)).toEqual(["B-1"]);
     expect(second.skipped.map((p) => p.page_id)).toEqual(["B-3"]);
-    const count = sqlite
-      .prepare("SELECT COUNT(*) AS n FROM facebook_pages WHERE tenant_id = ?")
-      .get(TENANT_B) as { n: number };
+    const count = (await dbGet("SELECT COUNT(*)::int AS n FROM facebook_pages WHERE tenant_id = ?", TENANT_B)) as {
+      n: number;
+    };
     expect(count.n).toBe(2);
   });
 });
@@ -274,9 +276,10 @@ describe("OAuth callback route", () => {
 
 describe("fb-page-disconnect handler", () => {
   it("clears the token and refuses cross-tenant access", async () => {
-    const row = sqlite
-      .prepare("SELECT id FROM facebook_pages WHERE tenant_id = ? AND page_id = 'FBP-2'")
-      .get(TENANT_A) as { id: string };
+    const row = (await dbGet(
+      "SELECT id FROM facebook_pages WHERE tenant_id = ? AND page_id = 'FBP-2'",
+      TENANT_A,
+    )) as { id: string };
 
     const denied = await FB_HANDLERS["fb-page-disconnect"](
       { page_id: row.id },
@@ -289,9 +292,10 @@ describe("fb-page-disconnect handler", () => {
       { userId: USER_A, tenantId: TENANT_A, isAdmin: false },
     );
     expect((okRes.data as { success?: boolean }).success).toBe(true);
-    const after = sqlite
-      .prepare("SELECT status, page_access_token FROM facebook_pages WHERE id = ?")
-      .get(row.id) as { status: string; page_access_token: string };
+    const after = (await dbGet(
+      "SELECT status, page_access_token FROM facebook_pages WHERE id = ?",
+      row.id,
+    )) as { status: string; page_access_token: string };
     expect(after.status).toBe("disconnected");
     expect(after.page_access_token).toBe("");
   });

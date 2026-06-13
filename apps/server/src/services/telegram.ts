@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { sqlite } from "../db/index.js";
+import { dbGet, dbAll, dbRun } from "../db/raw.js";
 import { TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME } from "../lib/env.js";
 
 /**
@@ -47,7 +47,7 @@ export interface LinkStart {
 }
 
 /** Creates (or refreshes) a pending link code for the tenant owner. */
-export function startTelegramLink(tenantId: string, userId: string): LinkStart {
+export async function startTelegramLink(tenantId: string, userId: string): Promise<LinkStart> {
   if (!TELEGRAM_BOT_USERNAME) {
     throw new Error("Telegram bot is not configured (TELEGRAM_BOT_USERNAME missing)");
   }
@@ -55,15 +55,20 @@ export function startTelegramLink(tenantId: string, userId: string): LinkStart {
   const expiresAt = new Date(Date.now() + LINK_CODE_TTL_MS).toISOString();
 
   // One pending code per tenant+user: refresh rather than accumulate.
-  sqlite
-    .prepare(`DELETE FROM telegram_links WHERE tenant_id = ? AND user_id = ? AND status = 'pending'`)
-    .run(tenantId, userId);
-  sqlite
-    .prepare(
-      `INSERT INTO telegram_links (id, tenant_id, user_id, link_code, status, expires_at)
+  await dbRun(
+    `DELETE FROM telegram_links WHERE tenant_id = ? AND user_id = ? AND status = 'pending'`,
+    tenantId,
+    userId,
+  );
+  await dbRun(
+    `INSERT INTO telegram_links (id, tenant_id, user_id, link_code, status, expires_at)
        VALUES (?, ?, ?, ?, 'pending', ?)`,
-    )
-    .run(crypto.randomUUID(), tenantId, userId, code, expiresAt);
+    crypto.randomUUID(),
+    tenantId,
+    userId,
+    code,
+    expiresAt,
+  );
 
   return {
     link_code: code,
@@ -79,12 +84,11 @@ export interface LinkResult {
 }
 
 /** Consumes a /start link code from the webhook. Single-use, TTL-enforced. */
-export function consumeLinkCode(code: string, chatId: string): LinkResult {
-  const row = sqlite
-    .prepare(
-      `SELECT id, tenant_id, expires_at, status FROM telegram_links WHERE link_code = ? LIMIT 1`,
-    )
-    .get(code) as
+export async function consumeLinkCode(code: string, chatId: string): Promise<LinkResult> {
+  const row = (await dbGet(
+    `SELECT id, tenant_id, expires_at, status FROM telegram_links WHERE link_code = ? LIMIT 1`,
+    code,
+  )) as
     | { id: string; tenant_id: string; expires_at: string; status: string }
     | undefined;
 
@@ -92,13 +96,16 @@ export function consumeLinkCode(code: string, chatId: string): LinkResult {
     return { linked: false, reply: "This link is invalid or was already used. Generate a new one from the dashboard." };
   }
   if (row.expires_at < new Date().toISOString()) {
-    sqlite.prepare(`UPDATE telegram_links SET status = 'expired' WHERE id = ?`).run(row.id);
+    await dbRun(`UPDATE telegram_links SET status = 'expired' WHERE id = ?`, row.id);
     return { linked: false, reply: "This link has expired. Generate a new one from the dashboard." };
   }
 
-  sqlite
-    .prepare(`UPDATE telegram_links SET status = 'linked', chat_id = ?, linked_at = ? WHERE id = ?`)
-    .run(chatId, new Date().toISOString(), row.id);
+  await dbRun(
+    `UPDATE telegram_links SET status = 'linked', chat_id = ?, linked_at = ? WHERE id = ?`,
+    chatId,
+    new Date().toISOString(),
+    row.id,
+  );
   return {
     linked: true,
     tenantId: row.tenant_id,
@@ -106,26 +113,32 @@ export function consumeLinkCode(code: string, chatId: string): LinkResult {
   };
 }
 
-export function unlinkTelegram(tenantId: string, userId: string): void {
-  sqlite
-    .prepare(`DELETE FROM telegram_links WHERE tenant_id = ? AND user_id = ?`)
-    .run(tenantId, userId);
+export async function unlinkTelegram(tenantId: string, userId: string): Promise<void> {
+  await dbRun(
+    `DELETE FROM telegram_links WHERE tenant_id = ? AND user_id = ?`,
+    tenantId,
+    userId,
+  );
 }
 
 /** All linked chat ids for a tenant (owner may link multiple devices). */
-export function linkedChatIds(tenantId: string): string[] {
-  const rows = sqlite
-    .prepare(
-      `SELECT chat_id FROM telegram_links WHERE tenant_id = ? AND status = 'linked' AND chat_id IS NOT NULL`,
-    )
-    .all(tenantId) as Array<{ chat_id: string }>;
+export async function linkedChatIds(tenantId: string): Promise<string[]> {
+  const rows = (await dbAll(
+    `SELECT chat_id FROM telegram_links WHERE tenant_id = ? AND status = 'linked' AND chat_id IS NOT NULL`,
+    tenantId,
+  )) as Array<{ chat_id: string }>;
   return rows.map((r) => r.chat_id);
 }
 
-export function linkStatus(tenantId: string, userId: string): { linked: boolean; pending: boolean } {
-  const rows = sqlite
-    .prepare(`SELECT status FROM telegram_links WHERE tenant_id = ? AND user_id = ?`)
-    .all(tenantId, userId) as Array<{ status: string }>;
+export async function linkStatus(
+  tenantId: string,
+  userId: string,
+): Promise<{ linked: boolean; pending: boolean }> {
+  const rows = (await dbAll(
+    `SELECT status FROM telegram_links WHERE tenant_id = ? AND user_id = ?`,
+    tenantId,
+    userId,
+  )) as Array<{ status: string }>;
   return {
     linked: rows.some((r) => r.status === "linked"),
     pending: rows.some((r) => r.status === "pending"),

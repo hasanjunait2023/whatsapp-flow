@@ -13,7 +13,7 @@ import {
   verifyState,
 } from "../services/facebook/oauth.js";
 import { emitChange } from "../realtime/emitter.js";
-import { sqlite } from "../db/index.js";
+import { dbAll } from "../db/raw.js";
 
 /**
  * Facebook page-connect OAuth routes.
@@ -67,8 +67,8 @@ fbOauthCallbackRoute.get("/", async (c) => {
     if (pages.length === 0) return fail("no_pages");
 
     // Plan cap: reconnects always allowed, NEW pages beyond max_pages skipped.
-    const cap = getTenantPageCap(bound.tenantId);
-    const result = upsertConnectedPages(bound.tenantId, pages, cap);
+    const cap = await getTenantPageCap(bound.tenantId);
+    const result = await upsertConnectedPages(bound.tenantId, pages, cap);
     if (result.connected.length === 0) return fail("page_limit_reached");
 
     // Subscribe only the pages that were actually connected.
@@ -93,15 +93,14 @@ fbOauthCallbackRoute.get("/", async (c) => {
 // --- fn-style helpers (registered in fb-fns.ts) -------------------------------
 
 /** Lists the tenant's connected pages with token validity, no secrets. */
-export function listConnectedPages(tenantId: string): Array<Record<string, unknown>> {
-  const rows = sqlite
-    .prepare(
-      `SELECT id, page_id, page_name, profile_picture_url, status, is_default,
+export async function listConnectedPages(tenantId: string): Promise<Array<Record<string, unknown>>> {
+  const rows = (await dbAll(
+    `SELECT id, page_id, page_name, profile_picture_url, status, is_default,
               ig_account_id, ig_username, ig_profile_picture_url, ig_connected_at,
               last_connected_at, page_access_token
        FROM facebook_pages WHERE tenant_id = ? ORDER BY created_at ASC`,
-    )
-    .all(tenantId) as Array<Record<string, unknown> & { page_access_token: string | null }>;
+    tenantId,
+  )) as Array<Record<string, unknown> & { page_access_token: string | null }>;
   return rows.map(({ page_access_token, ...safe }) => ({
     ...safe,
     has_instagram: Boolean(safe.ig_account_id),

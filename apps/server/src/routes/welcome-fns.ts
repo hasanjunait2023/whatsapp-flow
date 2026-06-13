@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbGet, dbAll, dbRun } from "../db/raw.js";
 import { notify } from "../services/notify.js";
 import { fbRefreshProfile } from "./fb-fns.js";
 import { generateTempPassword } from "../auth/password.js";
@@ -54,7 +54,7 @@ export async function sendWelcomeEmail(raw: Record<string, unknown>, ctx: FnCont
   if (!tenantId) return ok({ success: false, error: "tenant_id is required" });
   if (!ctx.isAdmin && tenantId !== ctx.tenantId) return ok({ success: false, error: "Forbidden tenant" });
 
-  notify({
+  void notify({
     tenantId,
     type: "welcome",
     title: "Welcome to Ecomex Automation",
@@ -91,7 +91,7 @@ export async function testWelcomeMessage(raw: Record<string, unknown>, ctx: FnCo
       body.tempPassword ?? "Temp@TestPass123",
       body.businessName ?? "your business",
     );
-  notify({ tenantId, type: "welcome_test", title: "Test welcome message", body: text, url: "/settings" });
+  void notify({ tenantId, type: "welcome_test", title: "Test welcome message", body: text, url: "/settings" });
   return ok({ success: true, message: "Notification sent" });
 }
 
@@ -101,7 +101,7 @@ export async function adminTestWelcomeMessage(raw: Record<string, unknown>, ctx:
   const body = raw as TestWelcomeBody;
   if (!body.tenant_id) return ok({ success: false, error: "tenant_id is required" });
   if (!body.message) return ok({ success: false, error: "Message is required" });
-  notify({ tenantId: body.tenant_id, type: "welcome_test", title: "Test message", body: body.message, url: "/settings" });
+  void notify({ tenantId: body.tenant_id, type: "welcome_test", title: "Test message", body: body.message, url: "/settings" });
   return ok({ success: true, message: "Notification sent" });
 }
 
@@ -128,11 +128,10 @@ export async function resendWelcomeNotification(raw: Record<string, unknown>, ct
   const body = raw as ResendBody;
   if (!body.order_id) return ok({ success: false, error: "order_id is required" });
 
-  const order = sqlite
-    .prepare(
-      "SELECT id, tenant_id, user_id, customer_name, customer_email, business_name FROM external_sales_orders WHERE id = ? LIMIT 1",
-    )
-    .get(body.order_id) as ExternalOrderRow | undefined;
+  const order = (await dbGet(
+    "SELECT id, tenant_id, user_id, customer_name, customer_email, business_name FROM external_sales_orders WHERE id = ? LIMIT 1",
+    body.order_id,
+  )) as ExternalOrderRow | undefined;
   if (!order) return ok({ success: false, error: "Order not found" });
 
   const password = body.temp_password ?? generateTempPassword();
@@ -142,16 +141,19 @@ export async function resendWelcomeNotification(raw: Record<string, unknown>, ct
     try {
       const { hashPassword } = await import("better-auth/crypto");
       const hash = await hashPassword(password);
-      sqlite
-        .prepare("UPDATE account SET password = ?, updated_at = ? WHERE user_id = ? AND provider_id = 'credential'")
-        .run(hash, Math.floor(Date.now() / 1000), order.user_id);
+      await dbRun(
+        "UPDATE account SET password = ?, updated_at = ? WHERE user_id = ? AND provider_id = 'credential'",
+        hash,
+        Math.floor(Date.now() / 1000),
+        order.user_id,
+      );
     } catch (err) {
       return ok({ success: false, error: `Failed to reset password: ${err instanceof Error ? err.message : "error"}` });
     }
   }
 
   if (!order.tenant_id) return ok({ success: false, error: "Order has no tenant" });
-  notify({
+  void notify({
     tenantId: order.tenant_id,
     type: "welcome",
     title: "Welcome to Ecomex Automation",
@@ -160,17 +162,14 @@ export async function resendWelcomeNotification(raw: Record<string, unknown>, ct
     url: "/settings",
   });
 
-  sqlite
-    .prepare(
-      "INSERT INTO admin_audit_logs (id, admin_id, action, entity_type, entity_id, details, created_at) VALUES (?, ?, 'resend_welcome_notification', 'external_sales_order', ?, ?, ?)",
-    )
-    .run(
-      crypto.randomUUID(),
-      ctx.userId,
-      order.id,
-      JSON.stringify({ notification_type: body.notification_type ?? "all" }),
-      new Date().toISOString(),
-    );
+  await dbRun(
+    "INSERT INTO admin_audit_logs (id, admin_id, action, entity_type, entity_id, details, created_at) VALUES (?, ?, 'resend_welcome_notification', 'external_sales_order', ?, ?, ?)",
+    crypto.randomUUID(),
+    ctx.userId,
+    order.id,
+    JSON.stringify({ notification_type: body.notification_type ?? "all" }),
+    new Date().toISOString(),
+  );
 
   return ok({ success: true, notifications: { in_app_sent: true }, temp_password: password });
 }
@@ -201,43 +200,37 @@ export async function reportSystemError(raw: Record<string, unknown>, ctx: FnCon
 
   // De-dup: skip identical errors within the last 10 minutes.
   const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-  const recent = sqlite
-    .prepare(
-      "SELECT 1 FROM admin_notifications WHERE type = 'system_error' AND created_at >= ? AND message LIKE ? LIMIT 1",
-    )
-    .get(tenMinAgo, `%${r.error_message.substring(0, 50)}%`);
+  const recent = await dbGet(
+    "SELECT 1 FROM admin_notifications WHERE type = 'system_error' AND created_at >= ? AND message LIKE ? LIMIT 1",
+    tenMinAgo,
+    `%${r.error_message.substring(0, 50)}%`,
+  );
   if (recent) return ok({ success: true, skipped: true, reason: "duplicate_within_10_minutes" });
 
   let ticketNumber: string | null = null;
   if (tenantId) {
     ticketNumber = `ERR-${Date.now().toString(36).toUpperCase()}`;
-    sqlite
-      .prepare(
-        "INSERT INTO support_tickets (id, tenant_id, user_id, subject, description, category, priority, status, ticket_number) VALUES (?, ?, ?, ?, ?, 'error_report', 'high', 'open', ?)",
-      )
-      .run(
-        crypto.randomUUID(),
-        tenantId,
-        r.user_id ?? ctx.userId,
-        `[Auto] ${errorType.toUpperCase()} Error: ${r.error_message.substring(0, 100)}`,
-        `Page: ${r.page_url}\nComponent: ${r.component_name ?? "N/A"}\n\n${r.error_message}`,
-        ticketNumber,
-      );
+    await dbRun(
+      "INSERT INTO support_tickets (id, tenant_id, user_id, subject, description, category, priority, status, ticket_number) VALUES (?, ?, ?, ?, ?, 'error_report', 'high', 'open', ?)",
+      crypto.randomUUID(),
+      tenantId,
+      r.user_id ?? ctx.userId,
+      `[Auto] ${errorType.toUpperCase()} Error: ${r.error_message.substring(0, 100)}`,
+      `Page: ${r.page_url}\nComponent: ${r.component_name ?? "N/A"}\n\n${r.error_message}`,
+      ticketNumber,
+    );
   }
 
-  sqlite
-    .prepare(
-      "INSERT INTO admin_notifications (id, type, title, message, tenant_id, entity_type, entity_id, metadata, created_at) VALUES (?, 'system_error', ?, ?, ?, 'error', ?, ?, ?)",
-    )
-    .run(
-      crypto.randomUUID(),
-      `${errorType.toUpperCase()} Error in ${r.source ?? "unknown"} panel`,
-      r.error_message.substring(0, 200),
-      tenantId,
-      ticketNumber,
-      JSON.stringify({ source: r.source, error_type: errorType, page_url: r.page_url, component_name: r.component_name }),
-      new Date().toISOString(),
-    );
+  await dbRun(
+    "INSERT INTO admin_notifications (id, type, title, message, tenant_id, entity_type, entity_id, metadata, created_at) VALUES (?, 'system_error', ?, ?, ?, 'error', ?, ?, ?)",
+    crypto.randomUUID(),
+    `${errorType.toUpperCase()} Error in ${r.source ?? "unknown"} panel`,
+    r.error_message.substring(0, 200),
+    tenantId,
+    ticketNumber,
+    JSON.stringify({ source: r.source, error_type: errorType, page_url: r.page_url, component_name: r.component_name }),
+    new Date().toISOString(),
+  );
 
   return ok({ success: true, ticket_number: ticketNumber, notification_sent: true });
 }
@@ -261,14 +254,16 @@ export async function fbBackfillProfiles(raw: Record<string, unknown>, ctx: FnCo
   const force = body.force === true;
 
   const rows = force
-    ? (sqlite
-        .prepare("SELECT id, psid FROM fb_contacts WHERE tenant_id = ? ORDER BY updated_at ASC LIMIT ?")
-        .all(tenantId, batchSize) as Array<{ id: string; psid: string }>)
-    : (sqlite
-        .prepare(
-          "SELECT id, psid FROM fb_contacts WHERE tenant_id = ? AND (name IS NULL OR profile_pic_url IS NULL) LIMIT ?",
-        )
-        .all(tenantId, batchSize) as Array<{ id: string; psid: string }>);
+    ? ((await dbAll(
+        "SELECT id, psid FROM fb_contacts WHERE tenant_id = ? ORDER BY updated_at ASC LIMIT ?",
+        tenantId,
+        batchSize,
+      )) as Array<{ id: string; psid: string }>)
+    : ((await dbAll(
+        "SELECT id, psid FROM fb_contacts WHERE tenant_id = ? AND (name IS NULL OR profile_pic_url IS NULL) LIMIT ?",
+        tenantId,
+        batchSize,
+      )) as Array<{ id: string; psid: string }>);
 
   if (rows.length === 0) {
     return ok({ success: true, message: "No contacts need profile updates", processed: 0, total: 0 });
@@ -284,9 +279,10 @@ export async function fbBackfillProfiles(raw: Record<string, unknown>, ctx: FnCo
   }
 
   const remaining = (
-    sqlite
-      .prepare("SELECT COUNT(*) AS n FROM fb_contacts WHERE tenant_id = ? AND (name IS NULL OR profile_pic_url IS NULL)")
-      .get(tenantId) as { n: number }
+    (await dbGet(
+      "SELECT COUNT(*) AS n FROM fb_contacts WHERE tenant_id = ? AND (name IS NULL OR profile_pic_url IS NULL)",
+      tenantId,
+    )) as { n: number }
   ).n;
 
   return ok({

@@ -1,4 +1,4 @@
-import { sqlite } from "../../db/index.js";
+import { dbGet, dbTx } from "../../db/raw.js";
 
 /**
  * Subscription plan catalog seeding (idempotent).
@@ -161,17 +161,14 @@ export const PLAN_SEEDS: PlanSeed[] = [
  * without duplicating rows or disturbing existing subscriptions (which reference
  * plan_id). created_at is preserved on conflict; updated_at is bumped.
  */
-export function seedPlans(): void {
+export async function seedPlans(): Promise<void> {
   const now = new Date().toISOString();
-  const stmt = sqlite.prepare(
-    `INSERT INTO plans
+  const SQL = `INSERT INTO plans
        (id, name, description, price_monthly, price_yearly, ai_enabled,
         max_instances, max_pages, max_agents, max_messages_per_month,
         tier, tier_order, features, is_active, created_at, updated_at)
      VALUES
-       (@id, @name, @description, @price_monthly, @price_yearly, @ai_enabled,
-        @max_instances, @max_pages, @max_agents, @max_messages_per_month,
-        @tier, @tier_order, @features, 1, @now, @now)
+       (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
         description = excluded.description,
@@ -185,36 +182,36 @@ export function seedPlans(): void {
         tier = excluded.tier,
         tier_order = excluded.tier_order,
         features = excluded.features,
-        is_active = 1,
-        updated_at = excluded.updated_at`,
-  );
-  const run = sqlite.transaction((seeds: PlanSeed[]) => {
-    for (const p of seeds) {
-      stmt.run({
-        id: p.id,
-        name: p.name,
-        description: p.description,
-        price_monthly: p.price_monthly,
-        price_yearly: p.price_yearly,
-        ai_enabled: p.ai_enabled ? 1 : 0,
-        max_instances: p.max_instances,
-        max_pages: p.max_pages,
-        max_agents: p.max_agents,
-        max_messages_per_month: p.max_messages_per_month,
-        tier: p.tier,
-        tier_order: p.tier_order,
-        features: JSON.stringify(p.features),
+        is_active = true,
+        updated_at = excluded.updated_at`;
+  await dbTx(async (tx) => {
+    for (const p of PLAN_SEEDS) {
+      await tx.run(
+        SQL,
+        p.id,
+        p.name,
+        p.description,
+        p.price_monthly,
+        p.price_yearly,
+        p.ai_enabled,
+        p.max_instances,
+        p.max_pages,
+        p.max_agents,
+        p.max_messages_per_month,
+        p.tier,
+        p.tier_order,
+        JSON.stringify(p.features),
         now,
-      });
+        now,
+      );
     }
   });
-  run(PLAN_SEEDS);
 }
 
 /** Seeds the catalog only when the plans table is empty (boot-safe, cheap). */
-export function seedPlansIfEmpty(): void {
-  const row = sqlite.prepare("SELECT COUNT(*) AS n FROM plans").get() as { n: number };
-  if (row.n === 0) {
-    seedPlans();
+export async function seedPlansIfEmpty(): Promise<void> {
+  const row = await dbGet<{ n: number }>("SELECT COUNT(*)::int AS n FROM plans");
+  if (row && row.n === 0) {
+    await seedPlans();
   }
 }

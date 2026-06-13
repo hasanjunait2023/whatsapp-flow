@@ -42,14 +42,13 @@ interface PlanLlmConfig {
 }
 
 /** Reads plans.features.llm = { provider, model } for the tenant's active plan. */
-function planDefault(tenantId: string): PlanLlmConfig | null {
-  const rows = db
+async function planDefault(tenantId: string): Promise<PlanLlmConfig | null> {
+  const rows = await db
     .select({ features: plans.features })
     .from(subscriptions)
     .innerJoin(plans, eq(subscriptions.plan_id, plans.id))
     .where(eq(subscriptions.tenant_id, tenantId))
-    .limit(1)
-    .all();
+    .limit(1);
   const features = rows[0]?.features as { llm?: PlanLlmConfig } | null | undefined;
   return features?.llm ?? null;
 }
@@ -58,13 +57,10 @@ function planDefault(tenantId: string): PlanLlmConfig | null {
  * Resolution chain: tenant BYOK settings → plan default → platform env default.
  * Throws when no usable provider+key combination exists.
  */
-export function resolveLlm(tenantId: string): ResolvedLlm {
-  const settings = db
-    .select()
-    .from(llmSettings)
-    .where(eq(llmSettings.tenant_id, tenantId))
-    .limit(1)
-    .all()[0];
+export async function resolveLlm(tenantId: string): Promise<ResolvedLlm> {
+  const settings = (
+    await db.select().from(llmSettings).where(eq(llmSettings.tenant_id, tenantId)).limit(1)
+  )[0];
 
   // 1. Tenant BYOK: own provider, model, and key.
   if (settings?.is_byok && isProviderName(settings.provider) && settings.api_key_encrypted) {
@@ -92,7 +88,7 @@ export function resolveLlm(tenantId: string): ResolvedLlm {
   }
 
   // 3. Plan default.
-  const plan = planDefault(tenantId);
+  const plan = await planDefault(tenantId);
   if (plan && isProviderName(plan.provider)) {
     const key = platformKeyFor(plan.provider);
     if (key) {

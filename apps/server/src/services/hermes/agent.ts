@@ -1,4 +1,4 @@
-import { sqlite } from "../../db/index.js";
+import { dbGet, dbAll, dbRun } from "../../db/raw.js";
 import { resolveLlm } from "../../llm/registry.js";
 import { checkBudget, recordUsage } from "../../llm/usage.js";
 import type { LlmMessage } from "../../llm/types.js";
@@ -29,23 +29,23 @@ interface MessageRow {
   is_from_ai: number;
 }
 
-function conversationHistory(contactId: string): LlmMessage[] {
-  const rows = sqlite
-    .prepare(
-      `SELECT direction, content, content_type, is_from_ai FROM messages
+async function conversationHistory(contactId: string): Promise<LlmMessage[]> {
+  const rows = (await dbAll(
+    `SELECT direction, content, content_type, is_from_ai FROM messages
        WHERE contact_id = ? ORDER BY created_at DESC LIMIT ${HISTORY_LIMIT}`,
-    )
-    .all(contactId) as MessageRow[];
+    contactId,
+  )) as MessageRow[];
   return rows.reverse().map((m) => ({
     role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
     content: m.content ?? `[${m.content_type}]`,
   }));
 }
 
-function getModelOverride(tenantId: string): string | null {
-  const row = sqlite
-    .prepare(`SELECT model_override FROM agent_configs WHERE tenant_id = ? AND agent = 'hermes' LIMIT 1`)
-    .get(tenantId) as { model_override: string | null } | undefined;
+async function getModelOverride(tenantId: string): Promise<string | null> {
+  const row = (await dbGet(
+    `SELECT model_override FROM agent_configs WHERE tenant_id = ? AND agent = 'hermes' LIMIT 1`,
+    tenantId,
+  )) as { model_override: string | null } | undefined;
   return row?.model_override ?? null;
 }
 
@@ -63,53 +63,50 @@ export async function runHermesAgent(
   const startedAt = Date.now();
   const runId = crypto.randomUUID();
 
-  const systemPrompt = getApprovedSystemPrompt(tenantId);
-  const history = options.adHocMessages ?? (contactId ? conversationHistory(contactId) : []);
+  const systemPrompt = await getApprovedSystemPrompt(tenantId);
+  const history = options.adHocMessages ?? (contactId ? await conversationHistory(contactId) : []);
   const inputPreview =
     history.filter((m) => m.role === "user").at(-1)?.content.slice(0, PREVIEW_CHARS) ?? "";
 
-  const recordRun = (
+  const recordRun = async (
     status: string,
     outputPreview: string | null,
     toolCalls: unknown[],
     usage: { promptTokens: number; completionTokens: number },
     error?: string,
-  ): void => {
-    sqlite
-      .prepare(
-        `INSERT INTO agent_runs
+  ): Promise<void> => {
+    await dbRun(
+      `INSERT INTO agent_runs
            (id, tenant_id, agent, contact_id, trigger, status, input_preview, output_preview,
             tool_calls, prompt_tokens, completion_tokens, latency_ms, error)
          VALUES (?, ?, 'hermes', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        runId,
-        tenantId,
-        contactId,
-        options.trigger,
-        status,
-        inputPreview,
-        outputPreview,
-        JSON.stringify(toolCalls),
-        usage.promptTokens,
-        usage.completionTokens,
-        Date.now() - startedAt,
-        error ?? null,
-      );
+      runId,
+      tenantId,
+      contactId,
+      options.trigger,
+      status,
+      inputPreview,
+      outputPreview,
+      JSON.stringify(toolCalls),
+      usage.promptTokens,
+      usage.completionTokens,
+      Date.now() - startedAt,
+      error ?? null,
+    );
   };
 
   if (!systemPrompt) {
-    recordRun("skipped", null, [], { promptTokens: 0, completionTokens: 0 }, "No approved soul");
+    await recordRun("skipped", null, [], { promptTokens: 0, completionTokens: 0 }, "No approved soul");
     return { kind: "skip", runId };
   }
   if (history.length === 0) {
-    recordRun("skipped", null, [], { promptTokens: 0, completionTokens: 0 }, "No conversation");
+    await recordRun("skipped", null, [], { promptTokens: 0, completionTokens: 0 }, "No conversation");
     return { kind: "skip", runId };
   }
 
-  checkBudget(tenantId);
-  const resolved = resolveLlm(tenantId);
-  const model = getModelOverride(tenantId) ?? resolved.model;
+  await checkBudget(tenantId);
+  const resolved = await resolveLlm(tenantId);
+  const model = (await getModelOverride(tenantId)) ?? resolved.model;
 
   const messages: LlmMessage[] = [{ role: "system", content: systemPrompt }, ...history];
   const totalUsage = { promptTokens: 0, completionTokens: 0 };
@@ -129,24 +126,24 @@ export async function runHermesAgent(
       );
       totalUsage.promptTokens += result.usage.promptTokens;
       totalUsage.completionTokens += result.usage.completionTokens;
-      recordUsage(tenantId, "hermes", resolved.provider.name, model, result.usage);
+      await recordUsage(tenantId, "hermes", resolved.provider.name, model, result.usage);
 
       if (result.stopReason !== "tool_use" || result.toolCalls.length === 0) {
         const reply = result.text?.trim();
         if (!reply) {
-          recordRun("error", null, executedTools, totalUsage, "Empty reply");
+          await recordRun("error", null, executedTools, totalUsage, "Empty reply");
           return { kind: "skip", runId };
         }
-        recordRun("replied", reply.slice(0, PREVIEW_CHARS), executedTools, totalUsage);
+        await recordRun("replied", reply.slice(0, PREVIEW_CHARS), executedTools, totalUsage);
         return { kind: "reply", reply, runId };
       }
 
       messages.push({ role: "assistant", content: result.text ?? "", toolCalls: result.toolCalls });
       for (const call of result.toolCalls) {
         executedTools.push({ name: call.name, arguments: call.arguments });
-        const outcome = executeHermesTool(tenantId, call.name, call.arguments);
+        const outcome = await executeHermesTool(tenantId, call.name, call.arguments);
         if (outcome.handoffReason) {
-          recordRun("handoff", outcome.handoffReason, executedTools, totalUsage);
+          await recordRun("handoff", outcome.handoffReason, executedTools, totalUsage);
           return { kind: "handoff", handoffReason: outcome.handoffReason, runId };
         }
         messages.push({
@@ -158,11 +155,11 @@ export async function runHermesAgent(
       }
     }
 
-    recordRun("error", null, executedTools, totalUsage, "Tool iteration limit reached");
+    await recordRun("error", null, executedTools, totalUsage, "Tool iteration limit reached");
     return { kind: "handoff", handoffReason: "Agent could not resolve the request", runId };
   } catch (err) {
     const message = err instanceof Error ? err.message : "agent error";
-    recordRun("error", null, executedTools, totalUsage, message);
+    await recordRun("error", null, executedTools, totalUsage, message);
     throw err;
   }
 }

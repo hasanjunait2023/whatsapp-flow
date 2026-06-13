@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { sqlite } from "../../db/index.js";
+import { dbGet, dbTx } from "../../db/raw.js";
 import { encryptSecret, decryptSecret } from "../../lib/crypto.js";
 import {
   FB_GRAPH_VERSION,
@@ -248,15 +248,14 @@ export interface UpsertPagesResult {
 }
 
 /** The tenant's page cap from its active subscription's plan (default 1). */
-export function getTenantPageCap(tenantId: string): number {
-  const row = sqlite
-    .prepare(
-      `SELECT COALESCE(p.max_pages, 1) AS max
+export async function getTenantPageCap(tenantId: string): Promise<number> {
+  const row = await dbGet<{ max: number }>(
+    `SELECT COALESCE(p.max_pages, 1) AS max
          FROM subscriptions s JOIN plans p ON p.id = s.plan_id
         WHERE s.tenant_id = ? AND s.status IN ('active','trialing','past_due')
         ORDER BY s.created_at DESC LIMIT 1`,
-    )
-    .get(tenantId) as { max: number } | undefined;
+    tenantId,
+  );
   return row?.max ?? 1;
 }
 
@@ -267,21 +266,22 @@ export function getTenantPageCap(tenantId: string): number {
  * Instagram link data is only overwritten when present in the payload, so a
  * Facebook-only reconnect never wipes an existing IG link.
  */
-export function upsertConnectedPages(
+export async function upsertConnectedPages(
   tenantId: string,
   pages: FbUserPage[],
   maxPages = Number.POSITIVE_INFINITY,
-): UpsertPagesResult {
+): Promise<UpsertPagesResult> {
   const now = new Date().toISOString();
   const appSecret = getFbAppSecret();
   const connected: ConnectedPage[] = [];
   const skipped: Array<{ page_id: string; page_name: string }> = [];
-  const upsert = sqlite.transaction(() => {
+  await dbTx(async (tx) => {
     let activeCount = (
-      sqlite
-        .prepare("SELECT COUNT(*) AS n FROM facebook_pages WHERE tenant_id = ? AND status = 'active'")
-        .get(tenantId) as { n: number }
-    ).n;
+      await tx.get<{ n: number }>(
+        "SELECT COUNT(*)::int AS n FROM facebook_pages WHERE tenant_id = ? AND status = 'active'",
+        tenantId,
+      )
+    )!.n;
     for (const page of pages) {
       const encrypted = encryptPageToken(page.access_token);
       const pictureUrl = page.picture?.data?.url ?? null;
@@ -289,22 +289,34 @@ export function upsertConnectedPages(
       const igId = ig?.id ?? null;
       const igUsername = ig?.username ?? null;
       const igPicture = ig?.profile_picture_url ?? null;
-      const existing = sqlite
-        .prepare("SELECT id, status, ig_username FROM facebook_pages WHERE tenant_id = ? AND page_id = ? LIMIT 1")
-        .get(tenantId, page.id) as { id: string; status: string; ig_username: string | null } | undefined;
+      const existing = await tx.get<{ id: string; status: string; ig_username: string | null }>(
+        "SELECT id, status, ig_username FROM facebook_pages WHERE tenant_id = ? AND page_id = ? LIMIT 1",
+        tenantId,
+        page.id,
+      );
       if (existing) {
-        sqlite
-          .prepare(
-            `UPDATE facebook_pages
+        await tx.run(
+          `UPDATE facebook_pages
              SET page_access_token = ?, page_name = ?, profile_picture_url = COALESCE(?, profile_picture_url),
                  app_secret = ?, status = 'active', last_connected_at = ?, updated_at = ?,
                  ig_account_id = COALESCE(?, ig_account_id),
                  ig_username = COALESCE(?, ig_username),
                  ig_profile_picture_url = COALESCE(?, ig_profile_picture_url),
-                 ig_connected_at = CASE WHEN ? IS NOT NULL THEN ? ELSE ig_connected_at END
+                 ig_connected_at = CASE WHEN ?::text IS NOT NULL THEN ? ELSE ig_connected_at END
              WHERE id = ?`,
-          )
-          .run(encrypted, page.name, pictureUrl, appSecret, now, now, igId, igUsername, igPicture, igId, now, existing.id);
+          encrypted,
+          page.name,
+          pictureUrl,
+          appSecret,
+          now,
+          now,
+          igId,
+          igUsername,
+          igPicture,
+          igId,
+          now,
+          existing.id,
+        );
         if (existing.status !== "active") activeCount++;
         connected.push({
           id: existing.id,
@@ -318,42 +330,39 @@ export function upsertConnectedPages(
           continue;
         }
         const id = crypto.randomUUID();
-        const isFirst = !sqlite
-          .prepare("SELECT 1 FROM facebook_pages WHERE tenant_id = ? LIMIT 1")
-          .get(tenantId);
-        sqlite
-          .prepare(
-            `INSERT INTO facebook_pages
+        const isFirst = !(await tx.get(
+          "SELECT 1 FROM facebook_pages WHERE tenant_id = ? LIMIT 1",
+          tenantId,
+        ));
+        await tx.run(
+          `INSERT INTO facebook_pages
                (id, tenant_id, page_id, page_name, page_access_token, profile_picture_url,
                 app_secret, status, is_default, webhook_verify_token,
                 ig_account_id, ig_username, ig_profile_picture_url, ig_connected_at,
                 last_connected_at, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          )
-          .run(
-            id,
-            tenantId,
-            page.id,
-            page.name,
-            encrypted,
-            pictureUrl,
-            appSecret,
-            isFirst ? 1 : 0,
-            crypto.randomUUID().replace(/-/g, ""),
-            igId,
-            igUsername,
-            igPicture,
-            igId ? now : null,
-            now,
-            now,
-            now,
-          );
+          id,
+          tenantId,
+          page.id,
+          page.name,
+          encrypted,
+          pictureUrl,
+          appSecret,
+          isFirst ? true : false,
+          crypto.randomUUID().replace(/-/g, ""),
+          igId,
+          igUsername,
+          igPicture,
+          igId ? now : null,
+          now,
+          now,
+          now,
+        );
         activeCount++;
         connected.push({ id, page_id: page.id, page_name: page.name, ig_username: igUsername });
       }
     }
   });
-  upsert();
   const instagramCount = connected.filter((p) => p.ig_username).length;
   return { connected, skipped, instagramCount };
 }

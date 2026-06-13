@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbGet, dbRun } from "../db/raw.js";
 import { emitChange } from "../realtime/emitter.js";
 import { UDDOKTAPAY_API_KEY, UDDOKTAPAY_BASE_URL, AUTH_BASE_URL } from "../lib/env.js";
 import type { FnContext, FnResult } from "./waha/session.js";
@@ -53,22 +53,19 @@ export async function uddoktapayCheckout(raw: Record<string, unknown>, ctx: FnCo
   const orderNumber = `SUB-${Date.now().toString(36).toUpperCase()}`;
   const subscriptionOrderId = crypto.randomUUID();
 
-  sqlite
-    .prepare(
-      `INSERT INTO subscription_orders
+  await dbRun(
+    `INSERT INTO subscription_orders
          (id, tenant_id, plan_id, order_number, amount, billing_cycle, status,
           payment_method, notes)
        VALUES (?, ?, ?, ?, ?, ?, 'pending', 'uddoktapay', ?)`,
-    )
-    .run(
-      subscriptionOrderId,
-      tenantId,
-      body.plan_id,
-      orderNumber,
-      body.amount,
-      body.billing_cycle ?? "monthly",
-      `Order ID: ${orderId}, Type: ${body.order_type ?? "subscription"}`,
-    );
+    subscriptionOrderId,
+    tenantId,
+    body.plan_id,
+    orderNumber,
+    body.amount,
+    body.billing_cycle ?? "monthly",
+    `Order ID: ${orderId}, Type: ${body.order_type ?? "subscription"}`,
+  );
 
   const checkoutPayload = {
     full_name: body.customer_name,
@@ -100,35 +97,36 @@ export async function uddoktapayCheckout(raw: Record<string, unknown>, ctx: FnCo
     });
     gatewayData = (await res.json()) as typeof gatewayData;
     if (!res.ok || !gatewayData.payment_url) {
-      sqlite
-        .prepare("UPDATE subscription_orders SET status = 'failed', notes = ? WHERE id = ?")
-        .run(`Gateway error: ${JSON.stringify(gatewayData)}`, subscriptionOrderId);
+      await dbRun(
+        "UPDATE subscription_orders SET status = 'failed', notes = ? WHERE id = ?",
+        `Gateway error: ${JSON.stringify(gatewayData)}`,
+        subscriptionOrderId,
+      );
       return ok({ success: false, error: gatewayData.message ?? "Failed to create payment" });
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Gateway request failed";
-    sqlite
-      .prepare("UPDATE subscription_orders SET status = 'failed', notes = ? WHERE id = ?")
-      .run(`Gateway error: ${message}`, subscriptionOrderId);
+    await dbRun(
+      "UPDATE subscription_orders SET status = 'failed', notes = ? WHERE id = ?",
+      `Gateway error: ${message}`,
+      subscriptionOrderId,
+    );
     return ok({ success: false, error: message });
   }
 
-  sqlite
-    .prepare(
-      `INSERT INTO payments
+  await dbRun(
+    `INSERT INTO payments
          (id, tenant_id, subscription_id, amount, currency, payment_method,
           payment_gateway, uddoktapay_invoice_id, status, notes, gateway_response)
        VALUES (?, ?, ?, ?, 'BDT', 'uddoktapay', 'uddoktapay', ?, 'pending', ?, ?)`,
-    )
-    .run(
-      crypto.randomUUID(),
-      tenantId,
-      subscriptionOrderId,
-      body.amount,
-      gatewayData.invoice_id ?? null,
-      `Order: ${orderId}`,
-      JSON.stringify(gatewayData),
-    );
+    crypto.randomUUID(),
+    tenantId,
+    subscriptionOrderId,
+    body.amount,
+    gatewayData.invoice_id ?? null,
+    `Order: ${orderId}`,
+    JSON.stringify(gatewayData),
+  );
   emitChange("payments", tenantId, {});
 
   return ok({
@@ -159,11 +157,10 @@ export async function uddoktapayVerify(raw: Record<string, unknown>, ctx: FnCont
 
   // Resolve + authorize the local payment BEFORE calling the gateway, so a
   // tenant can't trigger verification calls for invoice_ids they don't own.
-  const payment = sqlite
-    .prepare(
-      "SELECT id, tenant_id, subscription_id, amount, status, notes FROM payments WHERE uddoktapay_invoice_id = ? LIMIT 1",
-    )
-    .get(invoiceId) as PaymentRow | undefined;
+  const payment = (await dbGet(
+    "SELECT id, tenant_id, subscription_id, amount, status, notes FROM payments WHERE uddoktapay_invoice_id = ? LIMIT 1",
+    invoiceId,
+  )) as PaymentRow | undefined;
   if (!payment) {
     return ok({ success: false, error: "Payment record not found" });
   }
@@ -202,27 +199,25 @@ export async function uddoktapayVerify(raw: Record<string, unknown>, ctx: FnCont
   const isCompleted = verifyData.status === "COMPLETED";
   const txId = verifyData.transaction_id ?? verifyData.sender_number ?? null;
 
-  sqlite
-    .prepare(
-      `UPDATE payments
+  await dbRun(
+    `UPDATE payments
          SET status = ?, verified_at = ?, transaction_id = ?, gateway_response = ?, notes = ?
        WHERE id = ?`,
-    )
-    .run(
-      isCompleted ? "verified" : "pending",
-      isCompleted ? new Date().toISOString() : null,
-      txId,
-      JSON.stringify(verifyData),
-      `${payment.notes ?? ""} | Gateway: ${verifyData.payment_method ?? "unknown"} | Status: ${verifyData.status}`,
-      payment.id,
-    );
+    isCompleted ? "verified" : "pending",
+    isCompleted ? new Date().toISOString() : null,
+    txId,
+    JSON.stringify(verifyData),
+    `${payment.notes ?? ""} | Gateway: ${verifyData.payment_method ?? "unknown"} | Status: ${verifyData.status}`,
+    payment.id,
+  );
 
   if (isCompleted && payment.subscription_id) {
-    sqlite
-      .prepare(
-        "UPDATE subscription_orders SET status = 'paid', verified_at = ?, transaction_id = ? WHERE id = ?",
-      )
-      .run(new Date().toISOString(), verifyData.transaction_id ?? null, payment.subscription_id);
+    await dbRun(
+      "UPDATE subscription_orders SET status = 'paid', verified_at = ?, transaction_id = ? WHERE id = ?",
+      new Date().toISOString(),
+      verifyData.transaction_id ?? null,
+      payment.subscription_id,
+    );
   }
   emitChange("payments", payment.tenant_id, {});
 
@@ -250,37 +245,40 @@ export async function paymentConfirmed(raw: Record<string, unknown>, ctx: FnCont
   if (paymentId) {
     // Scope the payment lookup to the resolved tenant so a verified payment id
     // from another tenant cannot be used to trigger provisioning here.
-    const payment = sqlite
-      .prepare("SELECT status FROM payments WHERE id = ? AND tenant_id = ? LIMIT 1")
-      .get(paymentId, tenantId) as { status: string } | undefined;
+    const payment = (await dbGet(
+      "SELECT status FROM payments WHERE id = ? AND tenant_id = ? LIMIT 1",
+      paymentId,
+      tenantId,
+    )) as { status: string } | undefined;
     if (!payment || payment.status !== "verified") {
       return ok({ error: "Payment not verified" });
     }
   }
 
-  const sub = sqlite
-    .prepare("SELECT status FROM subscriptions WHERE tenant_id = ? LIMIT 1")
-    .get(tenantId) as { status: string } | undefined;
+  const sub = (await dbGet(
+    "SELECT status FROM subscriptions WHERE tenant_id = ? LIMIT 1",
+    tenantId,
+  )) as { status: string } | undefined;
   if (!sub) return ok({ error: "Subscription not found" });
   if (sub.status === "suspended" || sub.status === "cancelled") {
     return ok({ error: "Subscription is not active", code: "SUBSCRIPTION_INACTIVE" });
   }
 
-  const existing = sqlite
-    .prepare(
-      "SELECT id, status FROM whatsapp_instances WHERE tenant_id = ? AND (is_deleted IS NULL OR is_deleted = 0) ORDER BY is_default DESC LIMIT 1",
-    )
-    .get(tenantId) as { id: string; status: string } | undefined;
+  const existing = (await dbGet(
+    "SELECT id, status FROM whatsapp_instances WHERE tenant_id = ? AND (is_deleted IS NOT TRUE) ORDER BY is_default DESC LIMIT 1",
+    tenantId,
+  )) as { id: string; status: string } | undefined;
   if (existing && existing.status === "active") {
     return ok({ message: "Instance already exists and is active", instance_id: existing.id, reused: true });
   }
 
   const jobId = crypto.randomUUID();
-  sqlite
-    .prepare(
-      "INSERT INTO onboarding_jobs (id, tenant_id, instance_id, status, step) VALUES (?, ?, ?, 'pending', 'awaiting_provision')",
-    )
-    .run(jobId, tenantId, existing?.id ?? null);
+  await dbRun(
+    "INSERT INTO onboarding_jobs (id, tenant_id, instance_id, status, step) VALUES (?, ?, ?, 'pending', 'awaiting_provision')",
+    jobId,
+    tenantId,
+    existing?.id ?? null,
+  );
   emitChange("onboarding_jobs", tenantId, { id: jobId });
 
   return ok({ message: "Onboarding queued", job_id: jobId, instance_id: existing?.id ?? null });

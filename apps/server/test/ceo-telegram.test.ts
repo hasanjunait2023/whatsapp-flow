@@ -26,7 +26,7 @@ vi.mock("../src/llm/registry.js", () => ({
   defaultModelFor: vi.fn(() => "gemini-2.0-flash"),
 }));
 
-const { db, sqlite } = await import("../src/db/index.js");
+const { db } = await import("../src/db/index.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { tenants, telegramLinks, ceoReports, agentSchedules, jobQueue, orders, tenantDailyStats } =
   await import("../src/db/schema.js");
@@ -39,10 +39,10 @@ const { processDueJobs } = await import("../src/jobs/queue.js");
 
 // Intercept outbound Telegram sends.
 const originalFetch = globalThis.fetch;
-beforeAll(() => {
-  runMigrations();
+beforeAll(async () => {
+  await runMigrations();
   registerCeoJobs();
-  db.insert(tenants).values({ id: TENANT, name: "T", owner_id: "u" }).run();
+  await db.insert(tenants).values({ id: TENANT, name: "T", owner_id: "u" });
   globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
     const u = String(url);
     if (u.includes("api.telegram.org")) {
@@ -57,68 +57,68 @@ beforeAll(() => {
 const TENANT = "tttt1111-1111-1111-1111-111111111111";
 const USER = "user-1";
 
-beforeEach(() => {
+beforeEach(async () => {
   sendTelegramCalls.length = 0;
-  db.delete(telegramLinks).run();
-  db.delete(ceoReports).run();
-  db.delete(agentSchedules).run();
-  db.delete(jobQueue).run();
-  db.delete(orders).run();
-  db.delete(tenantDailyStats).run();
+  await db.delete(telegramLinks);
+  await db.delete(ceoReports);
+  await db.delete(agentSchedules);
+  await db.delete(jobQueue);
+  await db.delete(orders);
+  await db.delete(tenantDailyStats);
 });
 
 describe("telegram linking", () => {
-  it("creates a single-use deep link with TTL", () => {
-    const link = telegram.startTelegramLink(TENANT, USER);
+  it("creates a single-use deep link with TTL", async () => {
+    const link = await telegram.startTelegramLink(TENANT, USER);
     expect(link.deep_link).toBe(`https://t.me/TestBot?start=${link.link_code}`);
     expect(new Date(link.expires_at).getTime()).toBeGreaterThan(Date.now());
   });
 
-  it("binds the chat on /start and is single-use", () => {
-    const { link_code } = telegram.startTelegramLink(TENANT, USER);
-    const first = telegram.consumeLinkCode(link_code, "chat-42");
+  it("binds the chat on /start and is single-use", async () => {
+    const { link_code } = await telegram.startTelegramLink(TENANT, USER);
+    const first = await telegram.consumeLinkCode(link_code, "chat-42");
     expect(first.linked).toBe(true);
     expect(first.tenantId).toBe(TENANT);
-    expect(telegram.linkedChatIds(TENANT)).toEqual(["chat-42"]);
+    expect(await telegram.linkedChatIds(TENANT)).toEqual(["chat-42"]);
 
-    const second = telegram.consumeLinkCode(link_code, "attacker-chat");
+    const second = await telegram.consumeLinkCode(link_code, "attacker-chat");
     expect(second.linked).toBe(false);
-    expect(telegram.linkedChatIds(TENANT)).toEqual(["chat-42"]); // unchanged
+    expect(await telegram.linkedChatIds(TENANT)).toEqual(["chat-42"]); // unchanged
   });
 
-  it("rejects expired codes", () => {
-    const { link_code } = telegram.startTelegramLink(TENANT, USER);
-    db.update(telegramLinks)
-      .set({ expires_at: new Date(Date.now() - 1000).toISOString() })
-      .run();
-    expect(telegram.consumeLinkCode(link_code, "chat-1").linked).toBe(false);
+  it("rejects expired codes", async () => {
+    const { link_code } = await telegram.startTelegramLink(TENANT, USER);
+    await db
+      .update(telegramLinks)
+      .set({ expires_at: new Date(Date.now() - 1000).toISOString() });
+    expect((await telegram.consumeLinkCode(link_code, "chat-1")).linked).toBe(false);
   });
 
-  it("refreshing replaces the previous pending code", () => {
-    const first = telegram.startTelegramLink(TENANT, USER);
-    telegram.startTelegramLink(TENANT, USER);
-    expect(telegram.consumeLinkCode(first.link_code, "chat-1").linked).toBe(false);
-    expect(db.select().from(telegramLinks).all()).toHaveLength(1);
+  it("refreshing replaces the previous pending code", async () => {
+    const first = await telegram.startTelegramLink(TENANT, USER);
+    await telegram.startTelegramLink(TENANT, USER);
+    expect((await telegram.consumeLinkCode(first.link_code, "chat-1")).linked).toBe(false);
+    expect(await db.select().from(telegramLinks)).toHaveLength(1);
   });
 
-  it("unlink removes the binding", () => {
-    const { link_code } = telegram.startTelegramLink(TENANT, USER);
-    telegram.consumeLinkCode(link_code, "chat-9");
-    telegram.unlinkTelegram(TENANT, USER);
-    expect(telegram.linkedChatIds(TENANT)).toEqual([]);
+  it("unlink removes the binding", async () => {
+    const { link_code } = await telegram.startTelegramLink(TENANT, USER);
+    await telegram.consumeLinkCode(link_code, "chat-9");
+    await telegram.unlinkTelegram(TENANT, USER);
+    expect(await telegram.linkedChatIds(TENANT)).toEqual([]);
   });
 });
 
 describe("ceo reports", () => {
-  it("gathers a business snapshot from stats, orders, and agent runs", () => {
+  it("gathers a business snapshot from stats, orders, and agent runs", async () => {
     const today = new Date().toISOString().slice(0, 10);
-    db.insert(tenantDailyStats)
-      .values({ tenant_id: TENANT, stat_date: today, inbound_count: 12, outbound_count: 8, new_conversations: 3 })
-      .run();
-    db.insert(orders)
-      .values({ tenant_id: TENANT, order_number: "1001", total: 99.5, status: "pending" })
-      .run();
-    const snapshot = gatherSnapshot(TENANT, 1);
+    await db
+      .insert(tenantDailyStats)
+      .values({ tenant_id: TENANT, stat_date: today, inbound_count: 12, outbound_count: 8, new_conversations: 3 });
+    await db
+      .insert(orders)
+      .values({ tenant_id: TENANT, order_number: "1001", total: 99.5, status: "pending" });
+    const snapshot = await gatherSnapshot(TENANT, 1);
     expect(snapshot.conversations.inbound).toBe(12);
     expect(snapshot.orders.count).toBe(1);
     expect(snapshot.orders.revenue).toBe(99.5);
@@ -126,12 +126,12 @@ describe("ceo reports", () => {
   });
 
   it("generates, stores, and delivers a report to linked chats", async () => {
-    const { link_code } = telegram.startTelegramLink(TENANT, USER);
-    telegram.consumeLinkCode(link_code, "chat-7");
+    const { link_code } = await telegram.startTelegramLink(TENANT, USER);
+    await telegram.consumeLinkCode(link_code, "chat-7");
 
     await generateCeoReport(TENANT, "daily");
 
-    const report = db.select().from(ceoReports).all()[0];
+    const report = (await db.select().from(ceoReports))[0];
     expect(report.status).toBe("sent");
     expect(report.content_md).toContain("Daily Report");
     expect(sendTelegramCalls).toHaveLength(1);
@@ -140,66 +140,64 @@ describe("ceo reports", () => {
 
   it("stores the report even with no linked chat (in-app only)", async () => {
     await generateCeoReport(TENANT, "daily");
-    const report = db.select().from(ceoReports).all()[0];
+    const report = (await db.select().from(ceoReports))[0];
     expect(report.status).toBe("generated");
     expect(sendTelegramCalls).toHaveLength(0);
   });
 
   it("ceo-run-now enqueues and the job produces a report", async () => {
-    enqueueCeoReport(TENANT, "daily");
+    await enqueueCeoReport(TENANT, "daily");
     await processDueJobs();
-    expect(db.select().from(ceoReports).all()).toHaveLength(1);
+    expect(await db.select().from(ceoReports)).toHaveLength(1);
   });
 });
 
 describe("ceo schedules", () => {
-  function insertSchedule(overrides: Record<string, unknown> = {}): string {
+  async function insertSchedule(overrides: Record<string, unknown> = {}): Promise<string> {
     const id = crypto.randomUUID();
-    db.insert(agentSchedules)
-      .values({
-        id,
-        tenant_id: TENANT,
-        agent: "ceo",
-        cadence: "daily",
-        report_type: "daily",
-        hour_utc: 0, // always due by hour
-        enabled: true,
-        ...overrides,
-      })
-      .run();
+    await db.insert(agentSchedules).values({
+      id,
+      tenant_id: TENANT,
+      agent: "ceo",
+      cadence: "daily",
+      report_type: "daily",
+      hour_utc: 0, // always due by hour
+      enabled: true,
+      ...overrides,
+    });
     return id;
   }
 
-  it("enqueues a due daily schedule exactly once", () => {
-    insertSchedule();
-    checkCeoSchedules();
-    checkCeoSchedules(); // dedupe key prevents a second queued job
-    const jobs = db.select().from(jobQueue).all();
+  it("enqueues a due daily schedule exactly once", async () => {
+    await insertSchedule();
+    await checkCeoSchedules();
+    await checkCeoSchedules(); // dedupe key prevents a second queued job
+    const jobs = await db.select().from(jobQueue);
     expect(jobs).toHaveLength(1);
     expect(jobs[0].kind).toBe(CEO_REPORT_JOB);
   });
 
-  it("skips schedules already run today", () => {
-    insertSchedule({ last_run_at: new Date().toISOString() });
-    checkCeoSchedules();
-    expect(db.select().from(jobQueue).all()).toHaveLength(0);
+  it("skips schedules already run today", async () => {
+    await insertSchedule({ last_run_at: new Date().toISOString() });
+    await checkCeoSchedules();
+    expect(await db.select().from(jobQueue)).toHaveLength(0);
   });
 
-  it("skips disabled schedules and future hours", () => {
-    insertSchedule({ enabled: false });
-    insertSchedule({ report_type: "weekly", cadence: "daily", hour_utc: 23 });
+  it("skips disabled schedules and future hours", async () => {
+    await insertSchedule({ enabled: false });
+    await insertSchedule({ report_type: "weekly", cadence: "daily", hour_utc: 23 });
     const isLateInDay = new Date().getUTCHours() >= 23;
-    checkCeoSchedules();
-    expect(db.select().from(jobQueue).all()).toHaveLength(isLateInDay ? 1 : 0);
+    await checkCeoSchedules();
+    expect(await db.select().from(jobQueue)).toHaveLength(isLateInDay ? 1 : 0);
   });
 
   it("running the scheduled job stamps last_run_at", async () => {
-    const scheduleId = insertSchedule();
-    checkCeoSchedules();
+    const scheduleId = await insertSchedule();
+    await checkCeoSchedules();
     await processDueJobs();
-    const schedule = db.select().from(agentSchedules).all().find((s) => s.id === scheduleId)!;
+    const schedule = (await db.select().from(agentSchedules)).find((s) => s.id === scheduleId)!;
     expect(schedule.last_run_at).not.toBeNull();
-    expect(db.select().from(ceoReports).all()).toHaveLength(1);
+    expect(await db.select().from(ceoReports)).toHaveLength(1);
   });
 });
 
@@ -209,7 +207,7 @@ describe("telegram webhook route", () => {
     const { Hono } = await import("hono");
     const app = new Hono().route("/webhook", telegramWebhookRoute);
 
-    const { link_code } = telegram.startTelegramLink(TENANT, USER);
+    const { link_code } = await telegram.startTelegramLink(TENANT, USER);
     const res = await app.request("/webhook", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -218,7 +216,7 @@ describe("telegram webhook route", () => {
       }),
     });
     expect(res.status).toBe(200);
-    expect(telegram.linkedChatIds(TENANT)).toEqual(["555"]);
+    expect(await telegram.linkedChatIds(TENANT)).toEqual(["555"]);
     expect(sendTelegramCalls.at(-1)?.text).toContain("Connected");
   });
 
@@ -244,6 +242,11 @@ describe("telegram webhook route", () => {
     const prevEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = "production";
     delete process.env.TELEGRAM_WEBHOOK_SECRET;
+    // Re-importing under NODE_ENV=production re-evaluates db/index.ts, which
+    // builds a real pg Pool from DATABASE_URL. The Pool is lazy (no connection
+    // until a query) and this fail-closed path returns 401 before any DB call,
+    // so a dummy URL just lets the module construct.
+    process.env.DATABASE_URL = "postgres://u:p@localhost:5432/db";
     const { telegramWebhookRoute } = await import("../src/routes/webhooks/telegram.js");
     const { Hono } = await import("hono");
     const app = new Hono().route("/webhook", telegramWebhookRoute);
@@ -254,6 +257,7 @@ describe("telegram webhook route", () => {
       body: JSON.stringify({ message: { text: "/start abc", chat: { id: 1 } } }),
     });
     expect(res.status).toBe(401);
+    delete process.env.DATABASE_URL;
     process.env.NODE_ENV = prevEnv;
     vi.resetModules();
   });

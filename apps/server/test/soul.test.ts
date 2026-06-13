@@ -32,16 +32,16 @@ const { buildSystemPrompt } = await import("../src/services/soul/prompt-builder.
 
 const TENANT = "tttt1111-1111-1111-1111-111111111111";
 
-beforeAll(() => {
-  runMigrations();
+beforeAll(async () => {
+  await runMigrations();
   registerSoulJobs();
-  db.insert(tenants).values({ id: TENANT, name: "T", owner_id: "u" }).run();
+  await db.insert(tenants).values({ id: TENANT, name: "T", owner_id: "u" });
 });
 
-beforeEach(() => {
-  db.delete(agentSouls).run();
-  db.delete(soulSources).run();
-  db.delete(jobQueue).run();
+beforeEach(async () => {
+  await db.delete(agentSouls);
+  await db.delete(soulSources);
+  await db.delete(jobQueue);
 });
 
 describe("job queue", () => {
@@ -50,27 +50,27 @@ describe("job queue", () => {
     registerJobHandler("test_job", async (payload) => {
       ran.push(payload);
     });
-    enqueueJob({ kind: "test_job", payload: { x: 1 } });
+    await enqueueJob({ kind: "test_job", payload: { x: 1 } });
     const processed = await processDueJobs();
     expect(processed).toBe(1);
     expect(ran).toEqual([{ x: 1 }]);
-    expect(db.select().from(jobQueue).all()[0].status).toBe("done");
+    expect((await db.select().from(jobQueue))[0].status).toBe("done");
   });
 
   it("does not run jobs scheduled in the future", async () => {
     registerJobHandler("future_job", async () => {});
-    enqueueJob({
+    await enqueueJob({
       kind: "future_job",
       runAt: new Date(Date.now() + 60_000).toISOString(),
     });
     expect(await processDueJobs()).toBe(0);
   });
 
-  it("coalesces jobs with the same dedupe key", () => {
-    const id1 = enqueueJob({ kind: "j", dedupeKey: "k", payload: { n: 1 } });
-    const id2 = enqueueJob({ kind: "j", dedupeKey: "k", payload: { n: 2 } });
+  it("coalesces jobs with the same dedupe key", async () => {
+    const id1 = await enqueueJob({ kind: "j", dedupeKey: "k", payload: { n: 1 } });
+    const id2 = await enqueueJob({ kind: "j", dedupeKey: "k", payload: { n: 2 } });
     expect(id2).toBe(id1);
-    const rows = db.select().from(jobQueue).all();
+    const rows = await db.select().from(jobQueue);
     expect(rows).toHaveLength(1);
     expect(rows[0].payload).toEqual({ n: 2 });
   });
@@ -79,18 +79,18 @@ describe("job queue", () => {
     registerJobHandler("flaky", async () => {
       throw new Error("boom");
     });
-    enqueueJob({ kind: "flaky" });
+    await enqueueJob({ kind: "flaky" });
     await processDueJobs();
-    let row = db.select().from(jobQueue).all()[0];
+    let row = (await db.select().from(jobQueue))[0];
     expect(row.status).toBe("queued"); // retry scheduled
     expect(row.attempts).toBe(1);
 
     // Force the retries due now and drain them.
     for (let i = 0; i < 2; i++) {
-      db.update(jobQueue).set({ run_at: new Date(0).toISOString() }).run();
+      await db.update(jobQueue).set({ run_at: new Date(0).toISOString() });
       await processDueJobs();
     }
-    row = db.select().from(jobQueue).all()[0];
+    row = (await db.select().from(jobQueue))[0];
     expect(row.status).toBe("failed");
     expect(row.attempts).toBe(3);
     expect(row.last_error).toBe("boom");
@@ -99,49 +99,49 @@ describe("job queue", () => {
 
 describe("soul ingestion flow", () => {
   it("ingests sources, synthesizes, and reaches ready", async () => {
-    startSoulIngestion(TENANT, { websiteUrl: "https://acme-sweets.example" });
-    expect(getSoul(TENANT)?.status).toBe("ingesting");
+    await startSoulIngestion(TENANT, { websiteUrl: "https://acme-sweets.example" });
+    expect((await getSoul(TENANT))?.status).toBe("ingesting");
 
     await processDueJobs();
 
-    const soul = getSoul(TENANT)!;
+    const soul = (await getSoul(TENANT))!;
     expect(soul.status).toBe("ready");
     expect((soul.business_profile as { name: string }).name).toBe("Acme Sweets");
-    const sources = db.select().from(soulSources).all();
+    const sources = await db.select().from(soulSources);
     expect(sources).toHaveLength(1);
     expect(sources[0].status).toBe("fetched");
   });
 
-  it("rejects starting with no sources", () => {
-    expect(() => startSoulIngestion(TENANT, {})).toThrow();
+  it("rejects starting with no sources", async () => {
+    await expect(startSoulIngestion(TENANT, {})).rejects.toThrow();
   });
 
-  it("rejects non-http URLs", () => {
-    expect(() => startSoulIngestion(TENANT, { websiteUrl: "ftp://x" })).toThrow();
-    expect(() => startSoulIngestion(TENANT, { websiteUrl: "not a url" })).toThrow();
+  it("rejects non-http URLs", async () => {
+    await expect(startSoulIngestion(TENANT, { websiteUrl: "ftp://x" })).rejects.toThrow();
+    await expect(startSoulIngestion(TENANT, { websiteUrl: "not a url" })).rejects.toThrow();
   });
 
   it("approve applies edits, builds the prompt cache, and exposes it to agents", async () => {
-    startSoulIngestion(TENANT, { websiteUrl: "https://acme-sweets.example" });
+    await startSoulIngestion(TENANT, { websiteUrl: "https://acme-sweets.example" });
     await processDueJobs();
 
-    expect(getApprovedSystemPrompt(TENANT)).toBeNull(); // not approved yet
+    expect(await getApprovedSystemPrompt(TENANT)).toBeNull(); // not approved yet
 
-    approveSoul(TENANT, {
+    await approveSoul(TENANT, {
       faqs: [{ question: "Delivery?", answer: "Dhaka only, 24h" }],
     });
-    const soul = getSoul(TENANT)!;
+    const soul = (await getSoul(TENANT))!;
     expect(soul.status).toBe("approved");
 
-    const prompt = getApprovedSystemPrompt(TENANT)!;
+    const prompt = (await getApprovedSystemPrompt(TENANT))!;
     expect(prompt).toContain("Acme Sweets");
     expect(prompt).toContain("Delivery?"); // edited FAQ won
     expect(prompt).not.toContain("Hours?"); // original FAQ replaced
   });
 
-  it("refuses approval before synthesis completes", () => {
-    startSoulIngestion(TENANT, { websiteUrl: "https://acme-sweets.example" });
-    expect(() => approveSoul(TENANT)).toThrow("not ready");
+  it("refuses approval before synthesis completes", async () => {
+    await startSoulIngestion(TENANT, { websiteUrl: "https://acme-sweets.example" });
+    await expect(approveSoul(TENANT)).rejects.toThrow("not ready");
   });
 });
 

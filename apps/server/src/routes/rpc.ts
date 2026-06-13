@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { sqlite } from "../db/index.js";
+import { dbGet, dbAll, dbRun, dbTx, type TxQuery } from "../db/raw.js";
 import { getTenant } from "../middleware/tenant.js";
 import { emitChange } from "../realtime/emitter.js";
 
@@ -23,12 +23,14 @@ const fail = (message: string) => ({ data: null, error: { message } });
 const MAX_IN_IDS = 500;
 
 /** Confirms a contact row belongs to the active tenant (or caller is admin). */
-function assertContactInTenant(contactId: string, ctx: RpcCtx): boolean {
+async function assertContactInTenant(contactId: string, ctx: RpcCtx): Promise<boolean> {
   if (ctx.isAdmin) return true;
   if (!ctx.tenantId) return false;
-  const row = sqlite
-    .prepare("SELECT 1 FROM contact_thread_state WHERE contact_id = ? AND tenant_id = ? LIMIT 1")
-    .get(contactId, ctx.tenantId);
+  const row = await dbGet(
+    "SELECT 1 FROM contact_thread_state WHERE contact_id = ? AND tenant_id = ? LIMIT 1",
+    contactId,
+    ctx.tenantId,
+  );
   return row !== undefined;
 }
 
@@ -53,7 +55,8 @@ const getLastMessagesForContacts: RpcHandler = async (args, ctx) => {
     params.push(ctx.tenantId);
   }
 
-  const prepared = sqlite.prepare(`
+  const rows = await dbAll(
+    `
     SELECT contact_id, content, content_type, direction
     FROM (
       SELECT
@@ -67,10 +70,12 @@ const getLastMessagesForContacts: RpcHandler = async (args, ctx) => {
         ) AS rn
       FROM messages m
       WHERE m.contact_id IN (${placeholders}) ${tenantClause}
-    )
+    ) sub
     WHERE rn = 1
-  `);
-  return ok(prepared.all(...params));
+  `,
+    ...params,
+  );
+  return ok(rows);
 };
 
 /**
@@ -92,7 +97,7 @@ const getInboxContacts: RpcHandler = async (args, ctx) => {
   const limit = (args.p_limit as number | null) ?? 50;
 
   const conds: string[] = ["tenant_id = ?", "is_archived = ?"];
-  const params: unknown[] = [tenantId, isArchived ? 1 : 0];
+  const params: unknown[] = [tenantId, isArchived];
   if (contactType) {
     conds.push("contact_type = ?");
     params.push(contactType);
@@ -109,9 +114,8 @@ const getInboxContacts: RpcHandler = async (args, ctx) => {
   }
   params.push(limit);
 
-  const rows = sqlite
-    .prepare(
-      `SELECT contact_id, contact_type, instance_id, contact_name, contact_phone,
+  const rows = (await dbAll(
+    `SELECT contact_id, contact_type, instance_id, contact_name, contact_phone,
               contact_avatar_url, last_message_at, last_message_preview,
               last_message_direction, last_message_type, unread_count, total_messages,
               assigned_to, is_archived, is_blocked, needs_handoff, handoff_reason,
@@ -120,8 +124,8 @@ const getInboxContacts: RpcHandler = async (args, ctx) => {
        WHERE ${conds.join(" AND ")}
        ORDER BY last_message_at DESC, contact_id DESC
        LIMIT ?`,
-    )
-    .all(...params) as Record<string, unknown>[];
+    ...params,
+  )) as Record<string, unknown>[];
 
   // label_ids is stored as JSON text; parse to an array for row-shape parity.
   for (const r of rows) {
@@ -140,15 +144,15 @@ const getInboxContacts: RpcHandler = async (args, ctx) => {
 };
 
 /** Shared keyset thread-message reader for WhatsApp + Facebook. */
-function threadMessages(
+async function threadMessages(
   table: "messages" | "fb_messages",
   idColumn: "wa_message_id" | "mid",
   args: Record<string, unknown>,
   ctx: RpcCtx,
-): { data: unknown; error: { message: string } | null } {
+): Promise<{ data: unknown; error: { message: string } | null }> {
   const contactId = args.p_contact_id as string | undefined;
   if (!contactId) return fail("p_contact_id is required");
-  if (!assertContactInTenant(contactId, ctx)) return fail("Forbidden contact");
+  if (!(await assertContactInTenant(contactId, ctx))) return fail("Forbidden contact");
 
   const cursorTs = (args.p_cursor_timestamp as string | null) ?? null;
   const cursorId = (args.p_cursor_id as string | null) ?? null;
@@ -179,44 +183,46 @@ function threadMessages(
       ? "media_url, media_mime_type, media_filename, location_lat, location_lng,"
       : "media_url, media_mime_type, media_filename,";
 
-  const rows = sqlite
-    .prepare(
-      `SELECT id, ${idColumn}, direction, status, content_type, content, text_preview,
+  const rows = (await dbAll(
+    `SELECT id, ${idColumn}, direction, status, content_type, content, text_preview,
               ${mediaCols} reply_to_id, is_from_ai, error_message,
               sent_at, delivered_at, read_at, sent_by_user_id
        FROM ${table}
        WHERE ${conds.join(" AND ")}
        ORDER BY sent_at ${orderDir}, id ${orderDir}
        LIMIT ?`,
-    )
-    .all(...params) as Record<string, unknown>[];
+    ...params,
+  )) as Record<string, unknown>[];
 
   for (const r of rows) r.is_from_ai = !!r.is_from_ai;
   return ok(rows);
 }
 
 const getThreadMessages: RpcHandler = async (args, ctx) =>
-  threadMessages("messages", "wa_message_id", args, ctx);
+  await threadMessages("messages", "wa_message_id", args, ctx);
 
 const getFbThreadMessages: RpcHandler = async (args, ctx) =>
-  threadMessages("fb_messages", "mid", args, ctx);
+  await threadMessages("fb_messages", "mid", args, ctx);
 
 /** mark_thread_as_read(p_contact_id) — zero the unread counter, emit SSE. */
 const markThreadAsRead: RpcHandler = async (args, ctx) => {
   const contactId = args.p_contact_id as string | undefined;
   if (!contactId) return fail("p_contact_id is required");
-  if (!assertContactInTenant(contactId, ctx)) return fail("Forbidden contact");
+  if (!(await assertContactInTenant(contactId, ctx))) return fail("Forbidden contact");
   const now = new Date().toISOString();
   if (ctx.tenantId) {
-    sqlite
-      .prepare(
-        "UPDATE contact_thread_state SET unread_count = 0, updated_at = ? WHERE contact_id = ? AND tenant_id = ?",
-      )
-      .run(now, contactId, ctx.tenantId);
+    await dbRun(
+      "UPDATE contact_thread_state SET unread_count = 0, updated_at = ? WHERE contact_id = ? AND tenant_id = ?",
+      now,
+      contactId,
+      ctx.tenantId,
+    );
   } else {
-    sqlite
-      .prepare("UPDATE contact_thread_state SET unread_count = 0, updated_at = ? WHERE contact_id = ?")
-      .run(now, contactId);
+    await dbRun(
+      "UPDATE contact_thread_state SET unread_count = 0, updated_at = ? WHERE contact_id = ?",
+      now,
+      contactId,
+    );
   }
   emitChange("contact_thread_state", ctx.tenantId, { contact_id: contactId });
   return ok(null);
@@ -227,46 +233,46 @@ const getSidebarUnreadCounts: RpcHandler = async (args, ctx) => {
   const tenantId = (args.p_tenant_id as string) ?? ctx.tenantId;
   if (!tenantId) return fail("No active tenant");
   if (!ctx.isAdmin && tenantId !== ctx.tenantId) return fail("Forbidden tenant");
-  const row = sqlite
-    .prepare(
-      `SELECT
-         COALESCE(SUM(CASE WHEN contact_type = 'whatsapp' THEN unread_count ELSE 0 END), 0) AS wa_unread,
-         COALESCE(SUM(CASE WHEN contact_type = 'facebook' THEN unread_count ELSE 0 END), 0) AS fb_unread,
-         COALESCE(SUM(unread_count), 0) AS total_unread
+  const row = (await dbGet(
+    `SELECT
+         COALESCE(SUM(CASE WHEN contact_type = 'whatsapp' THEN unread_count ELSE 0 END), 0)::int AS wa_unread,
+         COALESCE(SUM(CASE WHEN contact_type = 'facebook' THEN unread_count ELSE 0 END), 0)::int AS fb_unread,
+         COALESCE(SUM(unread_count), 0)::int AS total_unread
        FROM contact_thread_state
-       WHERE tenant_id = ? AND is_archived = 0 AND unread_count > 0`,
-    )
-    .get(tenantId) as { wa_unread: number; fb_unread: number; total_unread: number };
+       WHERE tenant_id = ? AND is_archived = false AND unread_count > 0`,
+    tenantId,
+  )) as { wa_unread: number; fb_unread: number; total_unread: number };
   // Postgres returns a single-row table; the shim consumer reads data[0] OR data.
   return ok([row]);
 };
 
 /** is_system_admin() — admin role check for the active user. */
 const isSystemAdmin: RpcHandler = async (_args, ctx) => {
-  const row = sqlite
-    .prepare("SELECT 1 FROM system_roles WHERE user_id = ? AND role = 'admin' LIMIT 1")
-    .get(ctx.userId);
+  const row = await dbGet(
+    "SELECT 1 FROM system_roles WHERE user_id = ? AND role = 'admin' LIMIT 1",
+    ctx.userId,
+  );
   return ok(row !== undefined);
 };
 
 /** is_super_admin() — super-admin role check for the active user. */
 const isSuperAdmin: RpcHandler = async (_args, ctx) => {
-  const row = sqlite
-    .prepare(
-      "SELECT 1 FROM system_roles WHERE user_id = ? AND role = 'admin' AND is_super_admin = 1 LIMIT 1",
-    )
-    .get(ctx.userId);
+  const row = await dbGet(
+    "SELECT 1 FROM system_roles WHERE user_id = ? AND role = 'admin' AND is_super_admin = true LIMIT 1",
+    ctx.userId,
+  );
   return ok(row !== undefined);
 };
 
 /** get_admin_permissions() — JSON permissions for the active admin user. */
 const getAdminPermissions: RpcHandler = async (_args, ctx) => {
-  const row = sqlite
-    .prepare("SELECT permissions FROM system_roles WHERE user_id = ? AND role = 'admin' LIMIT 1")
-    .get(ctx.userId) as { permissions: string | null } | undefined;
+  const row = (await dbGet(
+    "SELECT permissions FROM system_roles WHERE user_id = ? AND role = 'admin' LIMIT 1",
+    ctx.userId,
+  )) as { permissions: string | null } | undefined;
   if (!row?.permissions) return ok({});
   try {
-    return ok(JSON.parse(row.permissions));
+    return ok(typeof row.permissions === "string" ? JSON.parse(row.permissions) : row.permissions);
   } catch {
     return ok({});
   }
@@ -277,20 +283,21 @@ const generateOrderNumber: RpcHandler = async (args, ctx) => {
   const tenantId = (args.p_tenant_id as string) ?? ctx.tenantId;
   if (!tenantId) return fail("No active tenant");
   if (!ctx.isAdmin && tenantId !== ctx.tenantId) return fail("Forbidden tenant");
-  const row = sqlite
-    .prepare("SELECT COUNT(*) AS n FROM orders WHERE tenant_id = ?")
-    .get(tenantId) as { n: number };
+  const row = (await dbGet(
+    "SELECT COUNT(*)::int AS n FROM orders WHERE tenant_id = ?",
+    tenantId,
+  )) as { n: number };
   const seq = (row.n + 1).toString().padStart(6, "0");
   return ok(`ORD-${seq}`);
 };
 
 interface ProductStockRow {
   stock_quantity: number;
-  track_inventory: number | null;
+  track_inventory: boolean | null;
   tenant_id: string;
 }
 
-function recordMovement(
+async function recordMovement(
   tenantId: string,
   productId: string,
   movementType: "in" | "out",
@@ -302,28 +309,26 @@ function recordMovement(
   referenceId: string | null,
   notes: string | null,
   userId: string | null,
-): void {
-  sqlite
-    .prepare(
-      `INSERT INTO stock_movements
+  run: (sql: string, ...params: unknown[]) => Promise<{ changes: number }> = dbRun,
+): Promise<void> {
+  await run(
+    `INSERT INTO stock_movements
          (id, tenant_id, product_id, movement_type, quantity, previous_quantity,
           new_quantity, reason, reference_type, reference_id, notes, recorded_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      crypto.randomUUID(),
-      tenantId,
-      productId,
-      movementType,
-      qty,
-      prev,
-      next,
-      reason,
-      referenceType,
-      referenceId,
-      notes,
-      userId,
-    );
+    crypto.randomUUID(),
+    tenantId,
+    productId,
+    movementType,
+    qty,
+    prev,
+    next,
+    reason,
+    referenceType,
+    referenceId,
+    notes,
+    userId,
+  );
 }
 
 /** deduct_product_stock — lower stock on sale and log the movement. */
@@ -335,9 +340,10 @@ const deductProductStock: RpcHandler = async (args, ctx) => {
   if (!productId || quantity == null || !tenantId) return fail("Missing required args");
   if (!ctx.isAdmin && tenantId !== ctx.tenantId) return fail("Forbidden tenant");
 
-  const product = sqlite
-    .prepare("SELECT stock_quantity, track_inventory, tenant_id FROM products WHERE id = ? LIMIT 1")
-    .get(productId) as ProductStockRow | undefined;
+  const product = (await dbGet(
+    "SELECT stock_quantity, track_inventory, tenant_id FROM products WHERE id = ? LIMIT 1",
+    productId,
+  )) as ProductStockRow | undefined;
   if (!product) return fail("Product not found");
   if (!ctx.isAdmin && product.tenant_id !== ctx.tenantId) return fail("Forbidden product");
   if (!product.track_inventory) return ok(null);
@@ -345,10 +351,13 @@ const deductProductStock: RpcHandler = async (args, ctx) => {
   const current = product.stock_quantity ?? 0;
   const next = Math.max(0, current - quantity);
   const userId = (args.p_user_id as string | null) ?? ctx.userId ?? null;
-  sqlite
-    .prepare("UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ?")
-    .run(next, new Date().toISOString(), productId);
-  recordMovement(tenantId, productId, "out", -quantity, current, next, "sale", "order", orderId, null, userId);
+  await dbRun(
+    "UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ?",
+    next,
+    new Date().toISOString(),
+    productId,
+  );
+  await recordMovement(tenantId, productId, "out", -quantity, current, next, "sale", "order", orderId, null, userId);
   emitChange("products", tenantId, { id: productId });
   return ok(null);
 };
@@ -361,32 +370,37 @@ const restoreStockForOrder: RpcHandler = async (args, ctx) => {
   if (!orderId || !tenantId) return fail("Missing required args");
   if (!ctx.isAdmin && tenantId !== ctx.tenantId) return fail("Forbidden tenant");
 
-  const order = sqlite
-    .prepare("SELECT tenant_id FROM orders WHERE id = ? LIMIT 1")
-    .get(orderId) as { tenant_id: string } | undefined;
+  const order = (await dbGet(
+    "SELECT tenant_id FROM orders WHERE id = ? LIMIT 1",
+    orderId,
+  )) as { tenant_id: string } | undefined;
   if (!order) return fail("Order not found");
   if (!ctx.isAdmin && order.tenant_id !== ctx.tenantId) return fail("Forbidden order");
 
-  const items = sqlite
-    .prepare("SELECT product_id, quantity FROM order_items WHERE order_id = ? AND product_id IS NOT NULL")
-    .all(orderId) as { product_id: string; quantity: number }[];
+  const items = (await dbAll(
+    "SELECT product_id, quantity FROM order_items WHERE order_id = ? AND product_id IS NOT NULL",
+    orderId,
+  )) as { product_id: string; quantity: number }[];
   const userId = (args.p_user_id as string | null) ?? ctx.userId ?? null;
 
-  const tx = sqlite.transaction(() => {
+  await dbTx(async (tx) => {
     for (const item of items) {
-      const product = sqlite
-        .prepare("SELECT stock_quantity, track_inventory FROM products WHERE id = ? LIMIT 1")
-        .get(item.product_id) as ProductStockRow | undefined;
+      const product = (await tx.get(
+        "SELECT stock_quantity, track_inventory FROM products WHERE id = ? LIMIT 1",
+        item.product_id,
+      )) as ProductStockRow | undefined;
       if (!product || !product.track_inventory) continue;
       const current = product.stock_quantity ?? 0;
       const next = current + item.quantity;
-      sqlite
-        .prepare("UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ?")
-        .run(next, new Date().toISOString(), item.product_id);
-      recordMovement(tenantId, item.product_id, "in", item.quantity, current, next, reason, "order", orderId, null, userId);
+      await tx.run(
+        "UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ?",
+        next,
+        new Date().toISOString(),
+        item.product_id,
+      );
+      await recordMovement(tenantId, item.product_id, "in", item.quantity, current, next, reason, "order", orderId, null, userId, tx.run);
     }
   });
-  tx();
   emitChange("products", tenantId, { order_id: orderId });
   return ok(null);
 };
@@ -404,9 +418,10 @@ const adjustProductStock: RpcHandler = async (args, ctx) => {
   }
   if (!ctx.isAdmin && tenantId !== ctx.tenantId) return fail("Forbidden tenant");
 
-  const product = sqlite
-    .prepare("SELECT stock_quantity, track_inventory, tenant_id FROM products WHERE id = ? LIMIT 1")
-    .get(productId) as ProductStockRow | undefined;
+  const product = (await dbGet(
+    "SELECT stock_quantity, track_inventory, tenant_id FROM products WHERE id = ? LIMIT 1",
+    productId,
+  )) as ProductStockRow | undefined;
   if (!product) return fail("Product not found");
   if (!ctx.isAdmin && product.tenant_id !== ctx.tenantId) return fail("Forbidden product");
 
@@ -436,10 +451,13 @@ const adjustProductStock: RpcHandler = async (args, ctx) => {
   }
 
   const userId = (args.p_user_id as string | null) ?? ctx.userId ?? null;
-  sqlite
-    .prepare("UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ?")
-    .run(next, new Date().toISOString(), productId);
-  recordMovement(tenantId, productId, movementType, movementQty, current, next, reason, "manual", null, notes, userId);
+  await dbRun(
+    "UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ?",
+    next,
+    new Date().toISOString(),
+    productId,
+  );
+  await recordMovement(tenantId, productId, movementType, movementQty, current, next, reason, "manual", null, notes, userId);
   emitChange("products", tenantId, { id: productId });
   return ok(next);
 };

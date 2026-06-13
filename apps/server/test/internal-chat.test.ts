@@ -3,7 +3,7 @@ import { useTempDb } from "./helpers.js";
 
 useTempDb();
 
-const { sqlite } = await import("../src/db/index.js");
+const { dbGet, dbRun } = await import("../src/db/raw.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { INTERNAL_CHAT_HANDLERS: H } = await import("../src/routes/internal-chat-fns.js");
 
@@ -11,10 +11,10 @@ const TA = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const TB = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const ctx = (tenantId: string, userId: string) => ({ userId, tenantId, isAdmin: false }) as any;
 
-beforeAll(() => {
-  runMigrations();
+beforeAll(async () => {
+  await runMigrations();
   for (const t of [TA, TB]) {
-    sqlite.prepare("INSERT INTO tenants (id, name, owner_id) VALUES (?, ?, 'o')").run(t, t);
+    await dbRun("INSERT INTO tenants (id, name, owner_id) VALUES (?, ?, 'o')", t, t);
   }
 });
 
@@ -25,9 +25,10 @@ describe("Internal Chat — membership-scoped authz", () => {
     const res = await H["internal-chat-create-direct"]({ other_user_id: "userA2" }, ctx(TA, "userA1"));
     expect(res.error).toBeNull();
     roomId = (res.data as { id: string }).id;
-    const count = sqlite
-      .prepare("SELECT COUNT(*) AS n FROM internal_chat_members WHERE room_id = ?")
-      .get(roomId) as { n: number };
+    const count = (await dbGet(
+      "SELECT COUNT(*)::int AS n FROM internal_chat_members WHERE room_id = ?",
+      roomId,
+    )) as { n: number };
     expect(count.n).toBe(2);
   });
 

@@ -22,15 +22,14 @@ adminBillingRoute.use("*", async (c, next) => {
 
 // --- crypto approval queue ---------------------------------------------------
 
-adminBillingRoute.get("/crypto/requests", (c) => {
+adminBillingRoute.get("/crypto/requests", async (c) => {
   const status = c.req.query("status") ?? "submitted";
-  const rows = db
+  const rows = await db
     .select()
     .from(cryptoPaymentRequests)
     .where(eq(cryptoPaymentRequests.status, status))
     .orderBy(desc(cryptoPaymentRequests.submitted_at))
-    .limit(100)
-    .all();
+    .limit(100);
   return c.json({ data: rows, error: null });
 });
 
@@ -44,7 +43,7 @@ adminBillingRoute.post("/crypto/requests/:id/approve", async (c) => {
     // empty body is fine
   }
   try {
-    approveCryptoPayment(c.req.param("id"), { adminUserId: ctx.userId, note });
+    await approveCryptoPayment(c.req.param("id"), { adminUserId: ctx.userId, note });
     return c.json({ data: { success: true }, error: null });
   } catch (err) {
     return c.json({ error: err instanceof Error ? err.message : "approval failed" }, 400);
@@ -61,7 +60,7 @@ adminBillingRoute.post("/crypto/requests/:id/reject", async (c) => {
     // empty body is fine
   }
   try {
-    rejectCryptoPayment(c.req.param("id"), { adminUserId: ctx.userId, note });
+    await rejectCryptoPayment(c.req.param("id"), { adminUserId: ctx.userId, note });
     return c.json({ data: { success: true }, error: null });
   } catch (err) {
     return c.json({ error: err instanceof Error ? err.message : "rejection failed" }, 400);
@@ -106,8 +105,8 @@ function validateCouponBody(body: CouponBody, partial: boolean): string | null {
   return null;
 }
 
-adminBillingRoute.get("/coupons", (c) => {
-  const rows = db.select().from(coupons).orderBy(desc(coupons.created_at)).limit(200).all();
+adminBillingRoute.get("/coupons", async (c) => {
+  const rows = await db.select().from(coupons).orderBy(desc(coupons.created_at)).limit(200);
   return c.json({ data: rows, error: null });
 });
 
@@ -123,7 +122,7 @@ adminBillingRoute.post("/coupons", async (c) => {
   if (validationError) return c.json({ error: validationError }, 400);
 
   try {
-    const inserted = db
+    const inserted = await db
       .insert(coupons)
       .values({
         code: body.code!.toUpperCase(),
@@ -136,11 +135,10 @@ adminBillingRoute.post("/coupons", async (c) => {
         note: body.note ?? null,
         created_by: ctx.userId,
       })
-      .returning()
-      .all();
+      .returning();
     return c.json({ data: inserted[0], error: null });
   } catch (err) {
-    if (err instanceof Error && /UNIQUE/i.test(err.message)) {
+    if (err instanceof Error && /unique|duplicate key/i.test(err.message)) {
       return c.json({ error: "A coupon with this code already exists" }, 409);
     }
     throw err;
@@ -167,22 +165,20 @@ adminBillingRoute.patch("/coupons/:id", async (c) => {
   if (body.is_active !== undefined) patch.is_active = body.is_active;
   if (body.note !== undefined) patch.note = body.note;
 
-  const updated = db
+  const updated = await db
     .update(coupons)
     .set(patch)
     .where(eq(coupons.id, c.req.param("id")))
-    .returning()
-    .all();
+    .returning();
   if (updated.length === 0) return c.json({ error: "Coupon not found" }, 404);
   return c.json({ data: updated[0], error: null });
 });
 
-adminBillingRoute.delete("/coupons/:id", (c) => {
-  const deleted = db
+adminBillingRoute.delete("/coupons/:id", async (c) => {
+  const deleted = await db
     .delete(coupons)
     .where(eq(coupons.id, c.req.param("id")))
-    .returning({ id: coupons.id })
-    .all();
+    .returning({ id: coupons.id });
   if (deleted.length === 0) return c.json({ error: "Coupon not found" }, 404);
   return c.json({ data: { success: true }, error: null });
 });

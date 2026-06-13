@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbGet, dbAll, dbRun } from "../db/raw.js";
 import { notify } from "../services/notify.js";
 
 /**
@@ -40,7 +40,7 @@ function statusForType(type: string): string | null {
   return null;
 }
 
-function subscriptionsForReminder(setting: ReminderSetting): SubscriptionRow[] {
+async function subscriptionsForReminder(setting: ReminderSetting): Promise<SubscriptionRow[]> {
   const offsets: number[] = Array.isArray(setting.days_offset)
     ? setting.days_offset
     : (JSON.parse(setting.days_offset || "[]") as number[]);
@@ -56,12 +56,13 @@ function subscriptionsForReminder(setting: ReminderSetting): SubscriptionRow[] {
     // boundary aligned with the UTC ISO timestamps stored on subscriptions.
     target.setUTCDate(target.getUTCDate() + (setting.reminder_type === "payment_overdue" ? -offset : offset));
     const day = dateOnly(target);
-    const rows = sqlite
-      .prepare(
-        `SELECT id, tenant_id, plan_id, current_period_end, status FROM subscriptions
+    const rows = (await dbAll(
+      `SELECT id, tenant_id, plan_id, current_period_end, status FROM subscriptions
          WHERE status = ? AND current_period_end >= ? AND current_period_end < ?`,
-      )
-      .all(status, `${day}T00:00:00`, `${day}T23:59:59`) as SubscriptionRow[];
+      status,
+      `${day}T00:00:00`,
+      `${day}T23:59:59`,
+    )) as SubscriptionRow[];
     for (const row of rows) {
       if (seen.has(row.id)) continue;
       seen.add(row.id);
@@ -90,37 +91,39 @@ export interface ReminderResult {
 }
 
 /** subscription-reminder-cron: send due renewal/overdue/trial reminders. */
-export function runSubscriptionReminders(): ReminderResult {
-  const settings = sqlite
-    .prepare("SELECT id, reminder_type, channel, template_id, days_offset FROM reminder_settings WHERE is_active = 1")
-    .all() as ReminderSetting[];
+export async function runSubscriptionReminders(): Promise<ReminderResult> {
+  const settings = (await dbAll(
+    "SELECT id, reminder_type, channel, template_id, days_offset FROM reminder_settings WHERE is_active = true",
+  )) as ReminderSetting[];
 
   let sent = 0;
   let skipped = 0;
   const today = dateOnly(new Date());
 
   for (const setting of settings) {
-    for (const sub of subscriptionsForReminder(setting)) {
+    for (const sub of await subscriptionsForReminder(setting)) {
       // Idempotency: one reminder of this type per tenant per day.
-      const already = sqlite
-        .prepare(
-          "SELECT 1 FROM reminder_logs WHERE tenant_id = ? AND reminder_type = ? AND sent_at >= ? LIMIT 1",
-        )
-        .get(sub.tenant_id, setting.reminder_type, today);
+      const already = await dbGet(
+        "SELECT 1 FROM reminder_logs WHERE tenant_id = ? AND reminder_type = ? AND sent_at >= ? LIMIT 1",
+        sub.tenant_id,
+        setting.reminder_type,
+        today,
+      );
       if (already) {
         skipped += 1;
         continue;
       }
 
-      const tenant = sqlite.prepare("SELECT name FROM tenants WHERE id = ? LIMIT 1").get(sub.tenant_id) as
+      const tenant = (await dbGet("SELECT name FROM tenants WHERE id = ? LIMIT 1", sub.tenant_id)) as
         | { name: string }
         | undefined;
-      const plan = sqlite.prepare("SELECT name FROM plans WHERE id = ? LIMIT 1").get(sub.plan_id) as
+      const plan = (await dbGet("SELECT name FROM plans WHERE id = ? LIMIT 1", sub.plan_id)) as
         | { name: string }
         | undefined;
-      const owner = sqlite
-        .prepare("SELECT user_id FROM user_roles WHERE tenant_id = ? AND role = 'owner' LIMIT 1")
-        .get(sub.tenant_id) as { user_id: string } | undefined;
+      const owner = (await dbGet(
+        "SELECT user_id FROM user_roles WHERE tenant_id = ? AND role = 'owner' LIMIT 1",
+        sub.tenant_id,
+      )) as { user_id: string } | undefined;
 
       const expiryDate = new Date(sub.current_period_end);
       const days = Math.abs(Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
@@ -132,7 +135,7 @@ export function runSubscriptionReminders(): ReminderResult {
         days,
       );
 
-      notify({
+      void notify({
         tenantId: sub.tenant_id,
         type: "subscription_reminder",
         title: "Subscription reminder",
@@ -141,11 +144,15 @@ export function runSubscriptionReminders(): ReminderResult {
         url: "/billing",
         metadata: { reminder_type: setting.reminder_type },
       });
-      sqlite
-        .prepare(
-          "INSERT INTO reminder_logs (id, tenant_id, subscription_id, reminder_type, channel, status, sent_at) VALUES (?, ?, ?, ?, ?, 'sent', ?)",
-        )
-        .run(crypto.randomUUID(), sub.tenant_id, sub.id, setting.reminder_type, setting.channel, new Date().toISOString());
+      await dbRun(
+        "INSERT INTO reminder_logs (id, tenant_id, subscription_id, reminder_type, channel, status, sent_at) VALUES (?, ?, ?, ?, ?, 'sent', ?)",
+        crypto.randomUUID(),
+        sub.tenant_id,
+        sub.id,
+        setting.reminder_type,
+        setting.channel,
+        new Date().toISOString(),
+      );
       sent += 1;
     }
   }

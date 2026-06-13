@@ -3,7 +3,8 @@ import { useTempDb } from "./helpers.js";
 
 useTempDb();
 
-const { db, sqlite } = await import("../src/db/index.js");
+const { db } = await import("../src/db/index.js");
+const { dbGet } = await import("../src/db/raw.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { tenants, whatsappInstances, fbContacts, facebookPages, externalSalesOrders } =
   await import("../src/db/schema.js");
@@ -20,26 +21,20 @@ function ctx(tenantId: string | null, isAdmin = false): FnContext {
   return { userId: "admin-u", tenantId, isAdmin };
 }
 
-beforeAll(() => {
-  runMigrations();
-  db.insert(tenants)
-    .values([
-      { id: TENANT_A, name: "A", owner_id: "owner-a" },
-      { id: TENANT_B, name: "B", owner_id: "owner-b" },
-    ])
-    .run();
-  db.insert(facebookPages)
-    .values([
-      { id: "page-a", tenant_id: TENANT_A, page_id: "fb-a", page_name: "Page A", page_access_token: "tok-a" },
-      { id: "page-b", tenant_id: TENANT_B, page_id: "fb-b", page_name: "Page B", page_access_token: "tok-b" },
-    ])
-    .run();
-  db.insert(fbContacts)
-    .values([
-      { id: "fc-a", tenant_id: TENANT_A, page_id: "page-a", psid: "psid-a" },
-      { id: "fc-b", tenant_id: TENANT_B, page_id: "page-b", psid: "psid-b" },
-    ])
-    .run();
+beforeAll(async () => {
+  await runMigrations();
+  await db.insert(tenants).values([
+    { id: TENANT_A, name: "A", owner_id: "owner-a" },
+    { id: TENANT_B, name: "B", owner_id: "owner-b" },
+  ]);
+  await db.insert(facebookPages).values([
+    { id: "page-a", tenant_id: TENANT_A, page_id: "fb-a", page_name: "Page A", page_access_token: "tok-a" },
+    { id: "page-b", tenant_id: TENANT_B, page_id: "fb-b", page_name: "Page B", page_access_token: "tok-b" },
+  ]);
+  await db.insert(fbContacts).values([
+    { id: "fc-a", tenant_id: TENANT_A, page_id: "page-a", psid: "psid-a" },
+    { id: "fc-b", tenant_id: TENANT_B, page_id: "page-b", psid: "psid-b" },
+  ]);
 });
 
 afterEach(() => {
@@ -60,12 +55,10 @@ describe("admin-only gating", () => {
 
 describe("admin-delete-tenant", () => {
   it("purges only the targeted tenant's rows and deletes its WAHA sessions", async () => {
-    db.insert(whatsappInstances)
-      .values([
-        { id: "inst-a", tenant_id: TENANT_A, name: "A", status: "active", session_id: "default" },
-        { id: "inst-b", tenant_id: TENANT_B, name: "B", status: "active", session_id: "default" },
-      ])
-      .run();
+    await db.insert(whatsappInstances).values([
+      { id: "inst-a", tenant_id: TENANT_A, name: "A", status: "active", session_id: "default" },
+      { id: "inst-b", tenant_id: TENANT_B, name: "B", status: "active", session_id: "default" },
+    ]);
     const delSpy = vi.spyOn(wahaClient, "deleteSession").mockResolvedValue(undefined);
 
     const res = await adminDeleteTenant({ tenant_ids: [TENANT_A] }, ctx(TENANT_A, true));
@@ -75,21 +68,19 @@ describe("admin-delete-tenant", () => {
     expect(delSpy).toHaveBeenCalledTimes(1);
 
     // Tenant A gone, tenant B untouched.
-    expect(sqlite.prepare("SELECT 1 FROM tenants WHERE id = ?").get(TENANT_A)).toBeUndefined();
-    expect(sqlite.prepare("SELECT 1 FROM tenants WHERE id = ?").get(TENANT_B)).toBeTruthy();
-    expect(sqlite.prepare("SELECT 1 FROM whatsapp_instances WHERE id = 'inst-b'").get()).toBeTruthy();
-    expect(sqlite.prepare("SELECT 1 FROM whatsapp_instances WHERE id = 'inst-a'").get()).toBeUndefined();
+    expect(await dbGet("SELECT 1 FROM tenants WHERE id = ?", TENANT_A)).toBeUndefined();
+    expect(await dbGet("SELECT 1 FROM tenants WHERE id = ?", TENANT_B)).toBeTruthy();
+    expect(await dbGet("SELECT 1 FROM whatsapp_instances WHERE id = 'inst-b'")).toBeTruthy();
+    expect(await dbGet("SELECT 1 FROM whatsapp_instances WHERE id = 'inst-a'")).toBeUndefined();
   });
 });
 
 describe("admin-link-session", () => {
   it("links a verified session and de-dupes other instances sharing it", async () => {
-    db.insert(whatsappInstances)
-      .values([
-        { id: "link-1", tenant_id: TENANT_B, name: "L1", status: "disconnected" },
-        { id: "link-2", tenant_id: TENANT_B, name: "L2", status: "active", session_id: "sess-x" },
-      ])
-      .run();
+    await db.insert(whatsappInstances).values([
+      { id: "link-1", tenant_id: TENANT_B, name: "L1", status: "disconnected" },
+      { id: "link-2", tenant_id: TENANT_B, name: "L2", status: "active", session_id: "sess-x" },
+    ]);
     vi.spyOn(wahaClient, "getSession").mockResolvedValue({
       name: "sess-x",
       status: "WORKING",
@@ -102,7 +93,7 @@ describe("admin-link-session", () => {
     expect(data.status).toBe("active");
     expect(data.duplicates_cleared).toBe(1);
 
-    const cleared = sqlite.prepare("SELECT session_id FROM whatsapp_instances WHERE id = 'link-2'").get() as {
+    const cleared = (await dbGet("SELECT session_id FROM whatsapp_instances WHERE id = 'link-2'")) as {
       session_id: string | null;
     };
     expect(cleared.session_id).toBeNull();
@@ -124,9 +115,10 @@ describe("send-welcome-email / test-welcome-message tenant scoping", () => {
       ctx(TENANT_B, false),
     );
     expect((res.data as { success: boolean }).success).toBe(true);
-    const row = sqlite
-      .prepare("SELECT 1 FROM notifications WHERE tenant_id = ? AND type = 'welcome' LIMIT 1")
-      .get(TENANT_B);
+    const row = await dbGet(
+      "SELECT 1 FROM notifications WHERE tenant_id = ? AND type = 'welcome' LIMIT 1",
+      TENANT_B,
+    );
     expect(row).toBeTruthy();
   });
 
@@ -138,24 +130,22 @@ describe("send-welcome-email / test-welcome-message tenant scoping", () => {
 
 describe("resend-welcome-notification", () => {
   it("admin-only and notifies the order's tenant", async () => {
-    db.insert(externalSalesOrders)
-      .values({
-        id: "ord-1",
-        tenant_id: TENANT_B,
-        amount: 100,
-        business_name: "Biz",
-        business_type: "shop",
-        customer_email: "c@e.z",
-        customer_name: "Cust",
-        external_order_id: "ext-1",
-      })
-      .run();
+    await db.insert(externalSalesOrders).values({
+      id: "ord-1",
+      tenant_id: TENANT_B,
+      amount: 100,
+      business_name: "Biz",
+      business_type: "shop",
+      customer_email: "c@e.z",
+      customer_name: "Cust",
+      external_order_id: "ext-1",
+    });
     const res = await resendWelcomeNotification({ order_id: "ord-1", temp_password: "Temp@abc" }, ctx(null, true));
     const data = res.data as { success: boolean; temp_password: string };
     expect(data.success).toBe(true);
     expect(data.temp_password).toBe("Temp@abc");
     expect(
-      sqlite.prepare("SELECT 1 FROM notifications WHERE tenant_id = ? AND type = 'welcome' LIMIT 1").get(TENANT_B),
+      await dbGet("SELECT 1 FROM notifications WHERE tenant_id = ? AND type = 'welcome' LIMIT 1", TENANT_B),
     ).toBeTruthy();
   });
 
@@ -175,9 +165,10 @@ describe("report-system-error", () => {
     expect(data.success).toBe(true);
     expect(data.ticket_number).toMatch(/^ERR-/);
 
-    const ticket = sqlite
-      .prepare("SELECT tenant_id FROM support_tickets WHERE ticket_number = ?")
-      .get(data.ticket_number) as { tenant_id: string };
+    const ticket = (await dbGet(
+      "SELECT tenant_id FROM support_tickets WHERE ticket_number = ?",
+      data.ticket_number,
+    )) as { tenant_id: string };
     expect(ticket.tenant_id).toBe(TENANT_A);
   });
 
@@ -204,8 +195,8 @@ describe("fb-backfill-profiles", () => {
     expect(data.processed).toBe(1);
 
     // Tenant A contact updated, tenant B contact untouched.
-    const a = sqlite.prepare("SELECT name FROM fb_contacts WHERE id = 'fc-a'").get() as { name: string | null };
-    const b = sqlite.prepare("SELECT name FROM fb_contacts WHERE id = 'fc-b'").get() as { name: string | null };
+    const a = (await dbGet("SELECT name FROM fb_contacts WHERE id = 'fc-a'")) as { name: string | null };
+    const b = (await dbGet("SELECT name FROM fb_contacts WHERE id = 'fc-b'")) as { name: string | null };
     expect(a.name).toBe("Found");
     expect(b.name).toBeNull();
   });

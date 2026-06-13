@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { sqlite } from "../db/index.js";
+import { dbGet, dbRun, dbTx } from "../db/raw.js";
 import { encryptSecret, decryptSecret } from "../lib/crypto.js";
 import { listProducts, verifyCreds, type WooCreds } from "../services/woocommerce/client.js";
 import type { FnContext, FnResult } from "./waha/session.js";
@@ -21,17 +21,16 @@ interface IntegrationRow {
   store_url: string;
   consumer_key_encrypted: string;
   consumer_secret_encrypted: string;
-  is_active: number | null;
+  is_active: boolean | null;
 }
 
-function loadIntegration(tenantId: string): { id: string; creds: WooCreds } | null {
-  const row = sqlite
-    .prepare(
-      `SELECT id, store_url, consumer_key_encrypted, consumer_secret_encrypted, is_active
+async function loadIntegration(tenantId: string): Promise<{ id: string; creds: WooCreds } | null> {
+  const row = (await dbGet(
+    `SELECT id, store_url, consumer_key_encrypted, consumer_secret_encrypted, is_active
          FROM woocommerce_integrations WHERE tenant_id = ? LIMIT 1`,
-    )
-    .get(tenantId) as IntegrationRow | undefined;
-  if (!row || row.is_active === 0) return null;
+    tenantId,
+  )) as IntegrationRow | undefined;
+  if (!row || row.is_active === false) return null;
   return {
     id: row.id,
     creds: {
@@ -52,9 +51,10 @@ export const WOO_HANDLERS: Record<string, FnHandler> = {
     if (!storeUrl) return fail("store_url is required");
     if (!/^https?:\/\//.test(storeUrl)) return fail("store_url must start with http(s)://");
 
-    const existing = sqlite
-      .prepare("SELECT id, consumer_key_encrypted, consumer_secret_encrypted, settings FROM woocommerce_integrations WHERE tenant_id = ? LIMIT 1")
-      .get(ctx.tenantId) as
+    const existing = (await dbGet(
+      "SELECT id, consumer_key_encrypted, consumer_secret_encrypted, settings FROM woocommerce_integrations WHERE tenant_id = ? LIMIT 1",
+      ctx.tenantId,
+    )) as
       | { id: string; consumer_key_encrypted: string; consumer_secret_encrypted: string; settings: string | null }
       | undefined;
 
@@ -75,7 +75,11 @@ export const WOO_HANDLERS: Record<string, FnHandler> = {
     // a secret; the merchant pastes it into WooCommerce's webhook config.
     let settingsObj: Record<string, unknown> = {};
     try {
-      settingsObj = existing?.settings ? JSON.parse(existing.settings) : {};
+      settingsObj = existing?.settings
+        ? typeof existing.settings === "string"
+          ? JSON.parse(existing.settings)
+          : (existing.settings as Record<string, unknown>)
+        : {};
     } catch {
       settingsObj = {};
     }
@@ -88,105 +92,125 @@ export const WOO_HANDLERS: Record<string, FnHandler> = {
     const settings = JSON.stringify(settingsObj);
     const webhookSecret = settingsObj.webhook_secret as string;
 
-    const isActive = body.is_active === false ? 0 : 1;
+    const isActive = body.is_active === false ? false : true;
     const now = new Date().toISOString();
     if (existing) {
-      sqlite
-        .prepare(
-          `UPDATE woocommerce_integrations
+      await dbRun(
+        `UPDATE woocommerce_integrations
              SET store_url = ?, consumer_key_encrypted = ?, consumer_secret_encrypted = ?,
                  is_active = ?, settings = ?, updated_at = ?
            WHERE id = ?`,
-        )
-        .run(storeUrl, encKey, encSecret, isActive, settings, now, existing.id);
+        storeUrl,
+        encKey,
+        encSecret,
+        isActive,
+        settings,
+        now,
+        existing.id,
+      );
       return ok({ success: true, id: existing.id, webhook_secret: webhookSecret });
     }
     const id = crypto.randomUUID();
-    sqlite
-      .prepare(
-        `INSERT INTO woocommerce_integrations
+    await dbRun(
+      `INSERT INTO woocommerce_integrations
            (id, tenant_id, store_url, consumer_key_encrypted, consumer_secret_encrypted, is_active, settings, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(id, ctx.tenantId, storeUrl, encKey, encSecret, isActive, settings, now, now);
+      id,
+      ctx.tenantId,
+      storeUrl,
+      encKey,
+      encSecret,
+      isActive,
+      settings,
+      now,
+      now,
+    );
     return ok({ success: true, id, webhook_secret: webhookSecret });
   },
 
   // Pull products from the store into the local catalog (upsert by woo_product_id).
   "woocommerce-sync": async (_body, ctx) => {
     if (!ctx.tenantId) return fail("No active tenant");
-    const integration = loadIntegration(ctx.tenantId);
+    const integration = await loadIntegration(ctx.tenantId);
     if (!integration) return fail("WooCommerce is not configured or inactive");
 
     const logId = crypto.randomUUID();
     const startedAt = new Date().toISOString();
-    sqlite
-      .prepare(
-        `INSERT INTO woocommerce_sync_logs (id, integration_id, status, sync_type, started_at, products_synced, categories_synced)
+    await dbRun(
+      `INSERT INTO woocommerce_sync_logs (id, integration_id, status, sync_type, started_at, products_synced, categories_synced)
          VALUES (?, ?, 'running', 'products', ?, 0, 0)`,
-      )
-      .run(logId, integration.id, startedAt);
+      logId,
+      integration.id,
+      startedAt,
+    );
 
     try {
       const products = await listProducts(integration.creds);
-      const upsert = sqlite.prepare(
+      const upsertSql =
         `INSERT INTO products (id, tenant_id, name, sku, price, stock_quantity, description, images, is_active, woo_product_id, woo_last_synced_at)
-         VALUES (@id, @tenant_id, @name, @sku, @price, @stock, @description, @images, @is_active, @woo_id, @synced)
-         ON CONFLICT(id) DO NOTHING`,
-      );
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO NOTHING`;
       // SQLite has no easy upsert-by-(tenant,woo_id) without a unique index, so
       // update-then-insert: update existing rows, insert new ones.
-      const findExisting = sqlite.prepare(
-        "SELECT id FROM products WHERE tenant_id = ? AND woo_product_id = ? LIMIT 1",
-      );
-      const update = sqlite.prepare(
-        `UPDATE products SET name=?, sku=?, price=?, stock_quantity=?, description=?, images=?, is_active=?, woo_last_synced_at=? WHERE id=?`,
-      );
+      const findExistingSql =
+        "SELECT id FROM products WHERE tenant_id = ? AND woo_product_id = ? LIMIT 1";
+      const updateSql =
+        `UPDATE products SET name=?, sku=?, price=?, stock_quantity=?, description=?, images=?, is_active=?, woo_last_synced_at=? WHERE id=?`;
       const now = new Date().toISOString();
       let synced = 0;
-      const tx = sqlite.transaction(() => {
+      await dbTx(async (tx) => {
         for (const p of products) {
           const price = parseFloat(p.price || p.regular_price || "0") || 0;
           const images = JSON.stringify((p.images || []).map((i) => i.src));
-          const isActive = p.status === "publish" ? 1 : 0;
-          const existing = findExisting.get(ctx.tenantId, p.id) as { id: string } | undefined;
+          const isActive = p.status === "publish" ? true : false;
+          const existing = (await tx.get(findExistingSql, ctx.tenantId, p.id)) as { id: string } | undefined;
           if (existing) {
-            update.run(p.name, p.sku || null, price, p.stock_quantity ?? 0, p.description || null, images, isActive, now, existing.id);
+            await tx.run(updateSql, p.name, p.sku || null, price, p.stock_quantity ?? 0, p.description || null, images, isActive, now, existing.id);
           } else {
-            upsert.run({
-              id: crypto.randomUUID(),
-              tenant_id: ctx.tenantId,
-              name: p.name,
-              sku: p.sku || null,
+            await tx.run(
+              upsertSql,
+              crypto.randomUUID(),
+              ctx.tenantId,
+              p.name,
+              p.sku || null,
               price,
-              stock: p.stock_quantity ?? 0,
-              description: p.description || null,
+              p.stock_quantity ?? 0,
+              p.description || null,
               images,
-              is_active: isActive,
-              woo_id: p.id,
-              synced: now,
-            });
+              isActive,
+              p.id,
+              now,
+            );
           }
           synced++;
         }
       });
-      tx();
 
-      sqlite
-        .prepare("UPDATE woocommerce_sync_logs SET status='completed', products_synced=?, completed_at=? WHERE id=?")
-        .run(synced, now, logId);
-      sqlite
-        .prepare("UPDATE woocommerce_integrations SET last_sync_at=?, sync_status='idle', sync_error=NULL WHERE id=?")
-        .run(now, integration.id);
+      await dbRun(
+        "UPDATE woocommerce_sync_logs SET status='completed', products_synced=?, completed_at=? WHERE id=?",
+        synced,
+        now,
+        logId,
+      );
+      await dbRun(
+        "UPDATE woocommerce_integrations SET last_sync_at=?, sync_status='idle', sync_error=NULL WHERE id=?",
+        now,
+        integration.id,
+      );
       return ok({ success: true, productsSynced: synced, categoriesSynced: 0 });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Sync failed";
-      sqlite
-        .prepare("UPDATE woocommerce_sync_logs SET status='failed', errors=?, completed_at=? WHERE id=?")
-        .run(JSON.stringify([message]), new Date().toISOString(), logId);
-      sqlite
-        .prepare("UPDATE woocommerce_integrations SET sync_status='error', sync_error=? WHERE id=?")
-        .run(message, integration.id);
+      await dbRun(
+        "UPDATE woocommerce_sync_logs SET status='failed', errors=?, completed_at=? WHERE id=?",
+        JSON.stringify([message]),
+        new Date().toISOString(),
+        logId,
+      );
+      await dbRun(
+        "UPDATE woocommerce_integrations SET sync_status='error', sync_error=? WHERE id=?",
+        message,
+        integration.id,
+      );
       return fail(message);
     }
   },

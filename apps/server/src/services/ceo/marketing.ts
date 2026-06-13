@@ -1,4 +1,4 @@
-import { sqlite } from "../../db/index.js";
+import { dbAll } from "../../db/raw.js";
 import { resolveLlm } from "../../llm/registry.js";
 import { checkBudget, recordUsage } from "../../llm/usage.js";
 import { getApprovedSystemPrompt } from "../soul/index.js";
@@ -22,16 +22,15 @@ interface TopProduct {
   units_sold: number;
 }
 
-function topProducts(tenantId: string): TopProduct[] {
-  return sqlite
-    .prepare(
-      `SELECT p.name, p.price, COALESCE(SUM(oi.quantity), 0) AS units_sold
+async function topProducts(tenantId: string): Promise<TopProduct[]> {
+  return (await dbAll(
+    `SELECT p.name, p.price, COALESCE(SUM(oi.quantity), 0)::float8 AS units_sold
        FROM products p
        LEFT JOIN order_items oi ON oi.product_id = p.id AND oi.tenant_id = p.tenant_id
-       WHERE p.tenant_id = ? AND p.is_active = 1
-       GROUP BY p.id ORDER BY units_sold DESC LIMIT ${TOP_PRODUCTS}`,
-    )
-    .all(tenantId) as TopProduct[];
+       WHERE p.tenant_id = ? AND p.is_active = true
+       GROUP BY p.id, p.name, p.price ORDER BY units_sold DESC LIMIT ${TOP_PRODUCTS}`,
+    tenantId,
+  )) as TopProduct[];
 }
 
 async function webResearch(query: string): Promise<string> {
@@ -62,11 +61,11 @@ async function webResearch(query: string): Promise<string> {
 const MARKETING_SYSTEM_PROMPT = `You are the tenant's CEO agent generating marketing ideas the owner can execute THIS WEEK on WhatsApp and Facebook. Ground every idea in the business's actual products, customers, and numbers — no generic advice. Each idea: a name, why it fits THIS business, and concrete first steps. 3-5 ideas, Markdown, phone-readable. Match the business's language.`;
 
 export async function generateMarketingIdeas(tenantId: string): Promise<string> {
-  checkBudget(tenantId);
-  const soulPrompt = getApprovedSystemPrompt(tenantId);
-  const snapshot = gatherSnapshot(tenantId, 30);
-  const products = topProducts(tenantId);
-  const resolved = resolveLlm(tenantId);
+  await checkBudget(tenantId);
+  const soulPrompt = await getApprovedSystemPrompt(tenantId);
+  const snapshot = await gatherSnapshot(tenantId, 30);
+  const products = await topProducts(tenantId);
+  const resolved = await resolveLlm(tenantId);
 
   const category =
     soulPrompt?.match(/a (.+?) business/)?.[1] ?? "small";
@@ -95,7 +94,7 @@ export async function generateMarketingIdeas(tenantId: string): Promise<string> 
     },
     resolved.apiKey,
   );
-  recordUsage(tenantId, "ceo", resolved.provider.name, resolved.model, result.usage);
+  await recordUsage(tenantId, "ceo", resolved.provider.name, resolved.model, result.usage);
 
   const content = result.text?.trim();
   if (!content) throw new Error("Marketing idea generation returned no content");

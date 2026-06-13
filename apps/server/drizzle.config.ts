@@ -1,11 +1,12 @@
 import { defineConfig } from "drizzle-kit";
-import { DB_PATH } from "./src/lib/env.js";
 
+// `generate` (diff schema -> SQL) does not need live credentials; `migrate`/
+// `push` do — they read DATABASE_URL from the environment at run time.
 export default defineConfig({
-  dialect: "sqlite",
+  dialect: "postgresql",
   schema: ["./src/db/schema.ts", "./src/db/auth-schema.ts"],
   out: "./drizzle",
   dbCredentials: {
-    url: DB_PATH,
+    url: process.env.DATABASE_URL ?? "postgres://localhost:5432/whatsapp_flow",
   },
 });

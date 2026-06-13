@@ -1,4 +1,4 @@
-import { sqlite } from "../../db/index.js";
+import { dbAll, dbRun } from "../../db/raw.js";
 import { emitChange } from "../../realtime/emitter.js";
 import { enqueueJob, registerJobHandler } from "../../jobs/queue.js";
 import { generateCeoReport, deliverReport, gatherSnapshot, type ReportType } from "./report.js";
@@ -24,24 +24,27 @@ async function runCeoJob(payload: unknown): Promise<void> {
 
   if (type === "marketing_ideas") {
     const reportId = crypto.randomUUID();
-    sqlite
-      .prepare(
-        `INSERT INTO ceo_reports (id, tenant_id, type, status) VALUES (?, ?, 'marketing_ideas', 'generating')`,
-      )
-      .run(reportId, tenantId);
+    await dbRun(
+      `INSERT INTO ceo_reports (id, tenant_id, type, status) VALUES (?, ?, 'marketing_ideas', 'generating')`,
+      reportId,
+      tenantId,
+    );
     try {
       const content = await generateMarketingIdeas(tenantId);
-      sqlite
-        .prepare(
-          `UPDATE ceo_reports SET status = 'generated', content_md = ?, data_snapshot = ? WHERE id = ?`,
-        )
-        .run(content, JSON.stringify(gatherSnapshot(tenantId, 30)), reportId);
+      await dbRun(
+        `UPDATE ceo_reports SET status = 'generated', content_md = ?, data_snapshot = ? WHERE id = ?`,
+        content,
+        JSON.stringify(await gatherSnapshot(tenantId, 30)),
+        reportId,
+      );
       await deliverReport(tenantId, reportId, content);
       emitChange("ceo_reports", tenantId, { id: reportId });
     } catch (err) {
-      sqlite
-        .prepare(`UPDATE ceo_reports SET status = 'error', error = ? WHERE id = ?`)
-        .run(err instanceof Error ? err.message : "generation failed", reportId);
+      await dbRun(
+        `UPDATE ceo_reports SET status = 'error', error = ? WHERE id = ?`,
+        err instanceof Error ? err.message : "generation failed",
+        reportId,
+      );
       emitChange("ceo_reports", tenantId, { id: reportId });
       throw err;
     }
@@ -50,9 +53,12 @@ async function runCeoJob(payload: unknown): Promise<void> {
   }
 
   if (scheduleId) {
-    sqlite
-      .prepare(`UPDATE agent_schedules SET last_run_at = ?, updated_at = ? WHERE id = ?`)
-      .run(new Date().toISOString(), new Date().toISOString(), scheduleId);
+    await dbRun(
+      `UPDATE agent_schedules SET last_run_at = ?, updated_at = ? WHERE id = ?`,
+      new Date().toISOString(),
+      new Date().toISOString(),
+      scheduleId,
+    );
   }
 }
 
@@ -75,18 +81,16 @@ function isDue(schedule: ScheduleRow, now: Date): boolean {
 }
 
 /** Called every minute by the scheduler: enqueues due CEO reports. */
-export function checkCeoSchedules(): void {
+export async function checkCeoSchedules(): Promise<void> {
   const now = new Date();
-  const schedules = sqlite
-    .prepare(
-      `SELECT id, tenant_id, cadence, hour_utc, report_type, last_run_at
-       FROM agent_schedules WHERE enabled = 1 AND agent = 'ceo'`,
-    )
-    .all() as ScheduleRow[];
+  const schedules = (await dbAll(
+    `SELECT id, tenant_id, cadence, hour_utc, report_type, last_run_at
+       FROM agent_schedules WHERE enabled = true AND agent = 'ceo'`,
+  )) as ScheduleRow[];
 
   for (const schedule of schedules) {
     if (!isDue(schedule, now)) continue;
-    enqueueJob({
+    await enqueueJob({
       kind: CEO_REPORT_JOB,
       tenantId: schedule.tenant_id,
       payload: {
@@ -99,7 +103,7 @@ export function checkCeoSchedules(): void {
   }
 }
 
-export function enqueueCeoReport(tenantId: string, type: ReportType): string {
+export async function enqueueCeoReport(tenantId: string, type: ReportType): Promise<string> {
   return enqueueJob({
     kind: CEO_REPORT_JOB,
     tenantId,

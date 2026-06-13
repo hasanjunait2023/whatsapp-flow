@@ -3,7 +3,8 @@ import { useTempDb } from "./helpers.js";
 
 useTempDb();
 
-const { db, sqlite } = await import("../src/db/index.js");
+const { db } = await import("../src/db/index.js");
+const { dbGet, dbAll, dbRun } = await import("../src/db/raw.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { plans } = await import("../src/db/schema.js");
 const { seedPlans, seedPlansIfEmpty, PLAN_SEEDS } = await import(
@@ -18,114 +19,121 @@ interface PlanRow {
   max_instances: number;
   max_pages: number;
   max_agents: number;
-  ai_enabled: number;
-  is_active: number;
-  features: string | null;
+  ai_enabled: boolean;
+  is_active: boolean;
+  // jsonb column: Postgres/PGlite returns it already parsed as an object.
+  features: Record<string, unknown> | null;
 }
 
-function allPlans(): PlanRow[] {
-  return sqlite.prepare("SELECT * FROM plans ORDER BY tier_order").all() as PlanRow[];
+// `features` is jsonb: PGlite returns an object, but tolerate a string too.
+function featuresOf(row: PlanRow): Record<string, unknown> {
+  const f = row.features as unknown;
+  return (typeof f === "string" ? JSON.parse(f) : f) as Record<string, unknown>;
 }
 
-function plan(id: string): PlanRow {
-  return sqlite.prepare("SELECT * FROM plans WHERE id = ?").get(id) as PlanRow;
+function allPlans(): Promise<PlanRow[]> {
+  return dbAll<PlanRow>("SELECT * FROM plans ORDER BY tier_order");
 }
 
-beforeAll(() => {
-  runMigrations();
+async function plan(id: string): Promise<PlanRow> {
+  return (await dbGet<PlanRow>("SELECT * FROM plans WHERE id = ?", id)) as PlanRow;
+}
+
+beforeAll(async () => {
+  await runMigrations();
 });
 
-beforeEach(() => {
-  db.delete(plans).run();
+beforeEach(async () => {
+  await db.delete(plans);
 });
 
 describe("seedPlans", () => {
-  it("seeds exactly the four catalog plans", () => {
-    seedPlans();
-    const rows = allPlans();
+  it("seeds exactly the four catalog plans", async () => {
+    await seedPlans();
+    const rows = await allPlans();
     expect(rows.map((r) => r.id)).toEqual(["starter", "pro", "business", "enterprise"]);
     expect(rows).toHaveLength(4);
   });
 
-  it("seeds the agreed prices and yearly = 10x monthly (2 months free)", () => {
-    seedPlans();
-    expect(plan("starter").price_monthly).toBe(899);
-    expect(plan("pro").price_monthly).toBe(1499);
-    expect(plan("business").price_monthly).toBe(2799);
+  it("seeds the agreed prices and yearly = 10x monthly (2 months free)", async () => {
+    await seedPlans();
+    expect((await plan("starter")).price_monthly).toBe(899);
+    expect((await plan("pro")).price_monthly).toBe(1499);
+    expect((await plan("business")).price_monthly).toBe(2799);
     // Yearly is ten months of the monthly price.
-    expect(plan("starter").price_yearly).toBe(8990);
-    expect(plan("pro").price_yearly).toBe(14990);
-    expect(plan("business").price_yearly).toBe(27990);
+    expect((await plan("starter")).price_yearly).toBe(8990);
+    expect((await plan("pro")).price_yearly).toBe(14990);
+    expect((await plan("business")).price_yearly).toBe(27990);
   });
 
-  it("reconciles caps: max_instances=WhatsApp numbers, max_pages=Facebook pages", () => {
-    seedPlans();
+  it("reconciles caps: max_instances=WhatsApp numbers, max_pages=Facebook pages", async () => {
+    await seedPlans();
     // Founder's loose channel totals (2 / 6 / 15) split onto the real columns.
-    expect(plan("starter").max_instances).toBe(1);
-    expect(plan("starter").max_pages).toBe(1);
+    expect((await plan("starter")).max_instances).toBe(1);
+    expect((await plan("starter")).max_pages).toBe(1);
 
-    expect(plan("pro").max_instances).toBe(2);
-    expect(plan("pro").max_pages).toBe(2);
+    expect((await plan("pro")).max_instances).toBe(2);
+    expect((await plan("pro")).max_pages).toBe(2);
 
-    expect(plan("business").max_instances).toBe(5);
-    expect(plan("business").max_pages).toBe(5);
+    expect((await plan("business")).max_instances).toBe(5);
+    expect((await plan("business")).max_pages).toBe(5);
 
     // Display total_channels preserves the headline counts.
-    expect(JSON.parse(plan("starter").features!).total_channels).toBe(2);
-    expect(JSON.parse(plan("pro").features!).total_channels).toBe(6);
-    expect(JSON.parse(plan("business").features!).total_channels).toBe(15);
+    expect(featuresOf(await plan("starter")).total_channels).toBe(2);
+    expect(featuresOf(await plan("pro")).total_channels).toBe(6);
+    expect(featuresOf(await plan("business")).total_channels).toBe(15);
   });
 
-  it("sets team-member (max_agents) and AI flags per tier", () => {
-    seedPlans();
-    expect(plan("starter").max_agents).toBe(2);
-    expect(plan("pro").max_agents).toBe(5);
-    expect(plan("business").max_agents).toBe(15);
+  it("sets team-member (max_agents) and AI flags per tier", async () => {
+    await seedPlans();
+    expect((await plan("starter")).max_agents).toBe(2);
+    expect((await plan("pro")).max_agents).toBe(5);
+    expect((await plan("business")).max_agents).toBe(15);
 
-    expect(plan("starter").ai_enabled).toBe(0);
-    expect(plan("pro").ai_enabled).toBe(1);
-    expect(plan("business").ai_enabled).toBe(1);
+    expect((await plan("starter")).ai_enabled).toBe(false);
+    expect((await plan("pro")).ai_enabled).toBe(true);
+    expect((await plan("business")).ai_enabled).toBe(true);
 
-    expect(JSON.parse(plan("pro").features!).popular).toBe(true);
+    expect(featuresOf(await plan("pro")).popular).toBe(true);
   });
 
-  it("marks enterprise as active, contact-only, with null negotiable yearly price", () => {
-    seedPlans();
-    const ent = plan("enterprise");
-    expect(ent.is_active).toBe(1);
+  it("marks enterprise as active, contact-only, with null negotiable yearly price", async () => {
+    await seedPlans();
+    const ent = await plan("enterprise");
+    expect(ent.is_active).toBe(true);
     expect(ent.price_monthly).toBe(0);
     expect(ent.price_yearly).toBeNull();
-    expect(JSON.parse(ent.features!).contact_only).toBe(true);
+    expect(featuresOf(ent).contact_only).toBe(true);
   });
 
-  it("all seeded plans are active so the web pricing query returns them", () => {
-    seedPlans();
-    const active = sqlite
-      .prepare("SELECT COUNT(*) AS n FROM plans WHERE is_active = 1")
-      .get() as { n: number };
+  it("all seeded plans are active so the web pricing query returns them", async () => {
+    await seedPlans();
+    const active = (await dbGet(
+      "SELECT COUNT(*)::int AS n FROM plans WHERE is_active = true",
+    )) as { n: number };
     expect(active.n).toBe(PLAN_SEEDS.length);
   });
 
-  it("is idempotent: re-running upserts in place without duplicating rows", () => {
-    seedPlans();
+  it("is idempotent: re-running upserts in place without duplicating rows", async () => {
+    await seedPlans();
     // Mutate a row, then re-seed; the upsert should restore the catalog price.
-    sqlite.prepare("UPDATE plans SET price_monthly = 1 WHERE id = 'pro'").run();
-    seedPlans();
-    expect(allPlans()).toHaveLength(4);
-    expect(plan("pro").price_monthly).toBe(1499);
+    await dbRun("UPDATE plans SET price_monthly = 1 WHERE id = 'pro'");
+    await seedPlans();
+    expect(await allPlans()).toHaveLength(4);
+    expect((await plan("pro")).price_monthly).toBe(1499);
   });
 });
 
 describe("seedPlansIfEmpty", () => {
-  it("seeds when the table is empty", () => {
-    seedPlansIfEmpty();
-    expect(allPlans()).toHaveLength(4);
+  it("seeds when the table is empty", async () => {
+    await seedPlansIfEmpty();
+    expect(await allPlans()).toHaveLength(4);
   });
 
-  it("does NOT overwrite an existing catalog", () => {
-    seedPlans();
-    sqlite.prepare("UPDATE plans SET price_monthly = 42 WHERE id = 'pro'").run();
-    seedPlansIfEmpty(); // table is non-empty -> no-op
-    expect(plan("pro").price_monthly).toBe(42);
+  it("does NOT overwrite an existing catalog", async () => {
+    await seedPlans();
+    await dbRun("UPDATE plans SET price_monthly = 42 WHERE id = 'pro'");
+    await seedPlansIfEmpty(); // table is non-empty -> no-op
+    expect((await plan("pro")).price_monthly).toBe(42);
   });
 });

@@ -454,7 +454,7 @@ async function runInsert(
       const tenantId = row.id;
       if (typeof tenantId === "string") {
         try {
-          startTrialForTenant(tenantId);
+          await startTrialForTenant(tenantId);
         } catch {
           // non-fatal: tenant exists; the trial can be back-filled if needed.
         }

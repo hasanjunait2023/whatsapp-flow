@@ -1,34 +1,83 @@
-import { existsSync, mkdirSync } from "node:fs";
-import path from "node:path";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { DB_PATH } from "../lib/env.js";
+import pg from "pg";
+import { drizzle as drizzlePg, type NodePgDatabase } from "drizzle-orm/node-postgres";
+import { NODE_ENV, getDatabaseUrl } from "../lib/env.js";
 import { appSchema } from "./schema.js";
 import { authSchema } from "./auth-schema.js";
 
 const schema = { ...appSchema, ...authSchema };
 
-function ensureDbDir(dbPath: string): void {
-  const dir = path.dirname(dbPath);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
+/** Uniform shape returned by both the pg Pool and the PGlite test client. */
+export interface RawResult {
+  rows: Record<string, unknown>[];
+  rowCount: number;
 }
 
-ensureDbDir(DB_PATH);
+/**
+ * Minimal raw-SQL surface used by db/raw.ts. Abstracts the prod pg Pool and the
+ * in-process PGlite test client behind one async interface so the ported raw-SQL
+ * call sites work identically in both environments.
+ */
+export interface RawDb {
+  query(text: string, params?: unknown[]): Promise<RawResult>;
+  tx<T>(
+    fn: (q: (text: string, params?: unknown[]) => Promise<RawResult>) => Promise<T>,
+  ): Promise<T>;
+}
 
-/** Single shared connection — one serialized writer (WAL allows concurrent readers). */
-export const sqlite = new Database(DB_PATH);
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("busy_timeout = 5000");
-sqlite.pragma("foreign_keys = ON");
-// NORMAL is the standard durability mode under WAL: a fsync only at checkpoint,
-// not per-commit — large write-throughput win for the webhook ingest path. Safe
-// here because the WAL is continuously replicated off-box by Litestream, so the
-// only NORMAL risk (losing the last txn on an OS-level crash) is itself backed up.
-sqlite.pragma("synchronous = NORMAL");
+let db: NodePgDatabase<typeof schema>;
+let rawDb: RawDb;
 
-export const db = drizzle(sqlite, { schema });
+if (NODE_ENV === "test") {
+  // PGlite: in-process WASM Postgres. Each test file runs in its own fork
+  // (vitest pool:forks, fileParallelism:false), so a fresh ephemeral instance
+  // per file preserves the isolation the old temp-file SQLite harness gave.
+  const { PGlite } = await import("@electric-sql/pglite");
+  const { drizzle: drizzlePglite } = await import("drizzle-orm/pglite");
+  const client = new PGlite();
+  db = drizzlePglite(client, { schema }) as unknown as NodePgDatabase<typeof schema>;
+  rawDb = {
+    async query(text, params = []) {
+      const r = await client.query(text, params as unknown[]);
+      const rows = (r.rows ?? []) as Record<string, unknown>[];
+      return { rows, rowCount: r.affectedRows ?? rows.length };
+    },
+    async tx(fn) {
+      return client.transaction(async (txClient) =>
+        fn(async (text, params = []) => {
+          const r = await txClient.query(text, params as unknown[]);
+          const rows = (r.rows ?? []) as Record<string, unknown>[];
+          return { rows, rowCount: r.affectedRows ?? rows.length };
+        }),
+      );
+    },
+  };
+} else {
+  const pool = new pg.Pool({ connectionString: getDatabaseUrl(), max: 10 });
+  db = drizzlePg(pool, { schema });
+  rawDb = {
+    async query(text, params = []) {
+      const r = await pool.query(text, params as unknown[]);
+      return { rows: r.rows, rowCount: r.rowCount ?? 0 };
+    },
+    async tx(fn) {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const out = await fn(async (text, params = []) => {
+          const r = await client.query(text, params as unknown[]);
+          return { rows: r.rows, rowCount: r.rowCount ?? 0 };
+        });
+        await client.query("COMMIT");
+        return out;
+      } catch (e) {
+        await client.query("ROLLBACK");
+        throw e;
+      } finally {
+        client.release();
+      }
+    },
+  };
+}
 
+export { db, rawDb, schema };
 export type DB = typeof db;
-export { schema };

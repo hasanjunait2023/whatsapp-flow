@@ -18,22 +18,22 @@ function ctxFor(tenantId: string | null, isAdmin = false): TenantContext {
   return { userId: USER_A, tenantId, isAdmin, isImpersonating: false };
 }
 
-beforeAll(() => {
-  runMigrations();
-  db.insert(tenants).values([
+beforeAll(async () => {
+  await runMigrations();
+  await db.insert(tenants).values([
     { id: TENANT_A, name: "Tenant A", owner_id: USER_A },
     { id: TENANT_B, name: "Tenant B", owner_id: "user-b" },
-  ]).run();
+  ]);
 
-  db.insert(contacts).values([
+  await db.insert(contacts).values([
     { tenant_id: TENANT_A, wa_id: "a1@s", phone_number: "111", name: "A One" },
     { tenant_id: TENANT_A, wa_id: "a2@s", phone_number: "112", name: "A Two" },
     { tenant_id: TENANT_B, wa_id: "b1@s", phone_number: "221", name: "B One" },
-  ]).run();
+  ]);
 
-  db.insert(userRoles).values([
+  await db.insert(userRoles).values([
     { id: "role-a", tenant_id: TENANT_A, user_id: USER_A, role: "agent" },
-  ]).run();
+  ]);
 });
 
 describe("executeQuery tenant isolation", () => {

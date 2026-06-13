@@ -15,6 +15,7 @@ vi.mock("../src/auth/index.js", () => ({
 }));
 
 const { db } = await import("../src/db/index.js");
+const { dbAll } = await import("../src/db/raw.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { tenantMiddleware } = await import("../src/middleware/tenant.js");
 const { tenants, userRoles, systemRoles } = await import("../src/db/schema.js");
@@ -27,17 +28,17 @@ const app = new Hono();
 app.use("*", tenantMiddleware);
 app.get("/whoami", (c) => c.json(c.get("tenant")));
 
-beforeAll(() => {
-  runMigrations();
-  db.insert(tenants).values([
+beforeAll(async () => {
+  await runMigrations();
+  await db.insert(tenants).values([
     { id: TENANT_A, name: "A", owner_id: "user-a" },
     { id: TENANT_B, name: "B", owner_id: "user-b" },
-  ]).run();
-  db.insert(userRoles).values([
+  ]);
+  await db.insert(userRoles).values([
     { tenant_id: TENANT_A, user_id: "user-a", role: "owner" },
     { tenant_id: TENANT_B, user_id: "user-b", role: "owner" },
-  ]).run();
-  db.insert(systemRoles).values({ user_id: "admin-x", role: "admin" }).run();
+  ]);
+  await db.insert(systemRoles).values({ user_id: "admin-x", role: "admin" });
 });
 
 describe("tenantMiddleware enforcement", () => {
@@ -86,9 +87,9 @@ describe("tenantMiddleware enforcement", () => {
     expect(body.tenantId).toBe(TENANT_A);
     expect(body.isImpersonating).toBe(true);
 
-    const logs = db.all<{ action: string }>(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (await import("drizzle-orm")).sql`SELECT action FROM admin_audit_logs WHERE entity_id = ${TENANT_A}`,
+    const logs = await dbAll<{ action: string }>(
+      "SELECT action FROM admin_audit_logs WHERE entity_id = ?",
+      TENANT_A,
     );
     expect(logs.length).toBeGreaterThan(0);
   });

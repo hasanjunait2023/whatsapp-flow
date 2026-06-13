@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbGet, dbRun, dbTx } from "../db/raw.js";
 import { auth } from "../auth/index.js";
 import type { FnContext, FnResult } from "./waha/session.js";
 
@@ -14,10 +14,12 @@ import type { FnContext, FnResult } from "./waha/session.js";
 
 const ok = (data: unknown): FnResult => ({ data, error: null });
 
-function isOwner(userId: string, tenantId: string): boolean {
-  const row = sqlite
-    .prepare("SELECT role FROM user_roles WHERE user_id = ? AND tenant_id = ? LIMIT 1")
-    .get(userId, tenantId) as { role: string } | undefined;
+async function isOwner(userId: string, tenantId: string): Promise<boolean> {
+  const row = (await dbGet(
+    "SELECT role FROM user_roles WHERE user_id = ? AND tenant_id = ? LIMIT 1",
+    userId,
+    tenantId,
+  )) as { role: string } | undefined;
   return row?.role === "owner";
 }
 
@@ -39,21 +41,20 @@ export async function createTeamMember(raw: Record<string, unknown>, ctx: FnCont
   if (!["manager", "agent"].includes(body.role)) {
     return ok({ error: "Invalid role. Must be 'manager' or 'agent'" });
   }
-  if (!ctx.isAdmin && !isOwner(ctx.userId, tenantId)) {
+  if (!ctx.isAdmin && !(await isOwner(ctx.userId, tenantId))) {
     return ok({ error: "Only tenant owners can create team members" });
   }
 
   // Plan agent-limit enforcement.
-  const planRow = sqlite
-    .prepare(
-      `SELECT p.max_agents AS max_agents
+  const planRow = (await dbGet(
+    `SELECT p.max_agents AS max_agents
        FROM subscriptions s JOIN plans p ON p.id = s.plan_id
        WHERE s.tenant_id = ? LIMIT 1`,
-    )
-    .get(tenantId) as { max_agents: number } | undefined;
+    tenantId,
+  )) as { max_agents: number } | undefined;
   const maxAgents = planRow?.max_agents ?? 1;
   const memberCount = (
-    sqlite.prepare("SELECT COUNT(*) AS n FROM user_roles WHERE tenant_id = ?").get(tenantId) as { n: number }
+    (await dbGet("SELECT COUNT(*)::int AS n FROM user_roles WHERE tenant_id = ?", tenantId)) as { n: number }
   ).n;
   if (memberCount >= maxAgents) {
     return ok({
@@ -65,9 +66,10 @@ export async function createTeamMember(raw: Record<string, unknown>, ctx: FnCont
     });
   }
 
-  const existing = sqlite
-    .prepare("SELECT id FROM user WHERE lower(email) = lower(?) LIMIT 1")
-    .get(body.email) as { id: string } | undefined;
+  const existing = (await dbGet(
+    'SELECT id FROM "user" WHERE lower(email) = lower(?) LIMIT 1',
+    body.email,
+  )) as { id: string } | undefined;
   if (existing) return ok({ error: "A user with this email already exists" });
 
   let newUserId: string;
@@ -81,24 +83,34 @@ export async function createTeamMember(raw: Record<string, unknown>, ctx: FnCont
   }
 
   const now = new Date().toISOString();
-  const tx = sqlite.transaction(() => {
-    sqlite
-      .prepare(
-        "INSERT OR IGNORE INTO profiles (id, email, full_name, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-      )
-      .run(newUserId, body.email, body.fullName, ctx.userId, now, now);
-    sqlite
-      .prepare(
-        "INSERT INTO user_roles (id, user_id, tenant_id, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-      )
-      .run(crypto.randomUUID(), newUserId, tenantId, body.role, now, now);
-    sqlite
-      .prepare(
-        "INSERT OR IGNORE INTO team_member_permissions (id, tenant_id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-      )
-      .run(crypto.randomUUID(), tenantId, newUserId, now, now);
+  await dbTx(async (tx) => {
+    await tx.run(
+      "INSERT INTO profiles (id, email, full_name, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
+      newUserId,
+      body.email,
+      body.fullName,
+      ctx.userId,
+      now,
+      now,
+    );
+    await tx.run(
+      "INSERT INTO user_roles (id, user_id, tenant_id, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      crypto.randomUUID(),
+      newUserId,
+      tenantId,
+      body.role,
+      now,
+      now,
+    );
+    await tx.run(
+      "INSERT INTO team_member_permissions (id, tenant_id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
+      crypto.randomUUID(),
+      tenantId,
+      newUserId,
+      now,
+      now,
+    );
   });
-  tx();
 
   return ok({ success: true, user_id: newUserId });
 }
@@ -117,12 +129,14 @@ export async function resetTeamMemberPassword(raw: Record<string, unknown>, ctx:
     return ok({ error: "Missing required fields: userId, newPassword, tenantId" });
   }
   if (body.newPassword.length < 6) return ok({ error: "Password must be at least 6 characters" });
-  if (!ctx.isAdmin && !isOwner(ctx.userId, tenantId)) {
+  if (!ctx.isAdmin && !(await isOwner(ctx.userId, tenantId))) {
     return ok({ error: "Only tenant owners can reset passwords" });
   }
-  const target = sqlite
-    .prepare("SELECT role FROM user_roles WHERE user_id = ? AND tenant_id = ? LIMIT 1")
-    .get(body.userId, tenantId) as { role: string } | undefined;
+  const target = (await dbGet(
+    "SELECT role FROM user_roles WHERE user_id = ? AND tenant_id = ? LIMIT 1",
+    body.userId,
+    tenantId,
+  )) as { role: string } | undefined;
   if (!target) return ok({ error: "Target user is not a member of this tenant" });
   if (target.role === "owner" && !ctx.isAdmin) return ok({ error: "Cannot reset an owner's password" });
 
@@ -134,11 +148,12 @@ export async function resetTeamMemberPassword(raw: Record<string, unknown>, ctx:
     return ok({ error: err instanceof Error ? err.message : "Failed to hash password" });
   }
 
-  const updated = sqlite
-    .prepare(
-      "UPDATE account SET password = ?, updated_at = ? WHERE user_id = ? AND provider_id = 'credential'",
-    )
-    .run(hash, Math.floor(Date.now() / 1000), body.userId);
+  const updated = await dbRun(
+    "UPDATE account SET password = ?, updated_at = ? WHERE user_id = ? AND provider_id = 'credential'",
+    hash,
+    Math.floor(Date.now() / 1000),
+    body.userId,
+  );
   if (updated.changes === 0) {
     return ok({ error: "No credential account found for this user" });
   }
@@ -153,11 +168,10 @@ interface AcceptBody {
 export async function acceptInvitation(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
   const body = raw as AcceptBody;
   if (!body.token) return ok({ error: "token is required" });
-  const inv = sqlite
-    .prepare(
-      "SELECT id, tenant_id, email, role, expires_at, accepted_at FROM team_invitations WHERE token = ? LIMIT 1",
-    )
-    .get(body.token) as
+  const inv = (await dbGet(
+    "SELECT id, tenant_id, email, role, expires_at, accepted_at FROM team_invitations WHERE token = ? LIMIT 1",
+    body.token,
+  )) as
     | { id: string; tenant_id: string; email: string; role: string; expires_at: string; accepted_at: string | null }
     | undefined;
   if (!inv) return ok({ error: "Invalid invitation" });
@@ -167,23 +181,27 @@ export async function acceptInvitation(raw: Record<string, unknown>, ctx: FnCont
   // SECURITY: bind the token to the invited identity. Without this, any
   // authenticated user holding a token (leaked link/log/referer) could join the
   // tenant with the invited role. The session user's email must match.
-  const acceptor = sqlite
-    .prepare("SELECT email FROM user WHERE id = ? LIMIT 1")
-    .get(ctx.userId) as { email: string | null } | undefined;
+  const acceptor = (await dbGet(
+    'SELECT email FROM "user" WHERE id = ? LIMIT 1',
+    ctx.userId,
+  )) as { email: string | null } | undefined;
   if (!acceptor?.email || acceptor.email.toLowerCase() !== inv.email.toLowerCase()) {
     return ok({ error: "This invitation was sent to a different email address" });
   }
 
   const now = new Date().toISOString();
-  const tx = sqlite.transaction(() => {
-    sqlite
-      .prepare(
-        "INSERT OR IGNORE INTO user_roles (id, user_id, tenant_id, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-      )
-      .run(crypto.randomUUID(), ctx.userId, inv.tenant_id, inv.role, now, now);
-    sqlite.prepare("UPDATE team_invitations SET accepted_at = ? WHERE id = ?").run(now, inv.id);
+  await dbTx(async (tx) => {
+    await tx.run(
+      "INSERT INTO user_roles (id, user_id, tenant_id, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
+      crypto.randomUUID(),
+      ctx.userId,
+      inv.tenant_id,
+      inv.role,
+      now,
+      now,
+    );
+    await tx.run("UPDATE team_invitations SET accepted_at = ? WHERE id = ?", now, inv.id);
   });
-  tx();
 
   return ok({ success: true, tenant_id: inv.tenant_id, role: inv.role });
 }

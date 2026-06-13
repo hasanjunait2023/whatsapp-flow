@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbRun } from "../db/raw.js";
 import { emitChange } from "../realtime/emitter.js";
 import { sendPushToTenant, sendPushToUser } from "./push.js";
 
@@ -20,19 +20,16 @@ export interface NotifyOptions {
   metadata?: Record<string, unknown>;
 }
 
-export function notify(options: NotifyOptions): void {
-  sqlite
-    .prepare(
-      `INSERT INTO notifications (id, tenant_id, channel, type, status, recipient, metadata)
+export async function notify(options: NotifyOptions): Promise<void> {
+  await dbRun(
+    `INSERT INTO notifications (id, tenant_id, channel, type, status, recipient, metadata)
        VALUES (?, ?, 'in_app', ?, 'pending', ?, ?)`,
-    )
-    .run(
-      crypto.randomUUID(),
-      options.tenantId,
-      options.type,
-      options.userId ?? null,
-      JSON.stringify({ title: options.title, body: options.body, url: options.url, ...options.metadata }),
-    );
+    crypto.randomUUID(),
+    options.tenantId,
+    options.type,
+    options.userId ?? null,
+    JSON.stringify({ title: options.title, body: options.body, url: options.url, ...options.metadata }),
+  );
   emitChange("notifications", options.tenantId, {});
 
   const payload = { title: options.title, body: options.body, url: options.url };

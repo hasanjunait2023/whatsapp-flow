@@ -1,4 +1,4 @@
-import { sqlite } from "../../db/index.js";
+import { dbGet, dbRun } from "../../db/raw.js";
 import { emitChange } from "../../realtime/emitter.js";
 import {
   wahaClient,
@@ -40,12 +40,11 @@ interface InstanceRow {
 }
 
 /** Loads an instance, enforcing tenant scope (admins bypass). */
-function loadInstance(instanceId: string, ctx: FnContext): InstanceRow | { error: string } {
-  const row = sqlite
-    .prepare(
-      "SELECT id, tenant_id, name, status, phone_number FROM whatsapp_instances WHERE id = ? LIMIT 1",
-    )
-    .get(instanceId) as InstanceRow | undefined;
+async function loadInstance(instanceId: string, ctx: FnContext): Promise<InstanceRow | { error: string }> {
+  const row = (await dbGet(
+    "SELECT id, tenant_id, name, status, phone_number FROM whatsapp_instances WHERE id = ? LIMIT 1",
+    instanceId,
+  )) as InstanceRow | undefined;
   if (!row) return { error: "Instance not found" };
   if (!ctx.isAdmin && row.tenant_id !== ctx.tenantId) {
     return { error: "Forbidden instance" };
@@ -74,13 +73,12 @@ async function createSession(body: Record<string, unknown>, ctx: FnContext): Pro
   const phoneNumber = (body.phone_number as string) ?? null;
 
   // Reuse an existing instance without a session, else create a new row.
-  let instance = sqlite
-    .prepare(
-      `SELECT id, tenant_id, name, status, phone_number FROM whatsapp_instances
-       WHERE tenant_id = ? AND session_id IS NULL AND (is_deleted IS NULL OR is_deleted = 0)
+  let instance = (await dbGet(
+    `SELECT id, tenant_id, name, status, phone_number FROM whatsapp_instances
+       WHERE tenant_id = ? AND session_id IS NULL AND (is_deleted IS NOT TRUE)
        ORDER BY created_at DESC LIMIT 1`,
-    )
-    .get(tenantId) as InstanceRow | undefined;
+    tenantId,
+  )) as InstanceRow | undefined;
 
   if (!instance) {
     // Enforce the plan's instance cap before provisioning a new number.
@@ -88,21 +86,19 @@ async function createSession(body: Record<string, unknown>, ctx: FnContext): Pro
     // instances regardless of their subscription (billing bypass). Admins
     // (incl. impersonation) bypass so support can provision on a tenant's behalf.
     if (!ctx.isAdmin) {
-      const planRow = sqlite
-        .prepare(
-          `SELECT COALESCE(p.max_instances, 1) AS max
+      const planRow = (await dbGet(
+        `SELECT COALESCE(p.max_instances, 1) AS max
              FROM subscriptions s JOIN plans p ON p.id = s.plan_id
             WHERE s.tenant_id = ? AND s.status IN ('active','trialing','past_due')
             ORDER BY s.created_at DESC LIMIT 1`,
-        )
-        .get(tenantId) as { max: number } | undefined;
+        tenantId,
+      )) as { max: number } | undefined;
       const cap = planRow?.max ?? 1;
-      const live = sqlite
-        .prepare(
-          `SELECT COUNT(*) AS n FROM whatsapp_instances
-            WHERE tenant_id = ? AND (is_deleted IS NULL OR is_deleted = 0)`,
-        )
-        .get(tenantId) as { n: number };
+      const live = (await dbGet(
+        `SELECT COUNT(*)::int AS n FROM whatsapp_instances
+            WHERE tenant_id = ? AND (is_deleted IS NOT TRUE)`,
+        tenantId,
+      )) as { n: number };
       if (live.n >= cap) {
         return {
           data: null,
@@ -114,21 +110,26 @@ async function createSession(body: Record<string, unknown>, ctx: FnContext): Pro
       }
     }
 
-    const tenant = sqlite
-      .prepare("SELECT name FROM tenants WHERE id = ? LIMIT 1")
-      .get(tenantId) as { name: string } | undefined;
+    const tenant = (await dbGet(
+      "SELECT name FROM tenants WHERE id = ? LIMIT 1",
+      tenantId,
+    )) as { name: string } | undefined;
     const id = crypto.randomUUID();
-    sqlite
-      .prepare(
-        `INSERT INTO whatsapp_instances (id, tenant_id, name, phone_number, status, is_default)
-         VALUES (?, ?, ?, ?, 'disconnected', 1)`,
-      )
-      .run(id, tenantId, `${tenant?.name ?? "Tenant"} WhatsApp`, phoneNumber);
+    await dbRun(
+      `INSERT INTO whatsapp_instances (id, tenant_id, name, phone_number, status, is_default)
+         VALUES (?, ?, ?, ?, 'disconnected', true)`,
+      id,
+      tenantId,
+      `${tenant?.name ?? "Tenant"} WhatsApp`,
+      phoneNumber,
+    );
     instance = { id, tenant_id: tenantId, name: null, status: "disconnected", phone_number: phoneNumber };
   } else if (phoneNumber) {
-    sqlite
-      .prepare("UPDATE whatsapp_instances SET phone_number = ? WHERE id = ?")
-      .run(phoneNumber, instance.id);
+    await dbRun(
+      "UPDATE whatsapp_instances SET phone_number = ? WHERE id = ?",
+      phoneNumber,
+      instance.id,
+    );
   }
 
   const sessionName = sessionNameForInstance(instance.id);
@@ -139,9 +140,11 @@ async function createSession(body: Record<string, unknown>, ctx: FnContext): Pro
       WEBHOOK_EVENTS,
       WAHA_WEBHOOK_HMAC_SECRET || undefined,
     );
-    sqlite
-      .prepare("UPDATE whatsapp_instances SET session_id = ?, status = 'disconnected' WHERE id = ?")
-      .run(sessionName, instance.id);
+    await dbRun(
+      "UPDATE whatsapp_instances SET session_id = ?, status = 'disconnected' WHERE id = ?",
+      sessionName,
+      instance.id,
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "WAHA create failed";
     return { data: null, error: { message } };
@@ -163,22 +166,22 @@ async function refreshQr(instance: InstanceRow): Promise<FnResult> {
       await wahaClient.startSession(sessionName).catch(() => undefined);
     }
     if (session?.status === "WORKING") {
-      sqlite
-        .prepare(
-          "UPDATE whatsapp_instances SET status = 'active', qr_code = NULL, qr_expires_at = NULL WHERE id = ?",
-        )
-        .run(instance.id);
+      await dbRun(
+        "UPDATE whatsapp_instances SET status = 'active', qr_code = NULL, qr_expires_at = NULL WHERE id = ?",
+        instance.id,
+      );
       emitChange("whatsapp_instances", instance.tenant_id, { id: instance.id, status: "active" });
       return { data: { message: "Already connected", status: "active" }, error: null };
     }
 
     const { qr } = await wahaClient.getQr(sessionName);
     const expiresAt = new Date(Date.now() + 60000).toISOString();
-    sqlite
-      .prepare(
-        "UPDATE whatsapp_instances SET qr_code = ?, qr_expires_at = ?, status = 'disconnected', connection_error = NULL WHERE id = ?",
-      )
-      .run(qr, expiresAt, instance.id);
+    await dbRun(
+      "UPDATE whatsapp_instances SET qr_code = ?, qr_expires_at = ?, status = 'disconnected', connection_error = NULL WHERE id = ?",
+      qr,
+      expiresAt,
+      instance.id,
+    );
     emitChange("whatsapp_instances", instance.tenant_id, { id: instance.id });
     return { data: { qr_code: qr, expires_at: expiresAt }, error: null };
   } catch (error) {
@@ -191,7 +194,7 @@ async function refreshQr(instance: InstanceRow): Promise<FnResult> {
 async function connectSession(body: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
   const instanceId = body.instance_id as string;
   if (!instanceId) return { data: null, error: { message: "instance_id is required" } };
-  const loaded = loadInstance(instanceId, ctx);
+  const loaded = await loadInstance(instanceId, ctx);
   if ("error" in loaded) return { data: null, error: { message: loaded.error } };
   return refreshQr(loaded);
 }
@@ -200,7 +203,7 @@ async function connectSession(body: Record<string, unknown>, ctx: FnContext): Pr
 async function checkStatus(body: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
   const instanceId = body.instance_id as string;
   if (!instanceId) return { data: null, error: { message: "instance_id is required" } };
-  const loaded = loadInstance(instanceId, ctx);
+  const loaded = await loadInstance(instanceId, ctx);
   if ("error" in loaded) return { data: null, error: { message: loaded.error } };
 
   const sessionName = sessionNameForInstance(loaded.id);
@@ -210,15 +213,19 @@ async function checkStatus(body: Record<string, unknown>, ctx: FnContext): Promi
     const changed = newStatus !== loaded.status;
     if (changed) {
       if (newStatus === "active") {
-        sqlite
-          .prepare(
-            "UPDATE whatsapp_instances SET status = 'active', qr_code = NULL, qr_expires_at = NULL, connection_error = NULL, last_connected_at = ?, last_status_at = ? WHERE id = ?",
-          )
-          .run(new Date().toISOString(), new Date().toISOString(), loaded.id);
+        await dbRun(
+          "UPDATE whatsapp_instances SET status = 'active', qr_code = NULL, qr_expires_at = NULL, connection_error = NULL, last_connected_at = ?, last_status_at = ? WHERE id = ?",
+          new Date().toISOString(),
+          new Date().toISOString(),
+          loaded.id,
+        );
       } else {
-        sqlite
-          .prepare("UPDATE whatsapp_instances SET status = ?, last_status_at = ? WHERE id = ?")
-          .run(newStatus, new Date().toISOString(), loaded.id);
+        await dbRun(
+          "UPDATE whatsapp_instances SET status = ?, last_status_at = ? WHERE id = ?",
+          newStatus,
+          new Date().toISOString(),
+          loaded.id,
+        );
       }
       emitChange("whatsapp_instances", loaded.tenant_id, { id: loaded.id, status: newStatus });
     }
@@ -241,16 +248,17 @@ async function changeNumber(body: Record<string, unknown>, ctx: FnContext): Prom
   if (!/^\+?[1-9]\d{6,14}$/.test(cleaned)) {
     return { data: null, error: { message: "Invalid phone number format" } };
   }
-  const loaded = loadInstance(instanceId, ctx);
+  const loaded = await loadInstance(instanceId, ctx);
   if ("error" in loaded) return { data: null, error: { message: loaded.error } };
 
   const sessionName = sessionNameForInstance(loaded.id);
   await wahaClient.logout(sessionName).catch(() => undefined);
-  sqlite
-    .prepare(
-      "UPDATE whatsapp_instances SET phone_number = ?, status = 'disconnected', qr_code = NULL, qr_expires_at = NULL, updated_at = ? WHERE id = ?",
-    )
-    .run(cleaned, new Date().toISOString(), loaded.id);
+  await dbRun(
+    "UPDATE whatsapp_instances SET phone_number = ?, status = 'disconnected', qr_code = NULL, qr_expires_at = NULL, updated_at = ? WHERE id = ?",
+    cleaned,
+    new Date().toISOString(),
+    loaded.id,
+  );
   emitChange("whatsapp_instances", loaded.tenant_id, { id: loaded.id, status: "disconnected" });
 
   return {
@@ -267,7 +275,7 @@ async function changeNumber(body: Record<string, unknown>, ctx: FnContext): Prom
 async function updateWebhook(body: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
   const instanceId = body.instance_id as string;
   if (!instanceId) return { data: null, error: { message: "instance_id is required" } };
-  const loaded = loadInstance(instanceId, ctx);
+  const loaded = await loadInstance(instanceId, ctx);
   if ("error" in loaded) return { data: null, error: { message: loaded.error } };
 
   const sessionName = sessionNameForInstance(loaded.id);

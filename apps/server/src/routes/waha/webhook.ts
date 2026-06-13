@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { sqlite } from "../../db/index.js";
+import { dbGet, dbRun } from "../../db/raw.js";
 import { emitChange } from "../../realtime/emitter.js";
 import {
   WAHA_WEBHOOK_HMAC_SECRET,
@@ -78,7 +78,7 @@ function verifyHmac(raw: string, signature: string | undefined): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-function handleAck(payload: WahaMessagePayload, ack: number, tenantId: string): void {
+async function handleAck(payload: WahaMessagePayload, ack: number, tenantId: string): Promise<void> {
   const status = ACK_STATUS[ack];
   if (!status || !payload.id) return;
   const updates: string[] = ["status = ?"];
@@ -91,9 +91,10 @@ function handleAck(payload: WahaMessagePayload, ack: number, tenantId: string): 
     params.push(new Date().toISOString());
   }
   params.push(payload.id, tenantId);
-  const info = sqlite
-    .prepare(`UPDATE messages SET ${updates.join(", ")} WHERE wa_message_id = ? AND tenant_id = ?`)
-    .run(...params);
+  const info = await dbRun(
+    `UPDATE messages SET ${updates.join(", ")} WHERE wa_message_id = ? AND tenant_id = ?`,
+    ...params,
+  );
   if (info.changes > 0) {
     emitChange("messages", tenantId, { wa_message_id: payload.id });
   }
@@ -105,10 +106,10 @@ interface SessionStatusPayload {
   me?: { id?: string; pushName?: string } | null;
 }
 
-function handleSessionStatus(
+async function handleSessionStatus(
   instance: InstanceRow,
   payload: SessionStatusPayload,
-): void {
+): Promise<void> {
   const raw = (payload.status ?? "").toUpperCase();
   let status: string | null = null;
   const updates: string[] = [];
@@ -142,15 +143,16 @@ function handleSessionStatus(
 
   if (!status) return;
   params.push(instance.id);
-  sqlite.prepare(`UPDATE whatsapp_instances SET ${updates.join(", ")} WHERE id = ?`).run(...params);
+  await dbRun(`UPDATE whatsapp_instances SET ${updates.join(", ")} WHERE id = ?`, ...params);
   emitChange("whatsapp_instances", instance.tenant_id, { id: instance.id, status });
 }
 
 wahaWebhookRoute.post("/:instanceId", async (c) => {
   const instanceId = c.req.param("instanceId");
-  const instance = sqlite
-    .prepare("SELECT id, tenant_id, webhook_secret FROM whatsapp_instances WHERE id = ? LIMIT 1")
-    .get(instanceId) as InstanceRow | undefined;
+  const instance = await dbGet<InstanceRow>(
+    "SELECT id, tenant_id, webhook_secret FROM whatsapp_instances WHERE id = ? LIMIT 1",
+    instanceId,
+  );
 
   if (!instance) {
     return c.json({ error: "Instance not found" }, 404);
@@ -172,12 +174,15 @@ wahaWebhookRoute.post("/:instanceId", async (c) => {
 
   // Audit log every event for replay/debug.
   const logId = crypto.randomUUID();
-  sqlite
-    .prepare(
-      `INSERT INTO webhook_events_log (id, tenant_id, instance_id, event_type, payload, processed)
-       VALUES (?, ?, ?, ?, ?, 0)`,
-    )
-    .run(logId, instance.tenant_id, instance.id, event, raw);
+  await dbRun(
+    `INSERT INTO webhook_events_log (id, tenant_id, instance_id, event_type, payload, processed)
+     VALUES (?, ?, ?, ?, ?, false)`,
+    logId,
+    instance.tenant_id,
+    instance.id,
+    event,
+    raw,
+  );
 
   const ingestInstance: IngestInstance = { id: instance.id, tenant_id: instance.tenant_id };
 
@@ -197,18 +202,20 @@ wahaWebhookRoute.post("/:instanceId", async (c) => {
       }
 
       if (mapped.direction === "outbound") {
-        ingestOutboundSync(ingestInstance, mapped, localMedia);
+        await ingestOutboundSync(ingestInstance, mapped, localMedia);
       } else {
         const pushName = body.me?.pushName ?? null;
         // Persist the raw payload keyed by our message id for replay.
-        const result = ingestInbound(ingestInstance, mapped, pushName, localMedia);
+        const result = await ingestInbound(ingestInstance, mapped, pushName, localMedia);
         if (result.outcome === "inserted") {
-          sqlite
-            .prepare(
-              `INSERT OR IGNORE INTO message_raw_payloads (message_id, raw_payload, provider_metadata)
-               VALUES (?, ?, ?)`,
-            )
-            .run(result.messageId, raw, JSON.stringify({ engine: "waha", session: body.session }));
+          await dbRun(
+            `INSERT INTO message_raw_payloads (message_id, raw_payload, provider_metadata)
+             VALUES (?, ?, ?)
+             ON CONFLICT DO NOTHING`,
+            result.messageId,
+            raw,
+            JSON.stringify({ engine: "waha", session: body.session }),
+          );
           fireInboundMessagePersisted({
             messageId: result.messageId,
             contactId: result.contactId,
@@ -222,16 +229,16 @@ wahaWebhookRoute.post("/:instanceId", async (c) => {
     } else if (event === "message.ack") {
       const payload = body.payload as WahaMessagePayload & { ack?: number };
       if (typeof payload.ack === "number") {
-        handleAck(payload, payload.ack, instance.tenant_id);
+        await handleAck(payload, payload.ack, instance.tenant_id);
       }
     } else if (event === "session.status") {
-      handleSessionStatus(instance, body.payload as SessionStatusPayload);
+      await handleSessionStatus(instance, body.payload as SessionStatusPayload);
     }
 
-    sqlite.prepare("UPDATE webhook_events_log SET processed = 1 WHERE id = ?").run(logId);
+    await dbRun("UPDATE webhook_events_log SET processed = true WHERE id = ?", logId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "ingest error";
-    sqlite.prepare("UPDATE webhook_events_log SET error = ? WHERE id = ?").run(message, logId);
+    await dbRun("UPDATE webhook_events_log SET error = ? WHERE id = ?", message, logId);
     return c.json({ error: message }, 500);
   }
 

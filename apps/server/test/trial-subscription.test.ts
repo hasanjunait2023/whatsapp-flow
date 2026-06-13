@@ -3,7 +3,8 @@ import { useTempDb } from "./helpers.js";
 
 useTempDb();
 
-const { db, sqlite } = await import("../src/db/index.js");
+const { db } = await import("../src/db/index.js");
+const { dbGet, dbRun } = await import("../src/db/raw.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { tenants, subscriptions } = await import("../src/db/schema.js");
 const { seedPlans } = await import("../src/services/billing/seed-plans.js");
@@ -23,10 +24,8 @@ interface SubRow {
   trial_ends_at: string | null;
 }
 
-function subFor(tenantId: string): SubRow | undefined {
-  return sqlite
-    .prepare("SELECT * FROM subscriptions WHERE tenant_id = ? LIMIT 1")
-    .get(tenantId) as SubRow | undefined;
+function subFor(tenantId: string): Promise<SubRow | undefined> {
+  return dbGet<SubRow>("SELECT * FROM subscriptions WHERE tenant_id = ? LIMIT 1", tenantId);
 }
 
 /**
@@ -38,26 +37,26 @@ function newUserCtx(userId: string): TenantContext {
   return { userId, tenantId: null, isAdmin: false, isImpersonating: false };
 }
 
-beforeAll(() => {
-  runMigrations();
+beforeAll(async () => {
+  await runMigrations();
 });
 
-beforeEach(() => {
-  db.delete(subscriptions).run();
-  db.delete(tenants).run();
-  seedPlans();
+beforeEach(async () => {
+  await db.delete(subscriptions);
+  await db.delete(tenants);
+  await seedPlans();
 });
 
 describe("startTrialForTenant", () => {
-  it("creates a 5-day trialing Pro subscription", () => {
+  it("creates a 5-day trialing Pro subscription", async () => {
     const tenantId = "tnt-trial-1";
-    db.insert(tenants).values({ id: tenantId, name: "Trial Co", owner_id: "owner-1" }).run();
+    await db.insert(tenants).values({ id: tenantId, name: "Trial Co", owner_id: "owner-1" });
 
     const before = Date.now();
-    startTrialForTenant(tenantId);
+    await startTrialForTenant(tenantId);
     const after = Date.now();
 
-    const sub = subFor(tenantId);
+    const sub = await subFor(tenantId);
     expect(sub).toBeDefined();
     expect(sub!.status).toBe("trialing");
     expect(sub!.plan_id).toBe("pro");
@@ -74,28 +73,29 @@ describe("startTrialForTenant", () => {
     expect(periodStart).toBeLessThanOrEqual(after + 1000);
   });
 
-  it("is idempotent: never double-provisions for the same tenant", () => {
+  it("is idempotent: never double-provisions for the same tenant", async () => {
     const tenantId = "tnt-trial-2";
-    db.insert(tenants).values({ id: tenantId, name: "Dup Co", owner_id: "owner-2" }).run();
+    await db.insert(tenants).values({ id: tenantId, name: "Dup Co", owner_id: "owner-2" });
 
-    startTrialForTenant(tenantId);
-    startTrialForTenant(tenantId);
+    await startTrialForTenant(tenantId);
+    await startTrialForTenant(tenantId);
 
-    const count = sqlite
-      .prepare("SELECT COUNT(*) AS n FROM subscriptions WHERE tenant_id = ?")
-      .get(tenantId) as { n: number };
+    const count = (await dbGet(
+      "SELECT COUNT(*)::int AS n FROM subscriptions WHERE tenant_id = ?",
+      tenantId,
+    )) as { n: number };
     expect(count.n).toBe(1);
   });
 
-  it("does not provision when the pro plan is absent (e.g. catalog not seeded)", () => {
-    db.delete(subscriptions).run();
-    db.delete(tenants).run();
-    sqlite.prepare("DELETE FROM plans").run(); // remove the catalog entirely
+  it("does not provision when the pro plan is absent (e.g. catalog not seeded)", async () => {
+    await db.delete(subscriptions);
+    await db.delete(tenants);
+    await dbRun("DELETE FROM plans"); // remove the catalog entirely
 
     const tenantId = "tnt-trial-3";
-    db.insert(tenants).values({ id: tenantId, name: "No Plan Co", owner_id: "owner-3" }).run();
-    startTrialForTenant(tenantId);
-    expect(subFor(tenantId)).toBeUndefined();
+    await db.insert(tenants).values({ id: tenantId, name: "No Plan Co", owner_id: "owner-3" });
+    await startTrialForTenant(tenantId);
+    expect(await subFor(tenantId)).toBeUndefined();
   });
 });
 
@@ -131,7 +131,7 @@ describe("tenant creation via /api/query starts the trial", () => {
     const created = res.data as { id: string };
     expect(created.id).toBeDefined();
 
-    const sub = subFor(created.id);
+    const sub = await subFor(created.id);
     expect(sub).toBeDefined();
     expect(sub!.status).toBe("trialing");
     expect(sub!.plan_id).toBe("pro");
@@ -142,14 +142,14 @@ describe("tenant creation via /api/query starts the trial", () => {
 
   it("does not create a subscription for non-tenant inserts", async () => {
     // Insert a tenant first so there's an active tenant for a scoped insert.
-    db.insert(tenants).values({ id: "tnt-q", name: "Q Co", owner_id: "owner-q" }).run();
+    await db.insert(tenants).values({ id: "tnt-q", name: "Q Co", owner_id: "owner-q" });
     const ctx: TenantContext = {
       userId: "owner-q",
       tenantId: "tnt-q",
       isAdmin: false,
       isImpersonating: false,
     };
-    const subsBefore = sqlite.prepare("SELECT COUNT(*) AS n FROM subscriptions").get() as { n: number };
+    const subsBefore = (await dbGet("SELECT COUNT(*)::int AS n FROM subscriptions")) as { n: number };
 
     await executeQuery(
       {
@@ -161,7 +161,7 @@ describe("tenant creation via /api/query starts the trial", () => {
       ctx,
     );
 
-    const subsAfter = sqlite.prepare("SELECT COUNT(*) AS n FROM subscriptions").get() as { n: number };
+    const subsAfter = (await dbGet("SELECT COUNT(*)::int AS n FROM subscriptions")) as { n: number };
     expect(subsAfter.n).toBe(subsBefore.n);
   });
 });

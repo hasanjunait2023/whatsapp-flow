@@ -29,24 +29,22 @@ export function costUsd(model: string, usage: LlmUsage): number {
   );
 }
 
-export function recordUsage(
+export async function recordUsage(
   tenantId: string,
   feature: LlmFeature,
   provider: ProviderName,
   model: string,
   usage: LlmUsage,
-): void {
-  db.insert(llmUsageEvents)
-    .values({
-      tenant_id: tenantId,
-      feature,
-      provider,
-      model,
-      prompt_tokens: usage.promptTokens,
-      completion_tokens: usage.completionTokens,
-      cost_usd: costUsd(model, usage),
-    })
-    .run();
+): Promise<void> {
+  await db.insert(llmUsageEvents).values({
+    tenant_id: tenantId,
+    feature,
+    provider,
+    model,
+    prompt_tokens: usage.promptTokens,
+    completion_tokens: usage.completionTokens,
+    cost_usd: costUsd(model, usage),
+  });
 }
 
 function monthStartIso(): string {
@@ -55,16 +53,15 @@ function monthStartIso(): string {
 }
 
 /** Total tokens (prompt + completion) used by the tenant this calendar month. */
-export function tokensUsedThisMonth(tenantId: string): number {
-  const rows = db
+export async function tokensUsedThisMonth(tenantId: string): Promise<number> {
+  const rows = await db
     .select({
       total: sql<number>`COALESCE(SUM(prompt_tokens + completion_tokens), 0)`,
     })
     .from(llmUsageEvents)
     .where(
       and(eq(llmUsageEvents.tenant_id, tenantId), gte(llmUsageEvents.created_at, monthStartIso())),
-    )
-    .all();
+    );
   return Number(rows[0]?.total ?? 0);
 }
 
@@ -73,16 +70,17 @@ export function tokensUsedThisMonth(tenantId: string): number {
  * has already consumed it. Call BEFORE every LLM request. No budget row or a
  * null budget means unlimited.
  */
-export function checkBudget(tenantId: string): void {
-  const settings = db
-    .select({ budget: llmSettings.monthly_token_budget })
-    .from(llmSettings)
-    .where(eq(llmSettings.tenant_id, tenantId))
-    .limit(1)
-    .all()[0];
+export async function checkBudget(tenantId: string): Promise<void> {
+  const settings = (
+    await db
+      .select({ budget: llmSettings.monthly_token_budget })
+      .from(llmSettings)
+      .where(eq(llmSettings.tenant_id, tenantId))
+      .limit(1)
+  )[0];
   const budget = settings?.budget;
   if (budget == null) return;
-  if (tokensUsedThisMonth(tenantId) >= budget) {
+  if ((await tokensUsedThisMonth(tenantId)) >= budget) {
     throw new BudgetExceededError(tenantId);
   }
 }

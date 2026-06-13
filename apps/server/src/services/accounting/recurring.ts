@@ -1,4 +1,4 @@
-import { sqlite } from "../../db/index.js";
+import { dbAll, dbTx } from "../../db/raw.js";
 
 /**
  * Generates expense entries from due recurring expenses. Runs on a daily
@@ -39,26 +39,25 @@ function advance(from: string, frequency: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function generateDueRecurringExpenses(now: Date = new Date()): { generated: number } {
+export async function generateDueRecurringExpenses(
+  now: Date = new Date(),
+): Promise<{ generated: number }> {
   const today = now.toISOString().slice(0, 10);
-  const due = sqlite
-    .prepare(
-      `SELECT id, tenant_id, amount, category_id, currency, description, frequency,
+  const due = await dbAll<RecurringRow>(
+    `SELECT id, tenant_id, amount, category_id, currency, description, frequency,
               day_of_month, payment_method, next_due_date
          FROM tenant_recurring_expenses
-        WHERE is_active = 1 AND next_due_date IS NOT NULL AND next_due_date <= ?`,
-    )
-    .all(today) as RecurringRow[];
+        WHERE is_active = true AND next_due_date IS NOT NULL AND next_due_date <= ?`,
+    today,
+  );
 
   let generated = 0;
-  const insert = sqlite.prepare(
-    `INSERT INTO tenant_expenses
+  for (const r of due) {
+    await dbTx(async (tx) => {
+      await tx.run(
+        `INSERT INTO tenant_expenses
        (id, tenant_id, amount, category_id, currency, description, expense_date, payment_method, notes)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Auto-generated from recurring expense')`,
-  );
-  for (const r of due) {
-    const tx = sqlite.transaction(() => {
-      insert.run(
         crypto.randomUUID(),
         r.tenant_id,
         r.amount,
@@ -69,11 +68,13 @@ export function generateDueRecurringExpenses(now: Date = new Date()): { generate
         r.payment_method,
       );
       const next = advance(r.next_due_date as string, r.frequency);
-      sqlite
-        .prepare("UPDATE tenant_recurring_expenses SET next_due_date = ?, last_generated_at = ? WHERE id = ?")
-        .run(next, now.toISOString(), r.id);
+      await tx.run(
+        "UPDATE tenant_recurring_expenses SET next_due_date = ?, last_generated_at = ? WHERE id = ?",
+        next,
+        now.toISOString(),
+        r.id,
+      );
     });
-    tx();
     generated += 1;
   }
   return { generated };

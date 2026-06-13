@@ -1,4 +1,4 @@
-import { sqlite } from "../../db/index.js";
+import { dbGet, dbAll } from "../../db/raw.js";
 import type { LlmTool } from "../../llm/types.js";
 
 /**
@@ -65,11 +65,11 @@ export interface ToolOutcome {
 const ORDER_LIMIT = 5;
 const PRODUCT_LIMIT = 5;
 
-export function executeHermesTool(
+export async function executeHermesTool(
   tenantId: string,
   name: string,
   args: Record<string, unknown>,
-): ToolOutcome {
+): Promise<ToolOutcome> {
   switch (name) {
     case "lookup_order": {
       const orderNumber = typeof args.order_number === "string" ? args.order_number : null;
@@ -78,43 +78,43 @@ export function executeHermesTool(
         return { result: JSON.stringify({ error: "Provide order_number or phone" }) };
       }
       const rows = orderNumber
-        ? sqlite
-            .prepare(
-              `SELECT order_number, status, payment_status, total, currency, courier, tracking_number, created_at
+        ? await dbAll(
+            `SELECT order_number, status, payment_status, total, currency, courier, tracking_number, created_at
                FROM orders WHERE tenant_id = ? AND order_number = ? LIMIT 1`,
-            )
-            .all(tenantId, orderNumber)
-        : sqlite
-            .prepare(
-              `SELECT order_number, status, payment_status, total, currency, courier, tracking_number, created_at
+            tenantId,
+            orderNumber,
+          )
+        : await dbAll(
+            `SELECT order_number, status, payment_status, total, currency, courier, tracking_number, created_at
                FROM orders WHERE tenant_id = ? AND customer_phone LIKE ?
                ORDER BY created_at DESC LIMIT ${ORDER_LIMIT}`,
-            )
-            .all(tenantId, `%${phone!.replace(/\D/g, "").slice(-10)}%`);
+            tenantId,
+            `%${phone!.replace(/\D/g, "").slice(-10)}%`,
+          );
       return { result: JSON.stringify({ orders: rows }) };
     }
 
     case "lookup_product": {
       const query = typeof args.query === "string" ? args.query.trim() : "";
       if (!query) return { result: JSON.stringify({ error: "query is required" }) };
-      const rows = sqlite
-        .prepare(
-          `SELECT id, name, description, price, stock_quantity, is_active
-           FROM products WHERE tenant_id = ? AND is_active = 1 AND name LIKE ?
+      const rows = await dbAll(
+        `SELECT id, name, description, price, stock_quantity, is_active
+           FROM products WHERE tenant_id = ? AND is_active = true AND name LIKE ?
            LIMIT ${PRODUCT_LIMIT}`,
-        )
-        .all(tenantId, `%${query}%`);
+        tenantId,
+        `%${query}%`,
+      );
       return { result: JSON.stringify({ products: rows }) };
     }
 
     case "check_stock": {
       const productId = typeof args.product_id === "string" ? args.product_id : "";
-      const row = sqlite
-        .prepare(
-          `SELECT id, name, stock_quantity, track_inventory FROM products
+      const row = await dbGet(
+        `SELECT id, name, stock_quantity, track_inventory FROM products
            WHERE tenant_id = ? AND id = ? LIMIT 1`,
-        )
-        .get(tenantId, productId);
+        tenantId,
+        productId,
+      );
       return { result: JSON.stringify(row ?? { error: "Product not found" }) };
     }
 

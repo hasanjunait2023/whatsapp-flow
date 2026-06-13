@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbGet, dbRun } from "../db/raw.js";
 import { encryptSecret, decryptSecret } from "../lib/crypto.js";
 import { createOrder, statusByConsignment } from "../services/courier/steadfast.js";
 import { checkPhone } from "../services/courier/bdcourier.js";
@@ -37,19 +37,19 @@ interface IntegrationRow {
 }
 
 /** Loads + decrypts a tenant's integration for a provider (null if absent/inactive). */
-function loadCreds(
+async function loadCreds(
   tenantId: string,
   provider: string,
-): { apiKey: string; apiSecret: string } | null {
-  const row = sqlite
-    .prepare(
-      `SELECT api_key, api_secret, is_active FROM courier_integrations
+): Promise<{ apiKey: string; apiSecret: string } | null> {
+  const row = (await dbGet(
+    `SELECT api_key, api_secret, is_active FROM courier_integrations
        WHERE tenant_id = ? AND provider = ? LIMIT 1`,
-    )
-    .get(tenantId, provider) as
-    | { api_key: string | null; api_secret: string | null; is_active: number | null }
+    tenantId,
+    provider,
+  )) as
+    | { api_key: string | null; api_secret: string | null; is_active: boolean | null }
     | undefined;
-  if (!row || row.is_active === 0 || !row.api_key) return null;
+  if (!row || row.is_active === false || !row.api_key) return null;
   return {
     apiKey: decryptSecret(row.api_key),
     apiSecret: row.api_secret ? decryptSecret(row.api_secret) : "",
@@ -58,19 +58,22 @@ function loadCreds(
 
 /** Loads + decrypts a tenant's Pathao credentials (client id/secret in api_key/
  * api_secret; merchant username/password in settings; store id in store_id). */
-function loadPathaoCreds(tenantId: string): PathaoCreds | null {
-  const row = sqlite
-    .prepare(
-      `SELECT api_key, api_secret, store_id, settings, is_active
+async function loadPathaoCreds(tenantId: string): Promise<PathaoCreds | null> {
+  const row = (await dbGet(
+    `SELECT api_key, api_secret, store_id, settings, is_active
          FROM courier_integrations WHERE tenant_id = ? AND provider = 'pathao' LIMIT 1`,
-    )
-    .get(tenantId) as
-    | { api_key: string | null; api_secret: string | null; store_id: string | null; settings: string | null; is_active: number | null }
+    tenantId,
+  )) as
+    | { api_key: string | null; api_secret: string | null; store_id: string | null; settings: string | null; is_active: boolean | null }
     | undefined;
-  if (!row || row.is_active === 0 || !row.api_key || !row.store_id) return null;
+  if (!row || row.is_active === false || !row.api_key || !row.store_id) return null;
   let settings: { username?: string; password_enc?: string; sandbox?: boolean } = {};
   try {
-    settings = row.settings ? JSON.parse(row.settings) : {};
+    settings = row.settings
+      ? typeof row.settings === "string"
+        ? JSON.parse(row.settings)
+        : row.settings
+      : {};
   } catch {
     settings = {};
   }
@@ -114,13 +117,11 @@ async function bookOne(
   }
 
   // Confirm the order belongs to this tenant (defense in depth).
-  const order = sqlite
-    .prepare("SELECT 1 FROM orders WHERE id = ? AND tenant_id = ? LIMIT 1")
-    .get(orderId, tenantId);
+  const order = await dbGet("SELECT 1 FROM orders WHERE id = ? AND tenant_id = ? LIMIT 1", orderId, tenantId);
   if (!order) return { success: false, order_id: orderId, error: "Order not found" };
 
   if (courier === "pathao") {
-    const pathao = loadPathaoCreds(tenantId);
+    const pathao = await loadPathaoCreds(tenantId);
     if (!pathao) {
       return { success: false, order_id: orderId, error: "Pathao is not fully configured (needs client id/secret, store id, username & password)" };
     }
@@ -138,28 +139,25 @@ async function bookOne(
         itemWeight: p.weight_kg ?? undefined,
       });
       const shipmentId = crypto.randomUUID();
-      sqlite
-        .prepare(
-          `INSERT INTO shipments
+      await dbRun(
+        `INSERT INTO shipments
              (id, tenant_id, order_id, courier, consignment_id, tracking_code, status,
               cod_amount, delivery_address, item_description, special_instructions, weight_kg, courier_response, booked_at)
            VALUES (?, ?, ?, 'pathao', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          shipmentId,
-          tenantId,
-          orderId,
-          result.consignmentId,
-          result.consignmentId,
-          result.status,
-          p.cod_amount ?? null,
-          p.delivery_address != null ? JSON.stringify(p.delivery_address) : null,
-          p.item_description ?? null,
-          p.special_instructions ?? null,
-          p.weight_kg ?? null,
-          JSON.stringify(result.raw),
-          new Date().toISOString(),
-        );
+        shipmentId,
+        tenantId,
+        orderId,
+        result.consignmentId,
+        result.consignmentId,
+        result.status,
+        p.cod_amount ?? null,
+        p.delivery_address != null ? JSON.stringify(p.delivery_address) : null,
+        p.item_description ?? null,
+        p.special_instructions ?? null,
+        p.weight_kg ?? null,
+        JSON.stringify(result.raw),
+        new Date().toISOString(),
+      );
       return { success: true, order_id: orderId, shipment_id: shipmentId, consignment_id: result.consignmentId, tracking_code: result.consignmentId };
     } catch (err) {
       return { success: false, order_id: orderId, error: err instanceof Error ? err.message : "Pathao booking failed" };
@@ -169,7 +167,7 @@ async function bookOne(
     return { success: false, order_id: orderId, error: `Unsupported courier "${courier}"` };
   }
 
-  const creds = loadCreds(tenantId, "steadfast");
+  const creds = await loadCreds(tenantId, "steadfast");
   if (!creds) return { success: false, order_id: orderId, error: "Steadfast is not configured or inactive" };
 
   try {
@@ -185,29 +183,26 @@ async function bookOne(
       },
     );
     const shipmentId = crypto.randomUUID();
-    sqlite
-      .prepare(
-        `INSERT INTO shipments
+    await dbRun(
+      `INSERT INTO shipments
            (id, tenant_id, order_id, courier, consignment_id, tracking_code, status,
             cod_amount, delivery_address, item_description, special_instructions, weight_kg,
             courier_response, booked_at)
          VALUES (?, ?, ?, 'steadfast', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        shipmentId,
-        tenantId,
-        orderId,
-        result.consignmentId,
-        result.trackingCode,
-        result.status,
-        p.cod_amount ?? null,
-        p.delivery_address != null ? JSON.stringify(p.delivery_address) : null,
-        p.item_description ?? null,
-        p.special_instructions ?? null,
-        p.weight_kg ?? null,
-        JSON.stringify(result.raw),
-        new Date().toISOString(),
-      );
+      shipmentId,
+      tenantId,
+      orderId,
+      result.consignmentId,
+      result.trackingCode,
+      result.status,
+      p.cod_amount ?? null,
+      p.delivery_address != null ? JSON.stringify(p.delivery_address) : null,
+      p.item_description ?? null,
+      p.special_instructions ?? null,
+      p.weight_kg ?? null,
+      JSON.stringify(result.raw),
+      new Date().toISOString(),
+    );
     return {
       success: true,
       order_id: orderId,
@@ -230,12 +225,14 @@ export const COURIER_HANDLERS: Record<string, FnHandler> = {
     const apiKey = typeof body.api_key === "string" ? body.api_key.trim() : "";
     const apiSecret = typeof body.api_secret === "string" ? body.api_secret.trim() : "";
     const storeId = typeof body.store_id === "string" ? body.store_id : null;
-    const isActive = body.is_active === false ? 0 : 1;
+    const isActive = body.is_active === false ? false : true;
     const pickup = body.default_pickup_address != null ? JSON.stringify(body.default_pickup_address) : null;
 
-    const existing = sqlite
-      .prepare("SELECT id, api_key, api_secret, settings FROM courier_integrations WHERE tenant_id = ? AND provider = ? LIMIT 1")
-      .get(ctx.tenantId, provider) as (IntegrationRow & { settings: string | null }) | undefined;
+    const existing = (await dbGet(
+      "SELECT id, api_key, api_secret, settings FROM courier_integrations WHERE tenant_id = ? AND provider = ? LIMIT 1",
+      ctx.tenantId,
+      provider,
+    )) as (IntegrationRow & { settings: string | null }) | undefined;
 
     // Only overwrite a secret when a new non-empty value is supplied (so a save
     // that leaves the redacted field blank keeps the stored credential).
@@ -251,7 +248,11 @@ export const COURIER_HANDLERS: Record<string, FnHandler> = {
     if (inSettings) {
       let prev: Record<string, unknown> = {};
       try {
-        prev = existing?.settings ? JSON.parse(existing.settings) : {};
+        prev = existing?.settings
+          ? typeof existing.settings === "string"
+            ? JSON.parse(existing.settings)
+            : (existing.settings as Record<string, unknown>)
+          : {};
       } catch {
         prev = {};
       }
@@ -265,21 +266,36 @@ export const COURIER_HANDLERS: Record<string, FnHandler> = {
     }
 
     if (existing) {
-      sqlite
-        .prepare(
-          `UPDATE courier_integrations
+      await dbRun(
+        `UPDATE courier_integrations
              SET api_key = ?, api_secret = ?, store_id = ?, is_active = ?, default_pickup_address = ?, settings = ?, updated_at = ?
            WHERE id = ?`,
-        )
-        .run(encKey, encSecret, storeId, isActive, pickup, settingsJson, now, existing.id);
+        encKey,
+        encSecret,
+        storeId,
+        isActive,
+        pickup,
+        settingsJson,
+        now,
+        existing.id,
+      );
     } else {
-      sqlite
-        .prepare(
-          `INSERT INTO courier_integrations
+      await dbRun(
+        `INSERT INTO courier_integrations
              (id, tenant_id, provider, api_key, api_secret, store_id, is_active, default_pickup_address, settings, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(crypto.randomUUID(), ctx.tenantId, provider, encKey, encSecret, storeId, isActive, pickup, settingsJson, now, now);
+        crypto.randomUUID(),
+        ctx.tenantId,
+        provider,
+        encKey,
+        encSecret,
+        storeId,
+        isActive,
+        pickup,
+        settingsJson,
+        now,
+        now,
+      );
     }
     return ok({ success: true, provider });
   },
@@ -289,7 +305,7 @@ export const COURIER_HANDLERS: Record<string, FnHandler> = {
     if (!ctx.tenantId) return fail("No active tenant");
     const phone = typeof body.phone === "string" ? body.phone.trim() : "";
     if (!phone) return fail("phone is required");
-    const creds = loadCreds(ctx.tenantId, "bdcourier");
+    const creds = await loadCreds(ctx.tenantId, "bdcourier");
     if (!creds) return fail("BDCourier is not configured. Add your API key in Courier settings.");
     try {
       const result = await checkPhone(creds.apiKey, phone);
@@ -319,26 +335,31 @@ export const COURIER_HANDLERS: Record<string, FnHandler> = {
     const shipmentId = typeof body.shipment_id === "string" ? body.shipment_id : "";
     if (!shipmentId) return fail("shipment_id is required");
 
-    const shipment = sqlite
-      .prepare(
-        `SELECT id, courier, consignment_id, status FROM shipments
+    const shipment = (await dbGet(
+      `SELECT id, courier, consignment_id, status FROM shipments
          WHERE id = ? AND tenant_id = ? LIMIT 1`,
-      )
-      .get(shipmentId, ctx.tenantId) as
+      shipmentId,
+      ctx.tenantId,
+    )) as
       | { id: string; courier: string; consignment_id: string | null; status: string }
       | undefined;
     if (!shipment) return fail("Shipment not found");
     if (!shipment.consignment_id) return fail("Shipment has no consignment id to track");
 
     if (shipment.courier === "pathao") {
-      const pathao = loadPathaoCreds(ctx.tenantId);
+      const pathao = await loadPathaoCreds(ctx.tenantId);
       if (!pathao) return fail("Pathao is not configured");
       try {
         const { status, raw } = await pathaoTrackOrder(pathao, shipment.consignment_id);
         const delivered = status.toLowerCase().includes("delivered");
-        sqlite
-          .prepare("UPDATE shipments SET status = ?, courier_response = ?, delivered_at = ?, updated_at = ? WHERE id = ?")
-          .run(status, JSON.stringify(raw), delivered ? new Date().toISOString() : null, new Date().toISOString(), shipment.id);
+        await dbRun(
+          "UPDATE shipments SET status = ?, courier_response = ?, delivered_at = ?, updated_at = ? WHERE id = ?",
+          status,
+          JSON.stringify(raw),
+          delivered ? new Date().toISOString() : null,
+          new Date().toISOString(),
+          shipment.id,
+        );
         return ok({ success: true, status });
       } catch (err) {
         return fail(err instanceof Error ? err.message : "Tracking failed");
@@ -346,7 +367,7 @@ export const COURIER_HANDLERS: Record<string, FnHandler> = {
     }
     if (shipment.courier !== "steadfast") return fail(`Tracking for "${shipment.courier}" is not available yet`);
 
-    const creds = loadCreds(ctx.tenantId, "steadfast");
+    const creds = await loadCreds(ctx.tenantId, "steadfast");
     if (!creds) return fail("Steadfast is not configured or inactive");
 
     try {
@@ -355,17 +376,14 @@ export const COURIER_HANDLERS: Record<string, FnHandler> = {
         shipment.consignment_id,
       );
       const delivered = status.toLowerCase() === "delivered";
-      sqlite
-        .prepare(
-          `UPDATE shipments SET status = ?, courier_response = ?, delivered_at = ?, updated_at = ? WHERE id = ?`,
-        )
-        .run(
-          status,
-          JSON.stringify(raw),
-          delivered ? new Date().toISOString() : null,
-          new Date().toISOString(),
-          shipment.id,
-        );
+      await dbRun(
+        `UPDATE shipments SET status = ?, courier_response = ?, delivered_at = ?, updated_at = ? WHERE id = ?`,
+        status,
+        JSON.stringify(raw),
+        delivered ? new Date().toISOString() : null,
+        new Date().toISOString(),
+        shipment.id,
+      );
       return ok({ success: true, status });
     } catch (err) {
       return fail(err instanceof Error ? err.message : "Tracking failed");

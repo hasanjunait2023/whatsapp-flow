@@ -3,7 +3,8 @@ import { useTempDb } from "./helpers.js";
 
 useTempDb();
 
-const { db, sqlite } = await import("../src/db/index.js");
+const { db } = await import("../src/db/index.js");
+const { dbGet } = await import("../src/db/raw.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { tenants, orders, invoiceSettings, whatsappInstances, contacts, messages } = await import(
   "../src/db/schema.js"
@@ -19,45 +20,37 @@ function ctx(tenantId: string | null, isAdmin = false): FnContext {
   return { userId: "user-a", tenantId, isAdmin };
 }
 
-beforeAll(() => {
-  runMigrations();
-  db.insert(tenants)
-    .values([
-      { id: TENANT_A, name: "A", owner_id: "user-a" },
-      { id: TENANT_B, name: "B", owner_id: "user-b" },
-    ])
-    .run();
-  db.insert(orders)
-    .values([
-      { id: "order-a", tenant_id: TENANT_A, order_number: "ORD-000001", total: 150 },
-      { id: "order-b", tenant_id: TENANT_B, order_number: "ORD-000001", total: 999 },
-    ])
-    .run();
-  db.insert(invoiceSettings)
-    .values({ id: "is-a", tenant_id: TENANT_A, invoice_prefix: "INV-", next_invoice_number: 7 })
-    .run();
+beforeAll(async () => {
+  await runMigrations();
+  await db.insert(tenants).values([
+    { id: TENANT_A, name: "A", owner_id: "user-a" },
+    { id: TENANT_B, name: "B", owner_id: "user-b" },
+  ]);
+  await db.insert(orders).values([
+    { id: "order-a", tenant_id: TENANT_A, order_number: "ORD-000001", total: 150 },
+    { id: "order-b", tenant_id: TENANT_B, order_number: "ORD-000001", total: 999 },
+  ]);
+  await db
+    .insert(invoiceSettings)
+    .values({ id: "is-a", tenant_id: TENANT_A, invoice_prefix: "INV-", next_invoice_number: 7 });
 
   // forward-message IDOR fixtures: instance + contact for A, a secret message in B.
-  db.insert(whatsappInstances)
-    .values({ id: "inst-a", tenant_id: TENANT_A, name: "A", status: "active", phone_number: "111" })
-    .run();
-  db.insert(contacts)
-    .values([
-      { id: "ca", tenant_id: TENANT_A, wa_id: "a@s", phone_number: "111", instance_id: "inst-a" },
-      { id: "cb", tenant_id: TENANT_B, wa_id: "b@s", phone_number: "222" },
-    ])
-    .run();
-  db.insert(messages)
-    .values({
-      id: "msg-b-secret",
-      tenant_id: TENANT_B,
-      contact_id: "cb",
-      direction: "inbound",
-      content: "TENANT-B-SECRET",
-      content_type: "text",
-      wa_message_id: "wamid-b",
-    })
-    .run();
+  await db
+    .insert(whatsappInstances)
+    .values({ id: "inst-a", tenant_id: TENANT_A, name: "A", status: "active", phone_number: "111" });
+  await db.insert(contacts).values([
+    { id: "ca", tenant_id: TENANT_A, wa_id: "a@s", phone_number: "111", instance_id: "inst-a" },
+    { id: "cb", tenant_id: TENANT_B, wa_id: "b@s", phone_number: "222" },
+  ]);
+  await db.insert(messages).values({
+    id: "msg-b-secret",
+    tenant_id: TENANT_B,
+    contact_id: "cb",
+    direction: "inbound",
+    content: "TENANT-B-SECRET",
+    content_type: "text",
+    wa_message_id: "wamid-b",
+  });
 });
 
 describe("generate-invoice", () => {
@@ -67,15 +60,17 @@ describe("generate-invoice", () => {
     expect(data.success).toBe(true);
     expect(data.invoice_number).toBe("INV-00007");
 
-    const row = sqlite
-      .prepare("SELECT total, tenant_id FROM invoices WHERE id = ?")
-      .get(data.invoice_id) as { total: number; tenant_id: string };
+    const row = (await dbGet(
+      "SELECT total, tenant_id FROM invoices WHERE id = ?",
+      data.invoice_id,
+    )) as { total: number; tenant_id: string };
     expect(row.total).toBe(150);
     expect(row.tenant_id).toBe(TENANT_A);
 
-    const settings = sqlite
-      .prepare("SELECT next_invoice_number AS n FROM invoice_settings WHERE tenant_id = ?")
-      .get(TENANT_A) as { n: number };
+    const settings = (await dbGet(
+      "SELECT next_invoice_number AS n FROM invoice_settings WHERE tenant_id = ?",
+      TENANT_A,
+    )) as { n: number };
     expect(settings.n).toBe(8);
   });
 
@@ -96,8 +91,8 @@ describe("merge-invoices tenant scoping", () => {
   it("rejects merging when an invoice is outside the tenant", async () => {
     // order-a's invoice belongs to A; create one for B and try to merge across.
     await generateInvoice({ order_id: "order-b" }, ctx(TENANT_B, true));
-    const aInv = sqlite.prepare("SELECT id FROM invoices WHERE tenant_id = ?").get(TENANT_A) as { id: string };
-    const bInv = sqlite.prepare("SELECT id FROM invoices WHERE tenant_id = ?").get(TENANT_B) as { id: string };
+    const aInv = (await dbGet("SELECT id FROM invoices WHERE tenant_id = ?", TENANT_A)) as { id: string };
+    const bInv = (await dbGet("SELECT id FROM invoices WHERE tenant_id = ?", TENANT_B)) as { id: string };
     const res = await mergeInvoices({ invoice_ids: [aInv.id, bInv.id] }, ctx(TENANT_A));
     const data = res.data as { error?: string };
     expect(data.error).toBe("Some invoices were not found in your tenant");

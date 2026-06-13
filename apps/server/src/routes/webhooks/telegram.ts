@@ -55,7 +55,7 @@ telegramWebhookRoute.post("/", async (c) => {
   let reply: string | null = null;
   const startMatch = text.match(/^\/start\s+([0-9a-f]{32})$/i);
   if (startMatch) {
-    reply = consumeLinkCode(startMatch[1], String(chatId)).reply;
+    reply = (await consumeLinkCode(startMatch[1], String(chatId))).reply;
   } else if (text.startsWith("/start")) {
     reply = "Open your dashboard and use the Telegram link button to connect this chat.";
   }

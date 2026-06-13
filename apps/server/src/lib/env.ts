@@ -16,7 +16,22 @@ if (process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test") {
   }
 }
 
-export const DB_PATH = process.env.DB_PATH ?? path.resolve(process.cwd(), "data", "app.db");
+/**
+ * Postgres connection string. Required at runtime (prod points at the shared
+ * postiz-postgres instance, db `whatsapp_flow`). Tests use an in-process PGlite
+ * instance instead, so this is read lazily — importing the schema for tooling
+ * (drizzle-kit) or tests must not require a live URL.
+ */
+export function getDatabaseUrl(): string {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error("DATABASE_URL is not configured");
+  }
+  return url;
+}
+
+/** Raw value (may be empty); use getDatabaseUrl() where a URL is required. */
+export const DATABASE_URL = process.env.DATABASE_URL ?? "";
 
 export const MEDIA_DIR =
   process.env.MEDIA_DIR ?? path.resolve(process.cwd(), "data", "media");

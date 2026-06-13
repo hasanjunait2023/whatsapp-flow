@@ -42,11 +42,9 @@ export function startScheduler(): void {
   timers.push(jobQueue);
 
   const ceoSchedules = setInterval(() => {
-    try {
-      checkCeoSchedules();
-    } catch {
+    void checkCeoSchedules().catch(() => {
       // Schedule-eval failures retry next tick; job-level errors live on rows.
-    }
+    });
   }, CEO_SCHEDULE_INTERVAL_MS);
   ceoSchedules.unref();
   timers.push(ceoSchedules);
@@ -71,13 +69,15 @@ export function startScheduler(): void {
     void runMediaCleanup().catch(() => {
       // Best-effort retention; errors are non-fatal and retry next day.
     });
-    try {
-      runWebhookCleanup();
-      runSubscriptionReminders();
-      generateDueRecurringExpenses();
-    } catch {
-      // Sweep-level failures retry on the next daily tick.
-    }
+    void runWebhookCleanup().catch(() => {
+      // Best-effort retention; errors are non-fatal and retry next day.
+    });
+    void runSubscriptionReminders().catch(() => {
+      // Best-effort reminders; errors are non-fatal and retry next day.
+    });
+    void generateDueRecurringExpenses().catch(() => {
+      // Best-effort generation; errors are non-fatal and retry next day.
+    });
   }, DAILY_INTERVAL_MS);
   dailySweeps.unref();
   timers.push(dailySweeps);

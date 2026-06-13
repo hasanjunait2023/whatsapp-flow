@@ -16,24 +16,25 @@ function ctx(tenantId: string | null, isAdmin = false): TenantContext {
   return { userId: "u", tenantId, isAdmin, isImpersonating: false };
 }
 
-beforeAll(() => {
-  runMigrations();
-  db.insert(businessTypes).values({ id: "bt-1", slug: "ecommerce", name: "E-commerce" }).run();
-  db.insert(tenants)
-    .values([
-      { id: TENANT_A, name: "A", owner_id: "u", business_type_id: "bt-1" },
-      { id: TENANT_B, name: "B", owner_id: "u2" },
-    ])
-    .run();
-  db.insert(contacts)
-    .values([
-      { id: "ca", tenant_id: TENANT_A, wa_id: "a@s", phone_number: "111" },
-      { id: "cb", tenant_id: TENANT_B, wa_id: "b@s", phone_number: "222" },
-    ])
-    .run();
-  db.insert(customerScores)
-    .values({ id: "sc-a", tenant_id: TENANT_A, contact_id: "ca", total_orders: 5, total_spent: 1200, score_tier: "gold" })
-    .run();
+beforeAll(async () => {
+  await runMigrations();
+  await db.insert(businessTypes).values({ id: "bt-1", slug: "ecommerce", name: "E-commerce" });
+  await db.insert(tenants).values([
+    { id: TENANT_A, name: "A", owner_id: "u", business_type_id: "bt-1" },
+    { id: TENANT_B, name: "B", owner_id: "u2" },
+  ]);
+  await db.insert(contacts).values([
+    { id: "ca", tenant_id: TENANT_A, wa_id: "a@s", phone_number: "111" },
+    { id: "cb", tenant_id: TENANT_B, wa_id: "b@s", phone_number: "222" },
+  ]);
+  await db.insert(customerScores).values({
+    id: "sc-a",
+    tenant_id: TENANT_A,
+    contact_id: "ca",
+    total_orders: 5,
+    total_spent: 1200,
+    score_tier: "gold",
+  });
 });
 
 describe("contact_customer_status virtual view", () => {

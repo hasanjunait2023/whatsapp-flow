@@ -11,16 +11,16 @@ vi.mock("node:dns/promises", () => ({
 useTempDb();
 process.env.MASTER_KEY = "0".repeat(64);
 
-const { sqlite } = await import("../src/db/index.js");
+const { dbGet, dbAll, dbRun } = await import("../src/db/raw.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { WOO_HANDLERS } = await import("../src/routes/woocommerce-fns.js");
 
 const TENANT = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const ctx = () => ({ userId: "u", tenantId: TENANT, isAdmin: false }) as any;
 
-beforeAll(() => {
-  runMigrations();
-  sqlite.prepare("INSERT INTO tenants (id, name, owner_id) VALUES (?, 'T', 'o')").run(TENANT);
+beforeAll(async () => {
+  await runMigrations();
+  await dbRun("INSERT INTO tenants (id, name, owner_id) VALUES (?, 'T', 'o')", TENANT);
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -43,9 +43,10 @@ describe("woocommerce-save-integration", () => {
       ctx(),
     );
     expect(res.error).toBeNull();
-    const row = sqlite
-      .prepare("SELECT store_url, consumer_key_encrypted FROM woocommerce_integrations WHERE tenant_id = ?")
-      .get(TENANT) as { store_url: string; consumer_key_encrypted: string };
+    const row = (await dbGet(
+      "SELECT store_url, consumer_key_encrypted FROM woocommerce_integrations WHERE tenant_id = ?",
+      TENANT,
+    )) as { store_url: string; consumer_key_encrypted: string };
     expect(row.store_url).toBe("https://shop.example.com");
     expect(row.consumer_key_encrypted).not.toBe("ck_live");
     expect(row.consumer_key_encrypted.split(".")).toHaveLength(3); // encrypted
@@ -88,21 +89,25 @@ describe("woocommerce-sync", () => {
     expect(res.error).toBeNull();
     expect((res.data as { productsSynced: number }).productsSynced).toBe(2);
 
-    const products = sqlite
-      .prepare("SELECT name, price, woo_product_id, is_active FROM products WHERE tenant_id = ? ORDER BY woo_product_id")
-      .all(TENANT) as Array<{ name: string; price: number; woo_product_id: number; is_active: number }>;
+    const products = (await dbAll(
+      "SELECT name, price, woo_product_id, is_active FROM products WHERE tenant_id = ? ORDER BY woo_product_id",
+      TENANT,
+    )) as Array<{ name: string; price: number; woo_product_id: number; is_active: boolean }>;
     expect(products.length).toBe(2);
-    expect(products[0]).toMatchObject({ name: "Widget", price: 19.99, woo_product_id: 11, is_active: 1 });
-    expect(products[1].is_active).toBe(0); // draft -> inactive
+    expect(products[0]).toMatchObject({ name: "Widget", price: 19.99, woo_product_id: 11, is_active: true });
+    expect(products[1].is_active).toBe(false); // draft -> inactive
 
     // Re-sync updates in place (no duplicate rows).
     await WOO_HANDLERS["woocommerce-sync"]({}, ctx());
-    const count = sqlite.prepare("SELECT COUNT(*) AS n FROM products WHERE tenant_id = ?").get(TENANT) as { n: number };
+    const count = (await dbGet(
+      "SELECT COUNT(*)::int AS n FROM products WHERE tenant_id = ?",
+      TENANT,
+    )) as { n: number };
     expect(count.n).toBe(2);
 
-    const log = sqlite
-      .prepare("SELECT status, products_synced FROM woocommerce_sync_logs ORDER BY started_at DESC LIMIT 1")
-      .get() as { status: string; products_synced: number };
+    const log = (await dbGet(
+      "SELECT status, products_synced FROM woocommerce_sync_logs ORDER BY started_at DESC LIMIT 1",
+    )) as { status: string; products_synced: number };
     expect(log.status).toBe("completed");
   });
 });

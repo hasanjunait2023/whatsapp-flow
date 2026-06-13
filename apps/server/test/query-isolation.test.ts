@@ -3,7 +3,8 @@ import { useTempDb } from "./helpers.js";
 
 useTempDb();
 
-const { db, sqlite } = await import("../src/db/index.js");
+const { db } = await import("../src/db/index.js");
+const { dbGet, dbRun } = await import("../src/db/raw.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { executeQuery } = await import("../src/routes/query-exec.js");
 const { acceptInvitation } = await import("../src/routes/team-fns.js");
@@ -19,42 +20,30 @@ function ctxFor(tenantId: string | null, userId = "user-a", isAdmin = false): Te
   return { userId, tenantId, isAdmin, isImpersonating: false };
 }
 
-beforeAll(() => {
-  runMigrations();
-  db.insert(tenants)
-    .values([
-      { id: TENANT_A, name: "A", owner_id: "user-a" },
-      { id: TENANT_B, name: "B", owner_id: "user-b" },
-    ])
-    .run();
-  db.insert(whatsappInstances)
-    .values([
-      { id: "inst-a", tenant_id: TENANT_A, name: "A", status: "active", phone_number: "111", api_key_encrypted: "SECRET_A" },
-      { id: "inst-b", tenant_id: TENANT_B, name: "B", status: "active", phone_number: "222", api_key_encrypted: "SECRET_B" },
-    ])
-    .run();
-  db.insert(contacts)
-    .values([
-      { id: "contact-a", tenant_id: TENANT_A, wa_id: "a@s", phone_number: "111", instance_id: "inst-a" },
-      { id: "contact-b", tenant_id: TENANT_B, wa_id: "b@s", phone_number: "222", instance_id: "inst-b" },
-    ])
-    .run();
-  db.insert(messages)
-    .values([
-      // Tenant B's secret message, and Tenant A's message whose reply_to points at it.
-      { id: "msg-b", tenant_id: TENANT_B, contact_id: "contact-b", direction: "inbound", content: "TENANT-B-SECRET", content_type: "text", wa_message_id: "wamid-b" },
-      { id: "msg-a", tenant_id: TENANT_A, contact_id: "contact-a", direction: "inbound", content: "hi", content_type: "text", wa_message_id: "wamid-a", reply_to_id: "msg-b" },
-    ])
-    .run();
-  db.insert(labels)
-    .values([{ id: "label-a", tenant_id: TENANT_A, name: "VIP", color: "#fff" }])
-    .run();
-  db.insert(contactLabels)
-    .values([
-      { id: "cl-a", contact_id: "contact-a", label_id: "label-a" },
-      { id: "cl-b", contact_id: "contact-b", label_id: "label-a" },
-    ])
-    .run();
+beforeAll(async () => {
+  await runMigrations();
+  await db.insert(tenants).values([
+    { id: TENANT_A, name: "A", owner_id: "user-a" },
+    { id: TENANT_B, name: "B", owner_id: "user-b" },
+  ]);
+  await db.insert(whatsappInstances).values([
+    { id: "inst-a", tenant_id: TENANT_A, name: "A", status: "active", phone_number: "111", api_key_encrypted: "SECRET_A" },
+    { id: "inst-b", tenant_id: TENANT_B, name: "B", status: "active", phone_number: "222", api_key_encrypted: "SECRET_B" },
+  ]);
+  await db.insert(contacts).values([
+    { id: "contact-a", tenant_id: TENANT_A, wa_id: "a@s", phone_number: "111", instance_id: "inst-a" },
+    { id: "contact-b", tenant_id: TENANT_B, wa_id: "b@s", phone_number: "222", instance_id: "inst-b" },
+  ]);
+  await db.insert(messages).values([
+    // Tenant B's secret message, and Tenant A's message whose reply_to points at it.
+    { id: "msg-b", tenant_id: TENANT_B, contact_id: "contact-b", direction: "inbound", content: "TENANT-B-SECRET", content_type: "text", wa_message_id: "wamid-b" },
+    { id: "msg-a", tenant_id: TENANT_A, contact_id: "contact-a", direction: "inbound", content: "hi", content_type: "text", wa_message_id: "wamid-a", reply_to_id: "msg-b" },
+  ]);
+  await db.insert(labels).values([{ id: "label-a", tenant_id: TENANT_A, name: "VIP", color: "#fff" }]);
+  await db.insert(contactLabels).values([
+    { id: "cl-a", contact_id: "contact-a", label_id: "label-a" },
+    { id: "cl-b", contact_id: "contact-b", label_id: "label-a" },
+  ]);
 });
 
 describe("embedded-select isolation (CRITICAL)", () => {
@@ -98,7 +87,7 @@ describe("tenantViaParent scoping (CRITICAL)", () => {
       { table: "contact_labels", op: "delete", filters: [{ column: "id", operator: "eq", value: "cl-b" }] },
       ctxFor(TENANT_A),
     );
-    const stillThere = sqlite.prepare("SELECT 1 FROM contact_labels WHERE id = 'cl-b'").get();
+    const stillThere = await dbGet("SELECT 1 FROM contact_labels WHERE id = 'cl-b'");
     expect(stillThere).toBeTruthy(); // tenant A could not delete tenant B's junction row
   });
 
@@ -113,25 +102,29 @@ describe("tenantViaParent scoping (CRITICAL)", () => {
       ctxFor(TENANT_A),
     );
     expect(res.error?.code).toBe("forbidden");
-    const written = sqlite.prepare("SELECT 1 FROM contact_labels WHERE id = 'cl-evil'").get();
+    const written = await dbGet("SELECT 1 FROM contact_labels WHERE id = 'cl-evil'");
     expect(written).toBeFalsy();
   });
 });
 
 describe("message_templates tenant scoping (HIGH — audit F1)", () => {
-  beforeAll(() => {
-    sqlite
-      .prepare(
-        `INSERT INTO message_templates (id, tenant_id, category, channel, content, name)
-         VALUES (?, ?, 'greet', 'whatsapp', ?, ?)`,
-      )
-      .run("tpl-a", TENANT_A, "hello A", "A tpl");
-    sqlite
-      .prepare(
-        `INSERT INTO message_templates (id, tenant_id, category, channel, content, name)
-         VALUES (?, ?, 'greet', 'whatsapp', ?, ?)`,
-      )
-      .run("tpl-b", TENANT_B, "B-SECRET-TEMPLATE", "B tpl");
+  beforeAll(async () => {
+    await dbRun(
+      `INSERT INTO message_templates (id, tenant_id, category, channel, content, name)
+       VALUES (?, ?, 'greet', 'whatsapp', ?, ?)`,
+      "tpl-a",
+      TENANT_A,
+      "hello A",
+      "A tpl",
+    );
+    await dbRun(
+      `INSERT INTO message_templates (id, tenant_id, category, channel, content, name)
+       VALUES (?, ?, 'greet', 'whatsapp', ?, ?)`,
+      "tpl-b",
+      TENANT_B,
+      "B-SECRET-TEMPLATE",
+      "B tpl",
+    );
   });
 
   it("select returns only the active tenant's templates", async () => {
@@ -152,7 +145,7 @@ describe("message_templates tenant scoping (HIGH — audit F1)", () => {
       },
       ctxFor(TENANT_A),
     );
-    const row = sqlite.prepare("SELECT content FROM message_templates WHERE id = 'tpl-b'").get() as { content: string };
+    const row = (await dbGet("SELECT content FROM message_templates WHERE id = 'tpl-b'")) as { content: string };
     expect(row.content).toBe("B-SECRET-TEMPLATE"); // tenant A could not modify tenant B's row
   });
 
@@ -165,7 +158,7 @@ describe("message_templates tenant scoping (HIGH — audit F1)", () => {
       },
       ctxFor(TENANT_A),
     );
-    const row = sqlite.prepare("SELECT tenant_id FROM message_templates WHERE id = 'tpl-evil'").get() as
+    const row = (await dbGet("SELECT tenant_id FROM message_templates WHERE id = 'tpl-evil'")) as
       | { tenant_id: string }
       | undefined;
     // forceTenantOnRow rewrites tenant_id to the caller's tenant, not the forged one.
@@ -174,15 +167,25 @@ describe("message_templates tenant scoping (HIGH — audit F1)", () => {
 });
 
 describe("accept-invitation identity binding (HIGH)", () => {
-  beforeAll(() => {
-    sqlite
-      .prepare("INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)")
-      .run("acc-user", "Acc", "invited@example.com", Date.now(), Date.now());
-    sqlite
-      .prepare(
-        "INSERT INTO team_invitations (id, tenant_id, email, role, token, expires_at, invited_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      )
-      .run("inv-1", TENANT_A, "invited@example.com", "agent", "tok-123", new Date(Date.now() + 3600_000).toISOString(), "user-a");
+  beforeAll(async () => {
+    await dbRun(
+      'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at) VALUES (?, ?, ?, true, ?, ?)',
+      "acc-user",
+      "Acc",
+      "invited@example.com",
+      Date.now(),
+      Date.now(),
+    );
+    await dbRun(
+      "INSERT INTO team_invitations (id, tenant_id, email, role, token, expires_at, invited_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "inv-1",
+      TENANT_A,
+      "invited@example.com",
+      "agent",
+      "tok-123",
+      new Date(Date.now() + 3600_000).toISOString(),
+      "user-a",
+    );
   });
 
   it("rejects a token redeemed by a different email", async () => {
@@ -192,14 +195,24 @@ describe("accept-invitation identity binding (HIGH)", () => {
   });
 
   it("rejects when the session user's email does not match the invite", async () => {
-    sqlite
-      .prepare("INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)")
-      .run("other-user", "Other", "attacker@example.com", Date.now(), Date.now());
-    sqlite
-      .prepare(
-        "INSERT INTO team_invitations (id, tenant_id, email, role, token, expires_at, invited_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      )
-      .run("inv-2", TENANT_A, "invited2@example.com", "agent", "tok-456", new Date(Date.now() + 3600_000).toISOString(), "user-a");
+    await dbRun(
+      'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at) VALUES (?, ?, ?, true, ?, ?)',
+      "other-user",
+      "Other",
+      "attacker@example.com",
+      Date.now(),
+      Date.now(),
+    );
+    await dbRun(
+      "INSERT INTO team_invitations (id, tenant_id, email, role, token, expires_at, invited_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "inv-2",
+      TENANT_A,
+      "invited2@example.com",
+      "agent",
+      "tok-456",
+      new Date(Date.now() + 3600_000).toISOString(),
+      "user-a",
+    );
     const res = await acceptInvitation({ token: "tok-456" }, ctxFor(TENANT_A, "other-user") as any);
     expect((res.data as any).error).toMatch(/different email/i);
   });

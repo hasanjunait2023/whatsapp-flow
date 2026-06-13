@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbGet, dbRun } from "../db/raw.js";
 import { emitChange } from "../realtime/emitter.js";
 import { FB_GRAPH_VERSION } from "../lib/env.js";
 import {
@@ -75,16 +75,15 @@ interface FbContactRow {
 }
 
 /** Loads a fb_contact joined to its page token, enforcing tenant scope. */
-function loadFbContact(contactId: string, ctx: FnContext): FbContactRow | { error: string } {
-  const row = sqlite
-    .prepare(
-      `SELECT c.id, c.psid, c.tenant_id, c.page_id, c.name, c.profile_pic_synced_at,
+async function loadFbContact(contactId: string, ctx: FnContext): Promise<FbContactRow | { error: string }> {
+  const row = (await dbGet(
+    `SELECT c.id, c.psid, c.tenant_id, c.page_id, c.name, c.profile_pic_synced_at,
               p.page_access_token AS page_access_token
        FROM fb_contacts c
        JOIN facebook_pages p ON p.id = c.page_id
        WHERE c.id = ? LIMIT 1`,
-    )
-    .get(contactId) as FbContactRow | undefined;
+    contactId,
+  )) as FbContactRow | undefined;
   if (!row) return { error: "Contact not found" };
   if (!ctx.isAdmin && row.tenant_id !== ctx.tenantId) return { error: "Access denied" };
   return { ...row, page_access_token: getPageToken(row.page_access_token) };
@@ -103,7 +102,7 @@ interface FbSendBody {
 export async function fbSendMessage(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
   const body = raw as FbSendBody;
   if (!body.contact_id) return ok({ error: "contact_id is required" });
-  const contact = loadFbContact(body.contact_id, ctx);
+  const contact = await loadFbContact(body.contact_id, ctx);
   if ("error" in contact) return ok({ error: contact.error });
   if (!contact.page_access_token) return ok({ error: "Page not connected" });
 
@@ -133,39 +132,40 @@ export async function fbSendMessage(raw: Record<string, unknown>, ctx: FnContext
   }
 
   const messageId = crypto.randomUUID();
-  sqlite
-    .prepare(
-      `INSERT INTO fb_messages
+  await dbRun(
+    `INSERT INTO fb_messages
          (id, tenant_id, page_id, contact_id, direction, status, content_type, content,
           media_url, sent_by_user_id, sent_at)
        VALUES (?, ?, ?, ?, 'outbound', 'pending', ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      messageId,
-      contact.tenant_id,
-      contact.page_id,
-      contact.id,
-      contentType,
-      body.content ?? "",
-      body.media_url ?? null,
-      ctx.userId ?? null,
-      new Date().toISOString(),
-    );
+    messageId,
+    contact.tenant_id,
+    contact.page_id,
+    contact.id,
+    contentType,
+    body.content ?? "",
+    body.media_url ?? null,
+    ctx.userId ?? null,
+    new Date().toISOString(),
+  );
   emitChange("fb_messages", contact.tenant_id, { contact_id: contact.id });
 
   const url = `${GRAPH}/me/messages?access_token=${contact.page_access_token}`;
   const result = await sendWithRetry(url, messagePayload);
   if (!result.success) {
-    sqlite
-      .prepare("UPDATE fb_messages SET status = 'failed', error_message = ? WHERE id = ?")
-      .run(result.error?.message ?? "Unknown error", messageId);
+    await dbRun(
+      "UPDATE fb_messages SET status = 'failed', error_message = ? WHERE id = ?",
+      result.error?.message ?? "Unknown error",
+      messageId,
+    );
     emitChange("fb_messages", contact.tenant_id, { contact_id: contact.id });
     return ok({ error: result.error?.message ?? "Failed to send message", facebook_error: result.error });
   }
   const fbResult = result.data!;
-  sqlite
-    .prepare("UPDATE fb_messages SET mid = ?, status = 'sent' WHERE id = ?")
-    .run((fbResult.message_id as string) ?? null, messageId);
+  await dbRun(
+    "UPDATE fb_messages SET mid = ?, status = 'sent' WHERE id = ?",
+    (fbResult.message_id as string) ?? null,
+    messageId,
+  );
   emitChange("fb_messages", contact.tenant_id, { contact_id: contact.id });
 
   return ok({
@@ -198,15 +198,14 @@ export async function fbReplyComment(raw: Record<string, unknown>, ctx: FnContex
   const body = raw as FbReplyBody;
   if (!body.comment_id || !body.message) return ok({ error: "comment_id and message are required" });
 
-  const comment = sqlite
-    .prepare(
-      `SELECT c.id, c.tenant_id, c.page_id, c.post_id, c.fb_comment_id, c.platform,
+  const comment = (await dbGet(
+    `SELECT c.id, c.tenant_id, c.page_id, c.post_id, c.fb_comment_id, c.platform,
               p.page_id AS fb_page_id, p.page_access_token AS page_access_token
        FROM fb_post_comments c
        JOIN facebook_pages p ON p.id = c.page_id
        WHERE c.id = ? LIMIT 1`,
-    )
-    .get(body.comment_id) as FbCommentRow | undefined;
+    body.comment_id,
+  )) as FbCommentRow | undefined;
   if (!comment) return ok({ error: "Comment not found" });
   if (!ctx.isAdmin && comment.tenant_id !== ctx.tenantId) return ok({ error: "Access denied" });
   comment.page_access_token = getPageToken(comment.page_access_token);
@@ -237,26 +236,23 @@ export async function fbReplyComment(raw: Record<string, unknown>, ctx: FnContex
   }
 
   const newId = crypto.randomUUID();
-  sqlite
-    .prepare(
-      `INSERT INTO fb_post_comments
+  await dbRun(
+    `INSERT INTO fb_post_comments
          (id, tenant_id, page_id, post_id, fb_comment_id, parent_comment_id, platform,
           commenter_fb_id, is_from_page, message, sent_by_user_id, created_time, is_read)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 1)`,
-    )
-    .run(
-      newId,
-      comment.tenant_id,
-      comment.page_id,
-      comment.post_id,
-      fbResult.id ?? crypto.randomUUID(),
-      comment.id,
-      comment.platform,
-      comment.fb_page_id,
-      body.message,
-      ctx.userId ?? null,
-      new Date().toISOString(),
-    );
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, true, ?, ?, ?, true)`,
+    newId,
+    comment.tenant_id,
+    comment.page_id,
+    comment.post_id,
+    fbResult.id ?? crypto.randomUUID(),
+    comment.id,
+    comment.platform,
+    comment.fb_page_id,
+    body.message,
+    ctx.userId ?? null,
+    new Date().toISOString(),
+  );
   emitChange("fb_post_comments", comment.tenant_id, { post_id: comment.post_id });
 
   return ok({ success: true, comment_id: newId, fb_comment_id: fbResult.id });
@@ -267,7 +263,7 @@ export async function fbRefreshProfile(raw: Record<string, unknown>, ctx: FnCont
   const contactId = raw.contact_id as string | undefined;
   const force = raw.force === true;
   if (!contactId) return ok({ error: "contact_id is required" });
-  const contact = loadFbContact(contactId, ctx);
+  const contact = await loadFbContact(contactId, ctx);
   if ("error" in contact) return ok({ error: contact.error });
   if (contact.profile_pic_synced_at && !force) {
     return ok({ success: true, skipped: true, message: "Profile already synced. Use force=true to refresh." });
@@ -285,11 +281,13 @@ export async function fbRefreshProfile(raw: Record<string, unknown>, ctx: FnCont
   }
 
   const now = new Date().toISOString();
-  sqlite
-    .prepare(
-      "UPDATE fb_contacts SET profile_pic_synced_at = ?, name = COALESCE(?, name), profile_pic_url = COALESCE(?, profile_pic_url) WHERE id = ?",
-    )
-    .run(now, profile.name ?? null, profile.profile_pic ?? null, contact.id);
+  await dbRun(
+    "UPDATE fb_contacts SET profile_pic_synced_at = ?, name = COALESCE(?, name), profile_pic_url = COALESCE(?, profile_pic_url) WHERE id = ?",
+    now,
+    profile.name ?? null,
+    profile.profile_pic ?? null,
+    contact.id,
+  );
   emitChange("fb_contacts", contact.tenant_id, { id: contact.id });
 
   return ok({ success: true, name: profile.name, profile_pic_url: profile.profile_pic });
@@ -312,23 +310,24 @@ export async function fbOauthUrl(raw: Record<string, unknown>, ctx: FnContext): 
 /** fb-pages-list: connected pages for the tenant, secrets stripped. */
 export async function fbPagesList(_raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
   if (!ctx.tenantId) return ok({ error: "No tenant" });
-  return ok({ pages: listConnectedPages(ctx.tenantId) });
+  return ok({ pages: await listConnectedPages(ctx.tenantId) });
 }
 
 /** fb-page-disconnect: marks a page disconnected and clears its token. */
 export async function fbPageDisconnect(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
   const pageId = raw.page_id as string | undefined;
   if (!pageId) return ok({ error: "page_id is required" });
-  const page = sqlite
-    .prepare("SELECT id, tenant_id FROM facebook_pages WHERE id = ? LIMIT 1")
-    .get(pageId) as { id: string; tenant_id: string } | undefined;
+  const page = (await dbGet(
+    "SELECT id, tenant_id FROM facebook_pages WHERE id = ? LIMIT 1",
+    pageId,
+  )) as { id: string; tenant_id: string } | undefined;
   if (!page) return ok({ error: "Page not found" });
   if (!ctx.isAdmin && page.tenant_id !== ctx.tenantId) return ok({ error: "Access denied" });
-  sqlite
-    .prepare(
-      "UPDATE facebook_pages SET status = 'disconnected', page_access_token = '', updated_at = ? WHERE id = ?",
-    )
-    .run(new Date().toISOString(), page.id);
+  await dbRun(
+    "UPDATE facebook_pages SET status = 'disconnected', page_access_token = '', updated_at = ? WHERE id = ?",
+    new Date().toISOString(),
+    page.id,
+  );
   emitChange("facebook_pages", page.tenant_id, { id: page.id });
   return ok({ success: true });
 }

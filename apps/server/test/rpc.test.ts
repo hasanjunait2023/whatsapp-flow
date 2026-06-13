@@ -3,7 +3,7 @@ import { useTempDb } from "./helpers.js";
 
 useTempDb();
 
-const { db, sqlite } = await import("../src/db/index.js");
+const { db } = await import("../src/db/index.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { rpcRoute } = await import("../src/routes/rpc.js");
 const { tenants, contacts, messages } = await import("../src/db/schema.js");
@@ -27,19 +27,19 @@ app.use("*", async (c, next) => {
 });
 app.route("/rpc", rpcRoute);
 
-beforeAll(() => {
-  runMigrations();
-  db.insert(tenants).values([
+beforeAll(async () => {
+  await runMigrations();
+  await db.insert(tenants).values([
     { id: TENANT_A, name: "A", owner_id: "u" },
     { id: TENANT_B, name: "B", owner_id: "u2" },
-  ]).run();
-  db.insert(contacts).values([
+  ]);
+  await db.insert(contacts).values([
     { id: CONTACT_A, tenant_id: TENANT_A, wa_id: "a@s", phone_number: "1" },
     { id: CONTACT_B, tenant_id: TENANT_B, wa_id: "b@s", phone_number: "2" },
-  ]).run();
+  ]);
 
   // Two messages for contact A; the latest should win.
-  db.insert(messages).values([
+  await db.insert(messages).values([
     {
       tenant_id: TENANT_A,
       contact_id: CONTACT_A,
@@ -68,8 +68,7 @@ beforeAll(() => {
       wa_message_id: "m3",
       created_at: "2026-01-03T00:00:00.000Z",
     },
-  ]).run();
-  void sqlite;
+  ]);
 });
 
 describe("get_last_messages_for_contacts RPC", () => {

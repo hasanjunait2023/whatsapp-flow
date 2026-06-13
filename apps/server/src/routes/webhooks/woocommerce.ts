@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { sqlite } from "../../db/index.js";
+import { dbGet, dbRun } from "../../db/raw.js";
 
 /**
  * WooCommerce order webhook — POST /api/webhooks/woocommerce?tenant_id=...
@@ -41,9 +41,10 @@ woocommerceWebhookRoute.post("/", async (c) => {
   const tenantId = c.req.query("tenant_id");
   if (!tenantId) return c.json({ error: "tenant_id required" }, 400);
 
-  const integration = sqlite
-    .prepare("SELECT id, settings FROM woocommerce_integrations WHERE tenant_id = ? AND is_active = 1 LIMIT 1")
-    .get(tenantId) as { id: string; settings: string | null } | undefined;
+  const integration = (await dbGet(
+    "SELECT id, settings FROM woocommerce_integrations WHERE tenant_id = ? AND is_active = true LIMIT 1",
+    tenantId,
+  )) as { id: string; settings: string | null } | undefined;
   if (!integration) return c.json({ error: "No active WooCommerce integration" }, 404);
 
   const raw = await c.req.text();
@@ -53,7 +54,12 @@ woocommerceWebhookRoute.post("/", async (c) => {
   // rejected — we NEVER trust the tenant_id query string alone.
   let webhookSecret: string | undefined;
   try {
-    webhookSecret = integration.settings ? JSON.parse(integration.settings)?.webhook_secret : undefined;
+    const s = integration.settings
+      ? typeof integration.settings === "string"
+        ? JSON.parse(integration.settings)
+        : integration.settings
+      : undefined;
+    webhookSecret = s?.webhook_secret;
   } catch {
     webhookSecret = undefined;
   }
@@ -82,21 +88,38 @@ woocommerceWebhookRoute.post("/", async (c) => {
   const orderNumber = order.number ?? String(order.id);
   const now = new Date().toISOString();
 
-  const existing = sqlite
-    .prepare("SELECT id FROM orders WHERE tenant_id = ? AND woo_order_id = ? LIMIT 1")
-    .get(tenantId, order.id) as { id: string } | undefined;
+  const existing = (await dbGet(
+    "SELECT id FROM orders WHERE tenant_id = ? AND woo_order_id = ? LIMIT 1",
+    tenantId,
+    order.id,
+  )) as { id: string } | undefined;
 
   if (existing) {
-    sqlite
-      .prepare("UPDATE orders SET status=?, payment_status=?, total=?, customer_name=COALESCE(?,customer_name), customer_phone=COALESCE(?,customer_phone), updated_at=? WHERE id=?")
-      .run(status, paymentStatus, total, name, order.billing?.phone ?? null, now, existing.id);
+    await dbRun(
+      "UPDATE orders SET status=?, payment_status=?, total=?, customer_name=COALESCE(?,customer_name), customer_phone=COALESCE(?,customer_phone), updated_at=? WHERE id=?",
+      status,
+      paymentStatus,
+      total,
+      name,
+      order.billing?.phone ?? null,
+      now,
+      existing.id,
+    );
   } else {
-    sqlite
-      .prepare(
-        `INSERT INTO orders (id, tenant_id, woo_order_id, order_number, customer_name, customer_phone, total, subtotal, status, payment_status, source)
+    await dbRun(
+      `INSERT INTO orders (id, tenant_id, woo_order_id, order_number, customer_name, customer_phone, total, subtotal, status, payment_status, source)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'woocommerce')`,
-      )
-      .run(crypto.randomUUID(), tenantId, order.id, orderNumber, name, order.billing?.phone ?? null, total, total, status, paymentStatus);
+      crypto.randomUUID(),
+      tenantId,
+      order.id,
+      orderNumber,
+      name,
+      order.billing?.phone ?? null,
+      total,
+      total,
+      status,
+      paymentStatus,
+    );
   }
   return c.json({ ok: true });
 });

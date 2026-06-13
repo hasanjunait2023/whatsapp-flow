@@ -3,7 +3,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { sqlite } from "./db/index.js";
+import { dbGet } from "./db/raw.js";
 import { auth } from "./auth/index.js";
 import { tenantMiddleware } from "./middleware/tenant.js";
 import { queryRoute } from "./routes/query.js";
@@ -36,10 +36,10 @@ if (IS_PRODUCTION) {
 const app = new Hono();
 
 // --- health ----------------------------------------------------------------
-app.get("/healthz", (c) => {
+app.get("/healthz", async (c) => {
   let dbOk = false;
   try {
-    sqlite.prepare("SELECT 1").get();
+    await dbGet("SELECT 1");
     dbOk = true;
   } catch {
     dbOk = false;
@@ -103,7 +103,7 @@ if (IS_PRODUCTION && existsSync(WEB_DIST_DIR)) {
 
 // Seed the pricing catalog if it's empty (migrations have already run via the
 // entrypoint). Idempotent and cheap; unblocks checkout on a fresh DB.
-seedPlansIfEmpty();
+await seedPlansIfEmpty();
 
 const server = serve({ fetch: app.fetch, port: PORT });
 
@@ -112,16 +112,12 @@ registerHermesPipeline();
 registerCeoJobs();
 startScheduler();
 warnIfWebhookUnverified();
-warnIfFbPagesUnverified();
+void warnIfFbPagesUnverified();
 
 function shutdown(signal: string): void {
   stopScheduler();
   server.close(() => {
-    try {
-      sqlite.close();
-    } catch {
-      // already closed
-    }
+    // The pg Pool's sockets are released on process exit; nothing to close here.
     process.exit(0);
   });
   // Force-exit if close hangs.

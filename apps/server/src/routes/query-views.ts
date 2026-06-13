@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbAll } from "../db/raw.js";
 import type { QueryRequest, QueryResponse } from "@whatsapp-flow/shared";
 import type { TenantContext } from "../middleware/tenant.js";
 
@@ -31,7 +31,7 @@ interface ContactStatusRow {
 }
 
 /** Executes a SELECT against a virtual view. Only `select` is supported. */
-export function executeView(req: QueryRequest, ctx: TenantContext): QueryResponse {
+export async function executeView(req: QueryRequest, ctx: TenantContext): Promise<QueryResponse> {
   if (req.op !== "select") {
     return { data: null, error: { message: "View is read-only", code: "readonly_table" } };
   }
@@ -45,7 +45,7 @@ export function executeView(req: QueryRequest, ctx: TenantContext): QueryRespons
   return { data: null, error: { message: `Unknown view "${req.table}"`, code: "table_not_allowed" } };
 }
 
-function contactCustomerStatus(req: QueryRequest, ctx: TenantContext): QueryResponse {
+async function contactCustomerStatus(req: QueryRequest, ctx: TenantContext): Promise<QueryResponse> {
   const filters = req.filters ?? [];
   const conds: string[] = [];
   const params: unknown[] = [];
@@ -79,9 +79,8 @@ function contactCustomerStatus(req: QueryRequest, ctx: TenantContext): QueryResp
   }
 
   const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
-  const rows = sqlite
-    .prepare(
-      `SELECT
+  const rows = (await dbAll(
+    `SELECT
          c.id AS contact_id,
          c.tenant_id AS tenant_id,
          c.phone_number AS phone_number,
@@ -91,15 +90,15 @@ function contactCustomerStatus(req: QueryRequest, ctx: TenantContext): QueryResp
          cs.score_tier AS score_tier,
          cs.last_order_date AS last_order_date,
          CASE WHEN cs.last_order_date IS NOT NULL
-           THEN CAST((julianday('now') - julianday(cs.last_order_date)) AS INTEGER)
+           THEN (now()::date - cs.last_order_date::date)::int
            ELSE NULL END AS days_since_last_order
        FROM contacts c
        LEFT JOIN tenants t ON c.tenant_id = t.id
        LEFT JOIN business_types bt ON t.business_type_id = bt.id
        LEFT JOIN customer_scores cs ON cs.contact_id = c.id AND cs.tenant_id = c.tenant_id
        ${where}`,
-    )
-    .all(...params) as ContactStatusRow[];
+    ...params,
+  )) as ContactStatusRow[];
 
   return { data: rows, error: null };
 }

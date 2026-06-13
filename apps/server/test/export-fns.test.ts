@@ -3,7 +3,7 @@ import { useTempDb } from "./helpers.js";
 
 useTempDb();
 
-const { db, sqlite } = await import("../src/db/index.js");
+const { db } = await import("../src/db/index.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { tenants, contacts, orders, contactLabels } = await import("../src/db/schema.js");
 const { labels } = await import("../src/db/schema-modules.js");
@@ -57,22 +57,20 @@ function parseCsv(csv: string): string[][] {
   return out;
 }
 
-beforeAll(() => {
-  runMigrations();
+beforeAll(async () => {
+  await runMigrations();
 });
 
-beforeEach(() => {
-  db.delete(contactLabels).run();
-  db.delete(labels).run();
-  db.delete(contacts).run();
-  db.delete(orders).run();
-  db.delete(tenants).run();
-  db.insert(tenants)
-    .values([
-      { id: TENANT_A, name: "A", owner_id: "ua" },
-      { id: TENANT_B, name: "B", owner_id: "ub" },
-    ])
-    .run();
+beforeEach(async () => {
+  await db.delete(contactLabels);
+  await db.delete(labels);
+  await db.delete(contacts);
+  await db.delete(orders);
+  await db.delete(tenants);
+  await db.insert(tenants).values([
+    { id: TENANT_A, name: "A", owner_id: "ua" },
+    { id: TENANT_B, name: "B", owner_id: "ub" },
+  ]);
 });
 
 describe("CSV escaping", () => {
@@ -96,26 +94,24 @@ describe("CSV escaping", () => {
 
 describe("export-contacts", () => {
   it("returns only the caller's contacts with labels, never another tenant's", async () => {
-    db.insert(contacts)
-      .values([
-        {
-          id: "c-a1",
-          tenant_id: TENANT_A,
-          name: "Alice",
-          phone_number: "8801711000001",
-          wa_id: "8801711000001@s.whatsapp.net",
-        },
-        {
-          id: "c-b1",
-          tenant_id: TENANT_B,
-          name: "Bob (other tenant)",
-          phone_number: "8801711000099",
-          wa_id: "8801711000099@s.whatsapp.net",
-        },
-      ])
-      .run();
-    db.insert(labels).values({ id: "l-a1", tenant_id: TENANT_A, name: "VIP" }).run();
-    db.insert(contactLabels).values({ contact_id: "c-a1", label_id: "l-a1" }).run();
+    await db.insert(contacts).values([
+      {
+        id: "c-a1",
+        tenant_id: TENANT_A,
+        name: "Alice",
+        phone_number: "8801711000001",
+        wa_id: "8801711000001@s.whatsapp.net",
+      },
+      {
+        id: "c-b1",
+        tenant_id: TENANT_B,
+        name: "Bob (other tenant)",
+        phone_number: "8801711000099",
+        wa_id: "8801711000099@s.whatsapp.net",
+      },
+    ]);
+    await db.insert(labels).values({ id: "l-a1", tenant_id: TENANT_A, name: "VIP" });
+    await db.insert(contactLabels).values({ contact_id: "c-a1", label_id: "l-a1" });
 
     const res = await EXPORT_HANDLERS["export-contacts"]({}, ctx(TENANT_A));
     expect(res.error).toBeNull();
@@ -135,15 +131,13 @@ describe("export-contacts", () => {
   });
 
   it("escapes a contact name containing a comma in the CSV output", async () => {
-    db.insert(contacts)
-      .values({
-        id: "c-a2",
-        tenant_id: TENANT_A,
-        name: "Doe, John",
-        phone_number: "8801711000002",
-        wa_id: "8801711000002@s.whatsapp.net",
-      })
-      .run();
+    await db.insert(contacts).values({
+      id: "c-a2",
+      tenant_id: TENANT_A,
+      name: "Doe, John",
+      phone_number: "8801711000002",
+      wa_id: "8801711000002@s.whatsapp.net",
+    });
 
     const res = await EXPORT_HANDLERS["export-contacts"]({}, ctx(TENANT_A));
     const data = res.data as { csv: string };
@@ -161,30 +155,28 @@ describe("export-contacts", () => {
 
 describe("export-orders", () => {
   it("returns only the caller's orders, excluding cross-tenant rows", async () => {
-    db.insert(orders)
-      .values([
-        {
-          id: "o-a1",
-          tenant_id: TENANT_A,
-          order_number: "A-1001",
-          customer_name: "Alice",
-          status: "confirmed",
-          payment_status: "paid",
-          subtotal: 500,
-          total: 520,
-        },
-        {
-          id: "o-b1",
-          tenant_id: TENANT_B,
-          order_number: "B-2001",
-          customer_name: "Bob",
-          status: "pending",
-          payment_status: "unpaid",
-          subtotal: 100,
-          total: 100,
-        },
-      ])
-      .run();
+    await db.insert(orders).values([
+      {
+        id: "o-a1",
+        tenant_id: TENANT_A,
+        order_number: "A-1001",
+        customer_name: "Alice",
+        status: "confirmed",
+        payment_status: "paid",
+        subtotal: 500,
+        total: 520,
+      },
+      {
+        id: "o-b1",
+        tenant_id: TENANT_B,
+        order_number: "B-2001",
+        customer_name: "Bob",
+        status: "pending",
+        payment_status: "unpaid",
+        subtotal: 100,
+        total: 100,
+      },
+    ]);
 
     const res = await EXPORT_HANDLERS["export-orders"]({}, ctx(TENANT_A));
     expect(res.error).toBeNull();

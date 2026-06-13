@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { pgTable, text, integer, doublePrecision, boolean, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 /**
  * Phase 3 module tables. Hand-authored from supabase/migrations CREATE TABLE
@@ -11,17 +11,17 @@ import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-or
  * Type map (matches db/schema.ts header):
  *   uuid        -> text
  *   timestamptz -> text (ISO-8601)
- *   bool        -> integer({ mode: "boolean" })
- *   jsonb       -> text({ mode: "json" })
- *   text[]      -> text({ mode: "json" })
- *   numeric/money columns the UI does arithmetic on -> real
+ *   bool        -> boolean
+ *   jsonb       -> jsonb
+ *   text[]      -> jsonb
+ *   numeric/money columns the UI does arithmetic on -> doublePrecision
  */
 
-const nowIso = sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`;
+const nowIso = sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 const uid = () => text("id").primaryKey().$defaultFn(() => crypto.randomUUID());
 
 // --- Contacts / Segments / Labels ------------------------------------------
-export const labels = sqliteTable(
+export const labels = pgTable(
   "labels",
   {
     id: uid(),
@@ -36,7 +36,7 @@ export const labels = sqliteTable(
   }),
 );
 
-export const fbContactLabels = sqliteTable(
+export const fbContactLabels = pgTable(
   "fb_contact_labels",
   {
     id: uid(),
@@ -50,7 +50,7 @@ export const fbContactLabels = sqliteTable(
   }),
 );
 
-export const customerSegments = sqliteTable(
+export const customerSegments = pgTable(
   "customer_segments",
   {
     id: uid(),
@@ -58,10 +58,10 @@ export const customerSegments = sqliteTable(
     created_at: text("created_at").default(nowIso),
     description: text("description"),
     icon: text("icon").default("users"),
-    is_active: integer("is_active", { mode: "boolean" }).default(true),
-    is_auto: integer("is_auto", { mode: "boolean" }).default(false),
+    is_active: boolean("is_active").default(true),
+    is_auto: boolean("is_auto").default(false),
     name: text("name").notNull(),
-    rules: text("rules", { mode: "json" }),
+    rules: jsonb("rules"),
     tenant_id: text("tenant_id").notNull(),
     updated_at: text("updated_at").default(nowIso),
   },
@@ -71,7 +71,7 @@ export const customerSegments = sqliteTable(
   }),
 );
 
-export const contactSegments = sqliteTable(
+export const contactSegments = pgTable(
   "contact_segments",
   {
     id: uid(),
@@ -88,11 +88,11 @@ export const contactSegments = sqliteTable(
   }),
 );
 
-export const customerScores = sqliteTable(
+export const customerScores = pgTable(
   "customer_scores",
   {
     id: uid(),
-    avg_order_value: real("avg_order_value").default(0),
+    avg_order_value: doublePrecision("avg_order_value").default(0),
     contact_id: text("contact_id").notNull(),
     created_at: text("created_at").default(nowIso),
     first_order_date: text("first_order_date"),
@@ -103,7 +103,7 @@ export const customerScores = sqliteTable(
     score_tier: text("score_tier").default("new"),
     tenant_id: text("tenant_id").notNull(),
     total_orders: integer("total_orders").default(0),
-    total_spent: real("total_spent").default(0),
+    total_spent: doublePrecision("total_spent").default(0),
     updated_at: text("updated_at").default(nowIso),
   },
   (t) => ({
@@ -112,27 +112,27 @@ export const customerScores = sqliteTable(
   }),
 );
 
-export const customerScoringRules = sqliteTable(
+export const customerScoringRules = pgTable(
   "customer_scoring_rules",
   {
     id: uid(),
     created_at: text("created_at").default(nowIso),
     criteria_type: text("criteria_type").notNull(),
     description: text("description"),
-    is_active: integer("is_active", { mode: "boolean" }).default(true),
+    is_active: boolean("is_active").default(true),
     name: text("name").notNull(),
     operator: text("operator").notNull(),
     points: integer("points").default(0).notNull(),
     tenant_id: text("tenant_id").notNull(),
-    value_max: real("value_max"),
-    value_min: real("value_min"),
+    value_max: doublePrecision("value_max"),
+    value_min: doublePrecision("value_min"),
   },
   (t) => ({
     tenantIdx: index("customer_scoring_rules_tenant_id_idx").on(t.tenant_id),
   }),
 );
 
-export const customerJourneyEvents = sqliteTable(
+export const customerJourneyEvents = pgTable(
   "customer_journey_events",
   {
     id: uid(),
@@ -142,7 +142,7 @@ export const customerJourneyEvents = sqliteTable(
     description: text("description"),
     event_category: text("event_category").notNull(),
     event_type: text("event_type").notNull(),
-    metadata: text("metadata", { mode: "json" }),
+    metadata: jsonb("metadata"),
     tenant_id: text("tenant_id").notNull(),
     title: text("title").notNull(),
   },
@@ -152,7 +152,7 @@ export const customerJourneyEvents = sqliteTable(
   }),
 );
 
-export const purchaseBehaviorChecks = sqliteTable(
+export const purchaseBehaviorChecks = pgTable(
   "purchase_behavior_checks",
   {
     id: uid(),
@@ -160,11 +160,11 @@ export const purchaseBehaviorChecks = sqliteTable(
     checked_at: text("checked_at").default(nowIso),
     checked_by: text("checked_by"),
     contact_id: text("contact_id"),
-    courier_stats: text("courier_stats", { mode: "json" }),
+    courier_stats: jsonb("courier_stats"),
     created_at: text("created_at").default(nowIso),
-    customer_rating: real("customer_rating"),
+    customer_rating: doublePrecision("customer_rating"),
     phone_number: text("phone_number").notNull(),
-    raw_response: text("raw_response", { mode: "json" }),
+    raw_response: jsonb("raw_response"),
     returned_deliveries: integer("returned_deliveries").default(0),
     risk_level: text("risk_level"),
     successful_deliveries: integer("successful_deliveries").default(0),
@@ -178,7 +178,7 @@ export const purchaseBehaviorChecks = sqliteTable(
 );
 
 // --- Orders / Inventory ----------------------------------------------------
-export const stockMovements = sqliteTable(
+export const stockMovements = pgTable(
   "stock_movements",
   {
     id: uid(),
@@ -202,13 +202,13 @@ export const stockMovements = sqliteTable(
   }),
 );
 
-export const stockAlerts = sqliteTable(
+export const stockAlerts = pgTable(
   "stock_alerts",
   {
     id: uid(),
     alert_type: text("alert_type").notNull(),
     created_at: text("created_at").default(nowIso).notNull(),
-    is_active: integer("is_active", { mode: "boolean" }).default(true),
+    is_active: boolean("is_active").default(true),
     last_triggered_at: text("last_triggered_at"),
     product_id: text("product_id").notNull(),
     tenant_id: text("tenant_id").notNull(),
@@ -220,7 +220,7 @@ export const stockAlerts = sqliteTable(
   }),
 );
 
-export const orderStatusHistory = sqliteTable(
+export const orderStatusHistory = pgTable(
   "order_status_history",
   {
     id: uid(),
@@ -237,7 +237,7 @@ export const orderStatusHistory = sqliteTable(
 );
 
 // --- Invoices / Shipments / Courier ----------------------------------------
-export const invoices = sqliteTable(
+export const invoices = pgTable(
   "invoices",
   {
     id: uid(),
@@ -246,16 +246,16 @@ export const invoices = sqliteTable(
     order_id: text("order_id"),
     pdf_url: text("pdf_url"),
     sent_at: text("sent_at"),
-    sent_via_whatsapp: integer("sent_via_whatsapp", { mode: "boolean" }).default(false),
+    sent_via_whatsapp: boolean("sent_via_whatsapp").default(false),
     tenant_id: text("tenant_id").notNull(),
-    total: real("total"),
+    total: doublePrecision("total"),
   },
   (t) => ({
     tenantIdx: index("invoices_tenant_id_idx").on(t.tenant_id),
   }),
 );
 
-export const invoiceSettings = sqliteTable(
+export const invoiceSettings = pgTable(
   "invoice_settings",
   {
     id: uid(),
@@ -277,28 +277,28 @@ export const invoiceSettings = sqliteTable(
   }),
 );
 
-export const shipments = sqliteTable(
+export const shipments = pgTable(
   "shipments",
   {
     id: uid(),
     booked_at: text("booked_at"),
-    cod_amount: real("cod_amount"),
+    cod_amount: doublePrecision("cod_amount"),
     consignment_id: text("consignment_id"),
     courier: text("courier").notNull(),
-    courier_response: text("courier_response", { mode: "json" }),
+    courier_response: jsonb("courier_response"),
     created_at: text("created_at").default(nowIso),
     delivered_at: text("delivered_at"),
-    delivery_address: text("delivery_address", { mode: "json" }),
-    delivery_fee: real("delivery_fee"),
+    delivery_address: jsonb("delivery_address"),
+    delivery_fee: doublePrecision("delivery_fee"),
     item_description: text("item_description"),
     order_id: text("order_id").notNull(),
-    pickup_address: text("pickup_address", { mode: "json" }),
+    pickup_address: jsonb("pickup_address"),
     special_instructions: text("special_instructions"),
     status: text("status").default("pending"),
     tenant_id: text("tenant_id").notNull(),
     tracking_code: text("tracking_code"),
     updated_at: text("updated_at").default(nowIso),
-    weight_kg: real("weight_kg"),
+    weight_kg: doublePrecision("weight_kg"),
   },
   (t) => ({
     tenantIdx: index("shipments_tenant_id_idx").on(t.tenant_id),
@@ -306,17 +306,17 @@ export const shipments = sqliteTable(
   }),
 );
 
-export const courierIntegrations = sqliteTable(
+export const courierIntegrations = pgTable(
   "courier_integrations",
   {
     id: uid(),
     api_key: text("api_key"),
     api_secret: text("api_secret"),
     created_at: text("created_at").default(nowIso),
-    default_pickup_address: text("default_pickup_address", { mode: "json" }),
-    is_active: integer("is_active", { mode: "boolean" }).default(true),
+    default_pickup_address: jsonb("default_pickup_address"),
+    is_active: boolean("is_active").default(true),
     provider: text("provider").notNull(),
-    settings: text("settings", { mode: "json" }),
+    settings: jsonb("settings"),
     store_id: text("store_id"),
     tenant_id: text("tenant_id").notNull(),
     updated_at: text("updated_at").default(nowIso),
@@ -327,7 +327,7 @@ export const courierIntegrations = sqliteTable(
   }),
 );
 
-export const complaints = sqliteTable(
+export const complaints = pgTable(
   "complaints",
   {
     id: uid(),
@@ -353,19 +353,19 @@ export const complaints = sqliteTable(
 );
 
 // --- Automation / Workflows / Auto-messages --------------------------------
-export const automationRules = sqliteTable(
+export const automationRules = pgTable(
   "automation_rules",
   {
     id: uid(),
-    action_config: text("action_config", { mode: "json" }).notNull(),
+    action_config: jsonb("action_config").notNull(),
     action_type: text("action_type").notNull(),
     created_at: text("created_at").default(nowIso).notNull(),
     description: text("description"),
-    is_active: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+    is_active: boolean("is_active").default(true).notNull(),
     name: text("name").notNull(),
     priority: integer("priority").default(0).notNull(),
     tenant_id: text("tenant_id").notNull(),
-    trigger_config: text("trigger_config", { mode: "json" }).notNull(),
+    trigger_config: jsonb("trigger_config").notNull(),
     trigger_type: text("trigger_type").notNull(),
     updated_at: text("updated_at").default(nowIso).notNull(),
   },
@@ -374,23 +374,23 @@ export const automationRules = sqliteTable(
   }),
 );
 
-export const whatsappAutoMessages = sqliteTable(
+export const whatsappAutoMessages = pgTable(
   "whatsapp_auto_messages",
   {
     id: uid(),
     away_cooldown_hours: integer("away_cooldown_hours").default(24),
-    away_enabled: integer("away_enabled", { mode: "boolean" }).default(false),
-    away_media_items: text("away_media_items", { mode: "json" }),
+    away_enabled: boolean("away_enabled").default(false),
+    away_media_items: jsonb("away_media_items"),
     away_message: text("away_message"),
     created_at: text("created_at").default(nowIso),
     followup_delay_hours: integer("followup_delay_hours").default(6),
-    followup_enabled: integer("followup_enabled", { mode: "boolean" }).default(false),
-    followup_media_items: text("followup_media_items", { mode: "json" }),
+    followup_enabled: boolean("followup_enabled").default(false),
+    followup_media_items: jsonb("followup_media_items"),
     followup_message: text("followup_message"),
     tenant_id: text("tenant_id").notNull(),
     updated_at: text("updated_at").default(nowIso),
-    welcome_enabled: integer("welcome_enabled", { mode: "boolean" }).default(false),
-    welcome_media_items: text("welcome_media_items", { mode: "json" }),
+    welcome_enabled: boolean("welcome_enabled").default(false),
+    welcome_media_items: jsonb("welcome_media_items"),
     welcome_message: text("welcome_message"),
   },
   (t) => ({
@@ -398,7 +398,7 @@ export const whatsappAutoMessages = sqliteTable(
   }),
 );
 
-export const whatsappAutoMessageLog = sqliteTable(
+export const whatsappAutoMessageLog = pgTable(
   "whatsapp_auto_message_log",
   {
     id: uid(),
@@ -412,7 +412,7 @@ export const whatsappAutoMessageLog = sqliteTable(
   }),
 );
 
-export const whatsappFollowupQueue = sqliteTable(
+export const whatsappFollowupQueue = pgTable(
   "whatsapp_followup_queue",
   {
     id: uid(),
@@ -429,17 +429,17 @@ export const whatsappFollowupQueue = sqliteTable(
   }),
 );
 
-export const workflows = sqliteTable(
+export const workflows = pgTable(
   "workflows",
   {
     id: uid(),
     created_at: text("created_at").default(nowIso),
     created_by: text("created_by"),
     description: text("description"),
-    is_active: integer("is_active", { mode: "boolean" }).default(false),
+    is_active: boolean("is_active").default(false),
     name: text("name").notNull(),
     tenant_id: text("tenant_id").notNull(),
-    trigger_config: text("trigger_config", { mode: "json" }),
+    trigger_config: jsonb("trigger_config"),
     trigger_type: text("trigger_type").notNull(),
     updated_at: text("updated_at").default(nowIso),
   },
@@ -448,16 +448,16 @@ export const workflows = sqliteTable(
   }),
 );
 
-export const workflowNodes = sqliteTable(
+export const workflowNodes = pgTable(
   "workflow_nodes",
   {
     id: uid(),
     created_at: text("created_at").default(nowIso),
-    node_config: text("node_config", { mode: "json" }),
+    node_config: jsonb("node_config"),
     node_subtype: text("node_subtype"),
     node_type: text("node_type").notNull(),
-    position_x: real("position_x").default(0),
-    position_y: real("position_y").default(0),
+    position_x: doublePrecision("position_x").default(0),
+    position_y: doublePrecision("position_y").default(0),
     tenant_id: text("tenant_id"),
     workflow_id: text("workflow_id").notNull(),
   },
@@ -466,7 +466,7 @@ export const workflowNodes = sqliteTable(
   }),
 );
 
-export const workflowEdges = sqliteTable(
+export const workflowEdges = pgTable(
   "workflow_edges",
   {
     id: uid(),
@@ -484,14 +484,14 @@ export const workflowEdges = sqliteTable(
   }),
 );
 
-export const workflowExecutions = sqliteTable(
+export const workflowExecutions = pgTable(
   "workflow_executions",
   {
     id: uid(),
     completed_at: text("completed_at"),
     contact_id: text("contact_id"),
     error_message: text("error_message"),
-    execution_data: text("execution_data", { mode: "json" }),
+    execution_data: jsonb("execution_data"),
     started_at: text("started_at").default(nowIso),
     status: text("status").default("running"),
     tenant_id: text("tenant_id").notNull(),
@@ -503,7 +503,7 @@ export const workflowExecutions = sqliteTable(
 );
 
 // --- Groups ----------------------------------------------------------------
-export const whatsappGroups = sqliteTable(
+export const whatsappGroups = pgTable(
   "whatsapp_groups",
   {
     id: uid(),
@@ -511,7 +511,7 @@ export const whatsappGroups = sqliteTable(
     description: text("description"),
     instance_id: text("instance_id").notNull(),
     invite_link: text("invite_link"),
-    is_admin: integer("is_admin", { mode: "boolean" }).default(true),
+    is_admin: boolean("is_admin").default(true),
     name: text("name").notNull(),
     participant_count: integer("participant_count").default(0),
     synced_at: text("synced_at").default(nowIso),
@@ -525,7 +525,7 @@ export const whatsappGroups = sqliteTable(
   }),
 );
 
-export const whatsappGroupParticipants = sqliteTable(
+export const whatsappGroupParticipants = pgTable(
   "whatsapp_group_participants",
   {
     id: uid(),
@@ -533,7 +533,7 @@ export const whatsappGroupParticipants = sqliteTable(
     added_by: text("added_by"),
     contact_id: text("contact_id"),
     group_id: text("group_id").notNull(),
-    is_admin: integer("is_admin", { mode: "boolean" }).default(false),
+    is_admin: boolean("is_admin").default(false),
     phone_number: text("phone_number").notNull(),
     tenant_id: text("tenant_id"),
   },
@@ -543,7 +543,7 @@ export const whatsappGroupParticipants = sqliteTable(
   }),
 );
 
-export const groupAddQueue = sqliteTable(
+export const groupAddQueue = pgTable(
   "group_add_queue",
   {
     id: uid(),
@@ -551,11 +551,11 @@ export const groupAddQueue = sqliteTable(
     completed_at: text("completed_at"),
     created_at: text("created_at").default(nowIso),
     created_by: text("created_by"),
-    error_log: text("error_log", { mode: "json" }),
+    error_log: jsonb("error_log"),
     failed_count: integer("failed_count").default(0),
     group_id: text("group_id").notNull(),
     interval_minutes: integer("interval_minutes").default(30),
-    phone_numbers: text("phone_numbers", { mode: "json" }).notNull(),
+    phone_numbers: jsonb("phone_numbers").notNull(),
     processed_count: integer("processed_count").default(0),
     scheduled_for: text("scheduled_for").notNull(),
     status: text("status").default("pending"),
@@ -566,7 +566,7 @@ export const groupAddQueue = sqliteTable(
   }),
 );
 
-export const tenantDailyGroupLimits = sqliteTable(
+export const tenantDailyGroupLimits = pgTable(
   "tenant_daily_group_limits",
   {
     id: uid(),
@@ -581,7 +581,7 @@ export const tenantDailyGroupLimits = sqliteTable(
 );
 
 // --- FB posts / comments ---------------------------------------------------
-export const fbPosts = sqliteTable(
+export const fbPosts = pgTable(
   "fb_posts",
   {
     id: uid(),
@@ -590,7 +590,7 @@ export const fbPosts = sqliteTable(
     created_time: text("created_time"),
     fb_post_id: text("fb_post_id").notNull(),
     full_picture: text("full_picture"),
-    is_hidden: integer("is_hidden", { mode: "boolean" }).default(false),
+    is_hidden: boolean("is_hidden").default(false),
     last_comment_at: text("last_comment_at"),
     message: text("message"),
     page_id: text("page_id").notNull(),
@@ -606,7 +606,7 @@ export const fbPosts = sqliteTable(
   }),
 );
 
-export const fbPostComments = sqliteTable(
+export const fbPostComments = pgTable(
   "fb_post_comments",
   {
     id: uid(),
@@ -619,9 +619,9 @@ export const fbPostComments = sqliteTable(
     created_time: text("created_time"),
     fb_comment_id: text("fb_comment_id").notNull(),
     fb_contact_id: text("fb_contact_id"),
-    is_from_page: integer("is_from_page", { mode: "boolean" }).default(false),
-    is_hidden: integer("is_hidden", { mode: "boolean" }).default(false),
-    is_read: integer("is_read", { mode: "boolean" }).default(false),
+    is_from_page: boolean("is_from_page").default(false),
+    is_hidden: boolean("is_hidden").default(false),
+    is_read: boolean("is_read").default(false),
     like_count: integer("like_count").default(0),
     message: text("message"),
     page_id: text("page_id").notNull(),
@@ -641,11 +641,11 @@ export const fbPostComments = sqliteTable(
 );
 
 // --- Billing (subscription orders / external sales) ------------------------
-export const subscriptionOrders = sqliteTable(
+export const subscriptionOrders = pgTable(
   "subscription_orders",
   {
     id: uid(),
-    amount: real("amount").notNull(),
+    amount: doublePrecision("amount").notNull(),
     billing_cycle: text("billing_cycle").default("monthly"),
     created_at: text("created_at").default(nowIso),
     created_by: text("created_by"),
@@ -667,11 +667,11 @@ export const subscriptionOrders = sqliteTable(
   }),
 );
 
-export const externalSalesOrders = sqliteTable(
+export const externalSalesOrders = pgTable(
   "external_sales_orders",
   {
     id: uid(),
-    amount: real("amount").notNull(),
+    amount: doublePrecision("amount").notNull(),
     billing_cycle: text("billing_cycle").default("monthly").notNull(),
     business_name: text("business_name").notNull(),
     business_type: text("business_type").notNull(),
@@ -685,7 +685,7 @@ export const externalSalesOrders = sqliteTable(
     payment_method: text("payment_method"),
     plan_id: text("plan_id"),
     processed_at: text("processed_at"),
-    raw_payload: text("raw_payload", { mode: "json" }),
+    raw_payload: jsonb("raw_payload"),
     source: text("source").default("main_website").notNull(),
     status: text("status").default("pending").notNull(),
     tenant_id: text("tenant_id"),
@@ -699,43 +699,43 @@ export const externalSalesOrders = sqliteTable(
 );
 
 // --- Team / Permissions ----------------------------------------------------
-export const teamMemberPermissions = sqliteTable(
+export const teamMemberPermissions = pgTable(
   "team_member_permissions",
   {
     id: uid(),
-    can_access_ai_agent: integer("can_access_ai_agent", { mode: "boolean" }).default(false),
-    can_access_analytics: integer("can_access_analytics", { mode: "boolean" }).default(false),
-    can_access_automation: integer("can_access_automation", { mode: "boolean" }).default(false),
-    can_access_accounts: integer("can_access_accounts", { mode: "boolean" }).default(false),
-    can_access_complaints: integer("can_access_complaints", { mode: "boolean" }).default(true),
-    can_access_contacts: integer("can_access_contacts", { mode: "boolean" }).default(true),
-    can_access_fb_inbox: integer("can_access_fb_inbox", { mode: "boolean" }).default(false),
-    can_access_groups: integer("can_access_groups", { mode: "boolean" }).default(false),
-    can_access_inbox: integer("can_access_inbox", { mode: "boolean" }).default(true),
-    can_access_internal_chat: integer("can_access_internal_chat", { mode: "boolean" }).default(true),
-    can_access_orders: integer("can_access_orders", { mode: "boolean" }).default(true),
-    can_access_products: integer("can_access_products", { mode: "boolean" }).default(false),
-    can_access_reports: integer("can_access_reports", { mode: "boolean" }).default(false),
-    can_access_settings: integer("can_access_settings", { mode: "boolean" }).default(false),
-    can_access_team: integer("can_access_team", { mode: "boolean" }).default(false),
-    can_access_workflows: integer("can_access_workflows", { mode: "boolean" }).default(false),
-    can_assign_contacts: integer("can_assign_contacts", { mode: "boolean" }).default(false),
-    can_create_contacts: integer("can_create_contacts", { mode: "boolean" }).default(true),
-    can_create_orders: integer("can_create_orders", { mode: "boolean" }).default(true),
-    can_create_products: integer("can_create_products", { mode: "boolean" }).default(false),
-    can_delete_contacts: integer("can_delete_contacts", { mode: "boolean" }).default(false),
-    can_delete_messages: integer("can_delete_messages", { mode: "boolean" }).default(false),
-    can_delete_orders: integer("can_delete_orders", { mode: "boolean" }).default(false),
-    can_delete_products: integer("can_delete_products", { mode: "boolean" }).default(false),
-    can_edit_contacts: integer("can_edit_contacts", { mode: "boolean" }).default(true),
-    can_edit_orders: integer("can_edit_orders", { mode: "boolean" }).default(false),
-    can_edit_products: integer("can_edit_products", { mode: "boolean" }).default(false),
-    can_export_data: integer("can_export_data", { mode: "boolean" }).default(false),
-    can_send_bulk_messages: integer("can_send_bulk_messages", { mode: "boolean" }).default(false),
-    can_send_messages: integer("can_send_messages", { mode: "boolean" }).default(true),
-    can_update_order_status: integer("can_update_order_status", { mode: "boolean" }).default(true),
-    can_update_payment_status: integer("can_update_payment_status", { mode: "boolean" }).default(false),
-    can_view_revenue: integer("can_view_revenue", { mode: "boolean" }).default(false),
+    can_access_ai_agent: boolean("can_access_ai_agent").default(false),
+    can_access_analytics: boolean("can_access_analytics").default(false),
+    can_access_automation: boolean("can_access_automation").default(false),
+    can_access_accounts: boolean("can_access_accounts").default(false),
+    can_access_complaints: boolean("can_access_complaints").default(true),
+    can_access_contacts: boolean("can_access_contacts").default(true),
+    can_access_fb_inbox: boolean("can_access_fb_inbox").default(false),
+    can_access_groups: boolean("can_access_groups").default(false),
+    can_access_inbox: boolean("can_access_inbox").default(true),
+    can_access_internal_chat: boolean("can_access_internal_chat").default(true),
+    can_access_orders: boolean("can_access_orders").default(true),
+    can_access_products: boolean("can_access_products").default(false),
+    can_access_reports: boolean("can_access_reports").default(false),
+    can_access_settings: boolean("can_access_settings").default(false),
+    can_access_team: boolean("can_access_team").default(false),
+    can_access_workflows: boolean("can_access_workflows").default(false),
+    can_assign_contacts: boolean("can_assign_contacts").default(false),
+    can_create_contacts: boolean("can_create_contacts").default(true),
+    can_create_orders: boolean("can_create_orders").default(true),
+    can_create_products: boolean("can_create_products").default(false),
+    can_delete_contacts: boolean("can_delete_contacts").default(false),
+    can_delete_messages: boolean("can_delete_messages").default(false),
+    can_delete_orders: boolean("can_delete_orders").default(false),
+    can_delete_products: boolean("can_delete_products").default(false),
+    can_edit_contacts: boolean("can_edit_contacts").default(true),
+    can_edit_orders: boolean("can_edit_orders").default(false),
+    can_edit_products: boolean("can_edit_products").default(false),
+    can_export_data: boolean("can_export_data").default(false),
+    can_send_bulk_messages: boolean("can_send_bulk_messages").default(false),
+    can_send_messages: boolean("can_send_messages").default(true),
+    can_update_order_status: boolean("can_update_order_status").default(true),
+    can_update_payment_status: boolean("can_update_payment_status").default(false),
+    can_view_revenue: boolean("can_view_revenue").default(false),
     created_at: text("created_at").default(nowIso),
     tenant_id: text("tenant_id").notNull(),
     updated_at: text("updated_at").default(nowIso),
@@ -746,7 +746,7 @@ export const teamMemberPermissions = sqliteTable(
   }),
 );
 
-export const teamMemberAccess = sqliteTable(
+export const teamMemberAccess = pgTable(
   "team_member_access",
   {
     id: uid(),
@@ -762,7 +762,7 @@ export const teamMemberAccess = sqliteTable(
   }),
 );
 
-export const teamInvitations = sqliteTable(
+export const teamInvitations = pgTable(
   "team_invitations",
   {
     id: uid(),
@@ -782,7 +782,7 @@ export const teamInvitations = sqliteTable(
   }),
 );
 
-export const teamActivityLogs = sqliteTable(
+export const teamActivityLogs = pgTable(
   "team_activity_logs",
   {
     id: uid(),
@@ -790,7 +790,7 @@ export const teamActivityLogs = sqliteTable(
     created_at: text("created_at").default(nowIso).notNull(),
     entity_id: text("entity_id"),
     entity_type: text("entity_type"),
-    metadata: text("metadata", { mode: "json" }),
+    metadata: jsonb("metadata"),
     tenant_id: text("tenant_id").notNull(),
     user_id: text("user_id").notNull(),
   },
@@ -799,15 +799,15 @@ export const teamActivityLogs = sqliteTable(
   }),
 );
 
-export const teamKpiTargets = sqliteTable(
+export const teamKpiTargets = pgTable(
   "team_kpi_targets",
   {
     id: uid(),
     created_at: text("created_at").default(nowIso).notNull(),
-    is_active: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+    is_active: boolean("is_active").default(true).notNull(),
     metric: text("metric").notNull(),
     period: text("period").default("daily").notNull(),
-    target_value: real("target_value").notNull(),
+    target_value: doublePrecision("target_value").notNull(),
     tenant_id: text("tenant_id").notNull(),
     updated_at: text("updated_at").default(nowIso).notNull(),
     user_id: text("user_id"),
@@ -817,7 +817,7 @@ export const teamKpiTargets = sqliteTable(
   }),
 );
 
-export const teamPresenceLogs = sqliteTable(
+export const teamPresenceLogs = pgTable(
   "team_presence_logs",
   {
     id: uid(),
@@ -835,7 +835,7 @@ export const teamPresenceLogs = sqliteTable(
   }),
 );
 
-export const teamWorkSessions = sqliteTable(
+export const teamWorkSessions = pgTable(
   "team_work_sessions",
   {
     id: uid(),
@@ -847,7 +847,7 @@ export const teamWorkSessions = sqliteTable(
     longest_session_minutes: integer("longest_session_minutes").default(0),
     messages_received: integer("messages_received").default(0),
     messages_sent: integer("messages_sent").default(0),
-    page_activity: text("page_activity", { mode: "json" }),
+    page_activity: jsonb("page_activity"),
     session_date: text("session_date").notNull(),
     tenant_id: text("tenant_id").notNull(),
     total_active_minutes: integer("total_active_minutes").default(0),
@@ -860,7 +860,7 @@ export const teamWorkSessions = sqliteTable(
   }),
 );
 
-export const userPresence = sqliteTable("user_presence", {
+export const userPresence = pgTable("user_presence", {
   user_id: text("user_id").primaryKey(),
   is_typing_in: text("is_typing_in"),
   last_seen_at: text("last_seen_at").default(nowIso).notNull(),
@@ -868,15 +868,15 @@ export const userPresence = sqliteTable("user_presence", {
   tenant_id: text("tenant_id").notNull(),
 });
 
-export const permissionTemplates = sqliteTable(
+export const permissionTemplates = pgTable(
   "permission_templates",
   {
     id: uid(),
     created_at: text("created_at").default(nowIso),
     description: text("description"),
-    is_system: integer("is_system", { mode: "boolean" }).default(false),
+    is_system: boolean("is_system").default(false),
     name: text("name").notNull(),
-    permissions: text("permissions", { mode: "json" }).notNull(),
+    permissions: jsonb("permissions").notNull(),
     tenant_id: text("tenant_id"),
   },
   (t) => ({
@@ -885,21 +885,21 @@ export const permissionTemplates = sqliteTable(
 );
 
 // --- Catalog reference (global, read-only via API) -------------------------
-export const businessTypes = sqliteTable("business_types", {
+export const businessTypes = pgTable("business_types", {
   id: uid(),
   color: text("color"),
   created_at: text("created_at").default(nowIso),
   description: text("description"),
   display_order: integer("display_order").default(0),
   icon: text("icon"),
-  is_active: integer("is_active", { mode: "boolean" }).default(true),
+  is_active: boolean("is_active").default(true),
   name: text("name").notNull(),
   name_bn: text("name_bn"),
   slug: text("slug").notNull(),
   updated_at: text("updated_at").default(nowIso),
 });
 
-export const businessTypeFeatures = sqliteTable(
+export const businessTypeFeatures = pgTable(
   "business_type_features",
   {
     id: uid(),
@@ -911,7 +911,7 @@ export const businessTypeFeatures = sqliteTable(
     feature_label: text("feature_label").notNull(),
     feature_label_bn: text("feature_label_bn"),
     icon: text("icon"),
-    is_core: integer("is_core", { mode: "boolean" }).default(true),
+    is_core: boolean("is_core").default(true),
     min_tier: text("min_tier").default("starter"),
   },
   (t) => ({
@@ -919,7 +919,7 @@ export const businessTypeFeatures = sqliteTable(
   }),
 );
 
-export const featureCategories = sqliteTable("feature_categories", {
+export const featureCategories = pgTable("feature_categories", {
   id: uid(),
   created_at: text("created_at").default(nowIso),
   display_order: integer("display_order").default(0),
@@ -928,22 +928,22 @@ export const featureCategories = sqliteTable("feature_categories", {
   name_bn: text("name_bn"),
 });
 
-export const systemSettings = sqliteTable("system_settings", {
+export const systemSettings = pgTable("system_settings", {
   id: uid(),
   created_at: text("created_at").default(nowIso).notNull(),
   description: text("description"),
   key: text("key").notNull(),
   updated_at: text("updated_at").default(nowIso).notNull(),
-  value: text("value", { mode: "json" }),
+  value: jsonb("value"),
 });
 
 // --- Admin -----------------------------------------------------------------
-export const adminAccessRequests = sqliteTable(
+export const adminAccessRequests = pgTable(
   "admin_access_requests",
   {
     id: uid(),
     created_at: text("created_at").default(nowIso).notNull(),
-    permissions: text("permissions", { mode: "json" }),
+    permissions: jsonb("permissions"),
     reason: text("reason"),
     requested_by: text("requested_by").notNull(),
     review_notes: text("review_notes"),
@@ -957,7 +957,7 @@ export const adminAccessRequests = sqliteTable(
   }),
 );
 
-export const adminTasks = sqliteTable("admin_tasks", {
+export const adminTasks = pgTable("admin_tasks", {
   id: uid(),
   assigned_by: text("assigned_by"),
   assigned_to: text("assigned_to"),
@@ -973,29 +973,29 @@ export const adminTasks = sqliteTable("admin_tasks", {
   updated_at: text("updated_at").default(nowIso),
 });
 
-export const adminNotifications = sqliteTable("admin_notifications", {
+export const adminNotifications = pgTable("admin_notifications", {
   id: uid(),
   created_at: text("created_at").default(nowIso),
   entity_id: text("entity_id"),
   entity_type: text("entity_type"),
-  is_read: integer("is_read", { mode: "boolean" }).default(false),
+  is_read: boolean("is_read").default(false),
   message: text("message"),
-  metadata: text("metadata", { mode: "json" }),
+  metadata: jsonb("metadata"),
   tenant_id: text("tenant_id"),
   title: text("title").notNull(),
   type: text("type").notNull(),
 });
 
-export const inAppNotifications = sqliteTable(
+export const inAppNotifications = pgTable(
   "in_app_notifications",
   {
     id: uid(),
     created_at: text("created_at").default(nowIso),
     entity_id: text("entity_id"),
     entity_type: text("entity_type"),
-    is_read: integer("is_read", { mode: "boolean" }).default(false),
+    is_read: boolean("is_read").default(false),
     message: text("message"),
-    metadata: text("metadata", { mode: "json" }),
+    metadata: jsonb("metadata"),
     read_at: text("read_at"),
     tenant_id: text("tenant_id").notNull(),
     title: text("title").notNull(),
@@ -1007,7 +1007,7 @@ export const inAppNotifications = sqliteTable(
   }),
 );
 
-export const supportTickets = sqliteTable(
+export const supportTickets = pgTable(
   "support_tickets",
   {
     id: uid(),
@@ -1031,13 +1031,13 @@ export const supportTickets = sqliteTable(
   }),
 );
 
-export const supportTicketMessages = sqliteTable(
+export const supportTicketMessages = pgTable(
   "support_ticket_messages",
   {
     id: uid(),
-    attachments: text("attachments", { mode: "json" }),
+    attachments: jsonb("attachments"),
     created_at: text("created_at").default(nowIso),
-    is_internal_note: integer("is_internal_note", { mode: "boolean" }).default(false),
+    is_internal_note: boolean("is_internal_note").default(false),
     message: text("message").notNull(),
     sender_id: text("sender_id"),
     sender_type: text("sender_type").notNull(),
@@ -1049,20 +1049,20 @@ export const supportTicketMessages = sqliteTable(
 );
 
 // --- Accounting (deferred-v1; read-only pages may load these) ---------------
-export const expenseCategories = sqliteTable("expense_categories", {
+export const expenseCategories = pgTable("expense_categories", {
   id: uid(),
   color: text("color").default("gray"),
   created_at: text("created_at").default(nowIso),
   description: text("description"),
   icon: text("icon"),
-  is_active: integer("is_active", { mode: "boolean" }).default(true),
+  is_active: boolean("is_active").default(true),
   name: text("name").notNull(),
   updated_at: text("updated_at").default(nowIso),
 });
 
-export const expenses = sqliteTable("expenses", {
+export const expenses = pgTable("expenses", {
   id: uid(),
-  amount: real("amount").notNull(),
+  amount: doublePrecision("amount").notNull(),
   attachment_url: text("attachment_url"),
   category_id: text("category_id"),
   created_at: text("created_at").default(nowIso),
@@ -1077,16 +1077,16 @@ export const expenses = sqliteTable("expenses", {
   vendor_name: text("vendor_name"),
 });
 
-export const recurringExpenses = sqliteTable("recurring_expenses", {
+export const recurringExpenses = pgTable("recurring_expenses", {
   id: uid(),
-  amount: real("amount").notNull(),
+  amount: doublePrecision("amount").notNull(),
   category_id: text("category_id"),
   created_at: text("created_at").default(nowIso),
   currency: text("currency").default("BDT"),
   day_of_month: integer("day_of_month").default(1),
   description: text("description").notNull(),
   frequency: text("frequency").default("monthly").notNull(),
-  is_active: integer("is_active", { mode: "boolean" }).default(true),
+  is_active: boolean("is_active").default(true),
   last_generated_at: text("last_generated_at"),
   next_due_date: text("next_due_date").notNull(),
   notes: text("notes"),
@@ -1095,7 +1095,7 @@ export const recurringExpenses = sqliteTable("recurring_expenses", {
   vendor_name: text("vendor_name"),
 });
 
-export const tenantExpenseCategories = sqliteTable(
+export const tenantExpenseCategories = pgTable(
   "tenant_expense_categories",
   {
     id: uid(),
@@ -1103,7 +1103,7 @@ export const tenantExpenseCategories = sqliteTable(
     created_at: text("created_at").default(nowIso),
     description: text("description"),
     icon: text("icon").default("MoreHorizontal"),
-    is_active: integer("is_active", { mode: "boolean" }).default(true),
+    is_active: boolean("is_active").default(true),
     name: text("name").notNull(),
     tenant_id: text("tenant_id").notNull(),
     updated_at: text("updated_at").default(nowIso),
@@ -1114,11 +1114,11 @@ export const tenantExpenseCategories = sqliteTable(
   }),
 );
 
-export const tenantExpenses = sqliteTable(
+export const tenantExpenses = pgTable(
   "tenant_expenses",
   {
     id: uid(),
-    amount: real("amount").notNull(),
+    amount: doublePrecision("amount").notNull(),
     attachment_url: text("attachment_url"),
     category_id: text("category_id"),
     created_at: text("created_at").default(nowIso),
@@ -1138,18 +1138,18 @@ export const tenantExpenses = sqliteTable(
   }),
 );
 
-export const tenantRecurringExpenses = sqliteTable(
+export const tenantRecurringExpenses = pgTable(
   "tenant_recurring_expenses",
   {
     id: uid(),
-    amount: real("amount").notNull(),
+    amount: doublePrecision("amount").notNull(),
     category_id: text("category_id"),
     created_at: text("created_at").default(nowIso),
     currency: text("currency").default("BDT"),
     day_of_month: integer("day_of_month"),
     description: text("description").notNull(),
     frequency: text("frequency").notNull(),
-    is_active: integer("is_active", { mode: "boolean" }).default(true),
+    is_active: boolean("is_active").default(true),
     last_generated_at: text("last_generated_at"),
     next_due_date: text("next_due_date"),
     notes: text("notes"),
@@ -1164,31 +1164,31 @@ export const tenantRecurringExpenses = sqliteTable(
 );
 
 // --- Reports / Reminders / Onboarding --------------------------------------
-export const scheduledReportSettings = sqliteTable(
+export const scheduledReportSettings = pgTable(
   "scheduled_report_settings",
   {
     id: uid(),
     created_at: text("created_at").default(nowIso).notNull(),
-    daily_enabled: integer("daily_enabled", { mode: "boolean" }).default(true).notNull(),
-    monthly_enabled: integer("monthly_enabled", { mode: "boolean" }).default(true).notNull(),
+    daily_enabled: boolean("daily_enabled").default(true).notNull(),
+    monthly_enabled: boolean("monthly_enabled").default(true).notNull(),
     send_time: text("send_time").default("20:00:00").notNull(),
     tenant_id: text("tenant_id").notNull(),
     timezone: text("timezone").default("Asia/Dhaka").notNull(),
     updated_at: text("updated_at").default(nowIso).notNull(),
-    weekly_enabled: integer("weekly_enabled", { mode: "boolean" }).default(true).notNull(),
+    weekly_enabled: boolean("weekly_enabled").default(true).notNull(),
   },
   (t) => ({
     tenantUnq: uniqueIndex("scheduled_report_settings_tenant_unq").on(t.tenant_id),
   }),
 );
 
-export const scheduledReportLogs = sqliteTable(
+export const scheduledReportLogs = pgTable(
   "scheduled_report_logs",
   {
     id: uid(),
     created_at: text("created_at").default(nowIso).notNull(),
     error_message: text("error_message"),
-    report_data: text("report_data", { mode: "json" }),
+    report_data: jsonb("report_data"),
     report_type: text("report_type").notNull(),
     sent_at: text("sent_at"),
     status: text("status").default("pending").notNull(),
@@ -1199,19 +1199,19 @@ export const scheduledReportLogs = sqliteTable(
   }),
 );
 
-export const reminderSettings = sqliteTable("reminder_settings", {
+export const reminderSettings = pgTable("reminder_settings", {
   id: uid(),
   channel: text("channel").default("both").notNull(),
   created_at: text("created_at").default(nowIso),
-  days_offset: text("days_offset", { mode: "json" }).notNull(),
+  days_offset: jsonb("days_offset").notNull(),
   email_subject: text("email_subject"),
-  is_active: integer("is_active", { mode: "boolean" }).default(true),
+  is_active: boolean("is_active").default(true),
   reminder_type: text("reminder_type").notNull(),
   template_id: text("template_id"),
   updated_at: text("updated_at").default(nowIso),
 });
 
-export const reminderLogs = sqliteTable(
+export const reminderLogs = pgTable(
   "reminder_logs",
   {
     id: uid(),
@@ -1228,14 +1228,14 @@ export const reminderLogs = sqliteTable(
   }),
 );
 
-export const onboardingJobs = sqliteTable(
+export const onboardingJobs = pgTable(
   "onboarding_jobs",
   {
     id: uid(),
     created_at: text("created_at").default(nowIso).notNull(),
     error_message: text("error_message"),
     instance_id: text("instance_id"),
-    metadata: text("metadata", { mode: "json" }),
+    metadata: jsonb("metadata"),
     next_retry_at: text("next_retry_at"),
     retry_count: integer("retry_count").default(0).notNull(),
     status: text("status").default("pending").notNull(),
@@ -1249,7 +1249,7 @@ export const onboardingJobs = sqliteTable(
 );
 
 // --- Marketing (deferred-v1; admin pages read these) -----------------------
-export const marketingLeads = sqliteTable("marketing_leads", {
+export const marketingLeads = pgTable("marketing_leads", {
   id: uid(),
   business_name: text("business_name").notNull(),
   created_at: text("created_at").default(nowIso),
@@ -1264,10 +1264,10 @@ export const marketingLeads = sqliteTable("marketing_leads", {
   whatsapp_number: text("whatsapp_number").notNull(),
 });
 
-export const adminMarketingCampaigns = sqliteTable("admin_marketing_campaigns", {
+export const adminMarketingCampaigns = pgTable("admin_marketing_campaigns", {
   id: uid(),
-  alternate_channels: integer("alternate_channels", { mode: "boolean" }).default(true),
-  blackout_hours: text("blackout_hours", { mode: "json" }),
+  alternate_channels: boolean("alternate_channels").default(true),
+  blackout_hours: jsonb("blackout_hours"),
   created_at: text("created_at").default(nowIso),
   created_by: text("created_by"),
   frequency_per_month: integer("frequency_per_month").default(4),
@@ -1277,24 +1277,24 @@ export const adminMarketingCampaigns = sqliteTable("admin_marketing_campaigns", 
   name: text("name").notNull(),
   name_bn: text("name_bn"),
   status: text("status").default("draft"),
-  target_audience: text("target_audience", { mode: "json" }),
-  target_tier: text("target_tier", { mode: "json" }),
+  target_audience: jsonb("target_audience"),
+  target_tier: jsonb("target_tier"),
   type: text("type").notNull(),
   updated_at: text("updated_at").default(nowIso),
-  use_email: integer("use_email", { mode: "boolean" }).default(true),
-  use_whatsapp: integer("use_whatsapp", { mode: "boolean" }).default(true),
+  use_email: boolean("use_email").default(true),
+  use_whatsapp: boolean("use_whatsapp").default(true),
 });
 
-export const adminMarketingSequences = sqliteTable("admin_marketing_sequences", {
+export const adminMarketingSequences = pgTable("admin_marketing_sequences", {
   id: uid(),
-  ai_personalize: integer("ai_personalize", { mode: "boolean" }).default(false),
+  ai_personalize: boolean("ai_personalize").default(false),
   campaign_id: text("campaign_id").notNull(),
   channel: text("channel").notNull(),
-  content_template: text("content_template", { mode: "json" }).notNull(),
+  content_template: jsonb("content_template").notNull(),
   created_at: text("created_at").default(nowIso),
   day_of_week: integer("day_of_week"),
   discount_percent: integer("discount_percent").default(0),
-  is_active: integer("is_active", { mode: "boolean" }).default(true),
+  is_active: boolean("is_active").default(true),
   name: text("name").notNull(),
   name_bn: text("name_bn"),
   step_order: integer("step_order").notNull(),
@@ -1302,7 +1302,7 @@ export const adminMarketingSequences = sqliteTable("admin_marketing_sequences", 
   week_number: integer("week_number").notNull(),
 });
 
-export const adminMarketingEnrollments = sqliteTable("admin_marketing_enrollments", {
+export const adminMarketingEnrollments = pgTable("admin_marketing_enrollments", {
   id: uid(),
   campaign_id: text("campaign_id").notNull(),
   completed_at: text("completed_at"),
@@ -1314,7 +1314,7 @@ export const adminMarketingEnrollments = sqliteTable("admin_marketing_enrollment
   last_message_at: text("last_message_at"),
   messages_this_month: integer("messages_this_month").default(0),
   messages_this_week: integer("messages_this_week").default(0),
-  metadata: text("metadata", { mode: "json" }),
+  metadata: jsonb("metadata"),
   month_reset_at: text("month_reset_at").default(nowIso),
   next_message_at: text("next_message_at"),
   status: text("status").default("active"),
@@ -1323,12 +1323,12 @@ export const adminMarketingEnrollments = sqliteTable("admin_marketing_enrollment
   week_reset_at: text("week_reset_at").default(nowIso),
 });
 
-export const adminMarketingSends = sqliteTable("admin_marketing_sends", {
+export const adminMarketingSends = pgTable("admin_marketing_sends", {
   id: uid(),
-  ai_generated: integer("ai_generated", { mode: "boolean" }).default(false),
+  ai_generated: boolean("ai_generated").default(false),
   channel: text("channel").notNull(),
   clicked_at: text("clicked_at"),
-  content: text("content", { mode: "json" }),
+  content: jsonb("content"),
   created_at: text("created_at").default(nowIso),
   delivered_at: text("delivered_at"),
   enrollment_id: text("enrollment_id").notNull(),
@@ -1339,7 +1339,7 @@ export const adminMarketingSends = sqliteTable("admin_marketing_sends", {
   status: text("status").default("pending"),
 });
 
-export const adminCustomerJourney = sqliteTable("admin_customer_journey", {
+export const adminCustomerJourney = pgTable("admin_customer_journey", {
   id: uid(),
   channel: text("channel"),
   created_at: text("created_at").default(nowIso),
@@ -1348,21 +1348,21 @@ export const adminCustomerJourney = sqliteTable("admin_customer_journey", {
   entity_type: text("entity_type").notNull(),
   event_category: text("event_category"),
   event_type: text("event_type").notNull(),
-  metadata: text("metadata", { mode: "json" }),
+  metadata: jsonb("metadata"),
   title_bn: text("title_bn").notNull(),
 });
 
 // --- WooCommerce (deferred-v1; settings page reads integration row) --------
-export const woocommerceIntegrations = sqliteTable(
+export const woocommerceIntegrations = pgTable(
   "woocommerce_integrations",
   {
     id: uid(),
     consumer_key_encrypted: text("consumer_key_encrypted").notNull(),
     consumer_secret_encrypted: text("consumer_secret_encrypted").notNull(),
     created_at: text("created_at").default(nowIso).notNull(),
-    is_active: integer("is_active", { mode: "boolean" }).default(true),
+    is_active: boolean("is_active").default(true),
     last_sync_at: text("last_sync_at"),
-    settings: text("settings", { mode: "json" }),
+    settings: jsonb("settings"),
     store_url: text("store_url").notNull(),
     sync_error: text("sync_error"),
     sync_status: text("sync_status").default("idle"),
@@ -1374,13 +1374,13 @@ export const woocommerceIntegrations = sqliteTable(
   }),
 );
 
-export const woocommerceSyncLogs = sqliteTable(
+export const woocommerceSyncLogs = pgTable(
   "woocommerce_sync_logs",
   {
     id: uid(),
     categories_synced: integer("categories_synced").default(0),
     completed_at: text("completed_at"),
-    errors: text("errors", { mode: "json" }),
+    errors: jsonb("errors"),
     integration_id: text("integration_id").notNull(),
     products_synced: integer("products_synced").default(0),
     started_at: text("started_at").default(nowIso).notNull(),
@@ -1393,7 +1393,7 @@ export const woocommerceSyncLogs = sqliteTable(
 );
 
 // --- Internal Chat (deferred-v1; read-only) --------------------------------
-export const internalChatRooms = sqliteTable(
+export const internalChatRooms = pgTable(
   "internal_chat_rooms",
   {
     id: uid(),
@@ -1409,11 +1409,11 @@ export const internalChatRooms = sqliteTable(
   }),
 );
 
-export const internalChatMembers = sqliteTable(
+export const internalChatMembers = pgTable(
   "internal_chat_members",
   {
     id: uid(),
-    is_admin: integer("is_admin", { mode: "boolean" }).default(false).notNull(),
+    is_admin: boolean("is_admin").default(false).notNull(),
     joined_at: text("joined_at").default(nowIso).notNull(),
     last_read_at: text("last_read_at").default(nowIso),
     room_id: text("room_id").notNull(),
@@ -1424,7 +1424,7 @@ export const internalChatMembers = sqliteTable(
   }),
 );
 
-export const internalMessages = sqliteTable(
+export const internalMessages = pgTable(
   "internal_messages",
   {
     id: uid(),
@@ -1432,10 +1432,10 @@ export const internalMessages = sqliteTable(
     content_type: text("content_type").default("text").notNull(),
     created_at: text("created_at").default(nowIso).notNull(),
     edited_at: text("edited_at"),
-    is_deleted: integer("is_deleted", { mode: "boolean" }).default(false).notNull(),
+    is_deleted: boolean("is_deleted").default(false).notNull(),
     media_filename: text("media_filename"),
     media_url: text("media_url"),
-    mentions: text("mentions", { mode: "json" }),
+    mentions: jsonb("mentions"),
     reply_to_id: text("reply_to_id"),
     room_id: text("room_id").notNull(),
     sender_id: text("sender_id").notNull(),
@@ -1446,7 +1446,7 @@ export const internalMessages = sqliteTable(
 );
 
 // --- Service Boards (deferred-v1; read-only) -------------------------------
-export const serviceBoards = sqliteTable(
+export const serviceBoards = pgTable(
   "service_boards",
   {
     id: uid(),
@@ -1463,7 +1463,7 @@ export const serviceBoards = sqliteTable(
   }),
 );
 
-export const serviceBoardMembers = sqliteTable(
+export const serviceBoardMembers = pgTable(
   "service_board_members",
   {
     id: uid(),
@@ -1479,15 +1479,15 @@ export const serviceBoardMembers = sqliteTable(
   }),
 );
 
-export const serviceLists = sqliteTable(
+export const serviceLists = pgTable(
   "service_lists",
   {
     id: uid(),
     board_id: text("board_id").notNull(),
     created_at: text("created_at").default(nowIso).notNull(),
-    is_archived: integer("is_archived", { mode: "boolean" }).default(false).notNull(),
+    is_archived: boolean("is_archived").default(false).notNull(),
     name: text("name").notNull(),
-    position_numeric: real("position_numeric").default(0).notNull(),
+    position_numeric: doublePrecision("position_numeric").default(0).notNull(),
     tenant_id: text("tenant_id").notNull(),
     updated_at: text("updated_at").default(nowIso).notNull(),
   },
@@ -1496,7 +1496,7 @@ export const serviceLists = sqliteTable(
   }),
 );
 
-export const serviceCards = sqliteTable(
+export const serviceCards = pgTable(
   "service_cards",
   {
     id: uid(),
@@ -1508,7 +1508,7 @@ export const serviceCards = sqliteTable(
     description: text("description"),
     due_date: text("due_date"),
     list_id: text("list_id").notNull(),
-    position_numeric: real("position_numeric").default(0).notNull(),
+    position_numeric: doublePrecision("position_numeric").default(0).notNull(),
     priority: text("priority").default("medium"),
     status: text("status").default("open"),
     tenant_id: text("tenant_id").notNull(),
@@ -1520,7 +1520,7 @@ export const serviceCards = sqliteTable(
   }),
 );
 
-export const serviceLabels = sqliteTable(
+export const serviceLabels = pgTable(
   "service_labels",
   {
     id: uid(),
@@ -1535,7 +1535,7 @@ export const serviceLabels = sqliteTable(
   }),
 );
 
-export const serviceCardActivity = sqliteTable(
+export const serviceCardActivity = pgTable(
   "service_card_activity",
   {
     id: uid(),
@@ -1543,7 +1543,7 @@ export const serviceCardActivity = sqliteTable(
     created_at: text("created_at").default(nowIso).notNull(),
     event_type: text("event_type").notNull(),
     from_value: text("from_value"),
-    metadata_json: text("metadata_json", { mode: "json" }),
+    metadata_json: jsonb("metadata_json"),
     tenant_id: text("tenant_id").notNull(),
     to_value: text("to_value"),
     user_id: text("user_id").notNull(),

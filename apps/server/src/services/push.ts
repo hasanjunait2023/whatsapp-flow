@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbAll, dbRun, coerceJson } from "../db/raw.js";
 
 /**
  * Web push fan-out. "web-push" is dynamic-imported: when the module or VAPID
@@ -39,27 +39,24 @@ async function getWebPush(): Promise<typeof import("web-push") | null> {
   return webPushModule;
 }
 
-export function saveSubscription(
+export async function saveSubscription(
   tenantId: string,
   userId: string,
   subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
   userAgent?: string,
-): void {
-  sqlite
-    .prepare(
-      `INSERT INTO push_subscriptions (id, tenant_id, user_id, endpoint, keys, user_agent)
+): Promise<void> {
+  await dbRun(
+    `INSERT INTO push_subscriptions (id, tenant_id, user_id, endpoint, keys, user_agent)
        VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT (endpoint) DO UPDATE SET tenant_id = excluded.tenant_id,
          user_id = excluded.user_id, keys = excluded.keys, user_agent = excluded.user_agent`,
-    )
-    .run(
-      crypto.randomUUID(),
-      tenantId,
-      userId,
-      subscription.endpoint,
-      JSON.stringify(subscription.keys),
-      userAgent ?? null,
-    );
+    crypto.randomUUID(),
+    tenantId,
+    userId,
+    subscription.endpoint,
+    JSON.stringify(subscription.keys),
+    userAgent ?? null,
+  );
 }
 
 /**
@@ -69,19 +66,20 @@ export function saveSubscription(
  * of endpoints the push service itself reported as gone (404/410) — a dead
  * endpoint is globally dead, so no owner check applies.
  */
-export function removeSubscription(
+export async function removeSubscription(
   endpoint: string,
   owner?: { tenantId: string; userId: string },
-): void {
+): Promise<void> {
   if (owner) {
-    sqlite
-      .prepare(
-        `DELETE FROM push_subscriptions WHERE endpoint = ? AND tenant_id = ? AND user_id = ?`,
-      )
-      .run(endpoint, owner.tenantId, owner.userId);
+    await dbRun(
+      `DELETE FROM push_subscriptions WHERE endpoint = ? AND tenant_id = ? AND user_id = ?`,
+      endpoint,
+      owner.tenantId,
+      owner.userId,
+    );
     return;
   }
-  sqlite.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`).run(endpoint);
+  await dbRun(`DELETE FROM push_subscriptions WHERE endpoint = ?`, endpoint);
 }
 
 async function sendToRows(rows: SubscriptionRow[], payload: PushPayload): Promise<void> {
@@ -95,7 +93,7 @@ async function sendToRows(rows: SubscriptionRow[], payload: PushPayload): Promis
       } catch (err) {
         const status = (err as { statusCode?: number }).statusCode;
         if (status === 404 || status === 410) {
-          removeSubscription(row.endpoint); // endpoint gone — prune
+          await removeSubscription(row.endpoint); // endpoint gone — prune
         }
       }
     }),
@@ -105,7 +103,7 @@ async function sendToRows(rows: SubscriptionRow[], payload: PushPayload): Promis
 function parseRows(raw: Array<{ id: string; endpoint: string; keys: string }>): SubscriptionRow[] {
   return raw.flatMap((r) => {
     try {
-      return [{ id: r.id, endpoint: r.endpoint, keys: JSON.parse(r.keys) }];
+      return [{ id: r.id, endpoint: r.endpoint, keys: coerceJson(r.keys) }];
     } catch {
       return [];
     }
@@ -117,17 +115,18 @@ export async function sendPushToUser(
   userId: string,
   payload: PushPayload,
 ): Promise<void> {
-  const rows = sqlite
-    .prepare(
-      `SELECT id, endpoint, keys FROM push_subscriptions WHERE tenant_id = ? AND user_id = ?`,
-    )
-    .all(tenantId, userId) as Array<{ id: string; endpoint: string; keys: string }>;
+  const rows = (await dbAll(
+    `SELECT id, endpoint, keys FROM push_subscriptions WHERE tenant_id = ? AND user_id = ?`,
+    tenantId,
+    userId,
+  )) as Array<{ id: string; endpoint: string; keys: string }>;
   await sendToRows(parseRows(rows), payload);
 }
 
 export async function sendPushToTenant(tenantId: string, payload: PushPayload): Promise<void> {
-  const rows = sqlite
-    .prepare(`SELECT id, endpoint, keys FROM push_subscriptions WHERE tenant_id = ?`)
-    .all(tenantId) as Array<{ id: string; endpoint: string; keys: string }>;
+  const rows = (await dbAll(
+    `SELECT id, endpoint, keys FROM push_subscriptions WHERE tenant_id = ?`,
+    tenantId,
+  )) as Array<{ id: string; endpoint: string; keys: string }>;
   await sendToRows(parseRows(rows), payload);
 }

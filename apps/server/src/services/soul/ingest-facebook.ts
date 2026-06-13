@@ -38,14 +38,14 @@ export interface FacebookIngestResult {
 }
 
 /** Finds a connected page for the tenant (specific page id or the default). */
-export function findConnectedPage(
+export async function findConnectedPage(
   tenantId: string,
   pageId?: string,
-): { id: string; page_id: string; page_access_token: string; page_name: string } | undefined {
+): Promise<{ id: string; page_id: string; page_access_token: string; page_name: string } | undefined> {
   const conds = pageId
     ? and(eq(facebookPages.tenant_id, tenantId), eq(facebookPages.page_id, pageId))
     : eq(facebookPages.tenant_id, tenantId);
-  const rows = db
+  const rows = await db
     .select({
       id: facebookPages.id,
       page_id: facebookPages.page_id,
@@ -54,8 +54,7 @@ export function findConnectedPage(
       is_default: facebookPages.is_default,
     })
     .from(facebookPages)
-    .where(conds)
-    .all();
+    .where(conds);
   const row = rows.find((r) => r.is_default) ?? rows[0];
   if (!row) return undefined;
   return { ...row, page_access_token: getPageToken(row.page_access_token) ?? "" };
@@ -65,7 +64,7 @@ export async function ingestFacebookPage(
   tenantId: string,
   pageId?: string,
 ): Promise<FacebookIngestResult> {
-  const page = findConnectedPage(tenantId, pageId);
+  const page = await findConnectedPage(tenantId, pageId);
   if (!page) {
     throw new Error(
       "No connected Facebook page found. Connect a page first, or rely on website ingestion.",

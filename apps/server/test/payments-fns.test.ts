@@ -6,7 +6,8 @@ useTempDb();
 process.env.UDDOKTAPAY_API_KEY = "test-key";
 process.env.UDDOKTAPAY_BASE_URL = "https://pay.example.com";
 
-const { db, sqlite } = await import("../src/db/index.js");
+const { db } = await import("../src/db/index.js");
+const { dbGet } = await import("../src/db/raw.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { tenants, payments, subscriptionOrders } = await import("../src/db/schema.js");
 const { uddoktapayVerify } = await import("../src/routes/payments-fns.js");
@@ -19,29 +20,25 @@ function ctx(tenantId: string | null, isAdmin = false): FnContext {
   return { userId: "u", tenantId, isAdmin };
 }
 
-beforeAll(() => {
-  runMigrations();
-  db.insert(tenants)
-    .values([
-      { id: TENANT_A, name: "A", owner_id: "u" },
-      { id: TENANT_B, name: "B", owner_id: "u2" },
-    ])
-    .run();
-  db.insert(subscriptionOrders)
-    .values({ id: "so-a", tenant_id: TENANT_A, plan_id: "plan-x", order_number: "SUB-1", amount: 500, status: "pending" })
-    .run();
-  db.insert(payments)
-    .values({
-      id: "pay-a",
-      tenant_id: TENANT_A,
-      subscription_id: "so-a",
-      amount: 500,
-      currency: "BDT",
-      payment_method: "uddoktapay",
-      uddoktapay_invoice_id: "inv-123",
-      status: "pending",
-    })
-    .run();
+beforeAll(async () => {
+  await runMigrations();
+  await db.insert(tenants).values([
+    { id: TENANT_A, name: "A", owner_id: "u" },
+    { id: TENANT_B, name: "B", owner_id: "u2" },
+  ]);
+  await db
+    .insert(subscriptionOrders)
+    .values({ id: "so-a", tenant_id: TENANT_A, plan_id: "plan-x", order_number: "SUB-1", amount: 500, status: "pending" });
+  await db.insert(payments).values({
+    id: "pay-a",
+    tenant_id: TENANT_A,
+    subscription_id: "so-a",
+    amount: 500,
+    currency: "BDT",
+    payment_method: "uddoktapay",
+    uddoktapay_invoice_id: "inv-123",
+    status: "pending",
+  });
 });
 
 afterEach(() => {
@@ -60,14 +57,14 @@ describe("uddoktapay-verify", () => {
     expect(data.success).toBe(true);
     expect(data.status).toBe("verified");
 
-    const pay = sqlite.prepare("SELECT status, transaction_id FROM payments WHERE id = 'pay-a'").get() as {
+    const pay = (await dbGet("SELECT status, transaction_id FROM payments WHERE id = 'pay-a'")) as {
       status: string;
       transaction_id: string;
     };
     expect(pay.status).toBe("verified");
     expect(pay.transaction_id).toBe("TXN-9");
 
-    const order = sqlite.prepare("SELECT status FROM subscription_orders WHERE id = 'so-a'").get() as {
+    const order = (await dbGet("SELECT status FROM subscription_orders WHERE id = 'so-a'")) as {
       status: string;
     };
     expect(order.status).toBe("paid");

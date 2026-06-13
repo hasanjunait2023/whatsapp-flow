@@ -1,4 +1,4 @@
-import { sqlite } from "../../db/index.js";
+import { dbGet, dbTx } from "../../db/raw.js";
 
 /**
  * Free-trial provisioning for brand-new tenants.
@@ -29,18 +29,14 @@ function addDays(from: Date, days: number): Date {
  * re-runs / re-inserts never double-provision. Best-effort — a failure here must
  * not break tenant creation, so callers run it defensively.
  */
-export function startTrialForTenant(tenantId: string): void {
+export async function startTrialForTenant(tenantId: string): Promise<void> {
   if (!tenantId) return;
 
-  const existing = sqlite
-    .prepare("SELECT 1 FROM subscriptions WHERE tenant_id = ? LIMIT 1")
-    .get(tenantId);
+  const existing = await dbGet("SELECT 1 FROM subscriptions WHERE tenant_id = ? LIMIT 1", tenantId);
   if (existing) return;
 
   // Don't trial against a plan that isn't in the catalog (e.g. seed not run yet).
-  const plan = sqlite
-    .prepare("SELECT 1 FROM plans WHERE id = ? LIMIT 1")
-    .get(TRIAL_PLAN_ID);
+  const plan = await dbGet("SELECT 1 FROM plans WHERE id = ? LIMIT 1", TRIAL_PLAN_ID);
   if (!plan) return;
 
   const now = new Date();
@@ -50,23 +46,29 @@ export function startTrialForTenant(tenantId: string): void {
   // Provision the trial AND activate the tenant in one transaction: a trial means
   // immediate full access, so the new tenant goes straight to their panel instead
   // of the /pending-activation "complete payment to activate" gate.
-  const tx = sqlite.transaction(() => {
-    sqlite
-      .prepare(
-        `INSERT INTO subscriptions
-           (id, tenant_id, plan_id, status, current_period_start, current_period_end,
-            trial_ends_at, created_at, updated_at)
-         VALUES (?, ?, ?, 'trialing', ?, ?, ?, ?, ?)`,
-      )
-      .run(crypto.randomUUID(), tenantId, TRIAL_PLAN_ID, nowIso, endIso, endIso, nowIso, nowIso);
+  await dbTx(async (tx) => {
+    await tx.run(
+      `INSERT INTO subscriptions
+         (id, tenant_id, plan_id, status, current_period_start, current_period_end,
+          trial_ends_at, created_at, updated_at)
+       VALUES (?, ?, ?, 'trialing', ?, ?, ?, ?, ?)`,
+      crypto.randomUUID(),
+      tenantId,
+      TRIAL_PLAN_ID,
+      nowIso,
+      endIso,
+      endIso,
+      nowIso,
+      nowIso,
+    );
 
-    sqlite
-      .prepare(
-        `UPDATE tenants
-           SET is_activated = 1, activated_at = ?, updated_at = ?
-         WHERE id = ? AND (is_activated IS NULL OR is_activated = 0)`,
-      )
-      .run(nowIso, nowIso, tenantId);
+    await tx.run(
+      `UPDATE tenants
+         SET is_activated = true, activated_at = ?, updated_at = ?
+       WHERE id = ? AND (is_activated IS NOT TRUE)`,
+      nowIso,
+      nowIso,
+      tenantId,
+    );
   });
-  tx();
 }

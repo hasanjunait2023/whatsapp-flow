@@ -5,7 +5,7 @@ useTempDb();
 // Courier secrets are encrypted at rest; encryptSecret needs a 32-byte key.
 process.env.MASTER_KEY = "0".repeat(64);
 
-const { sqlite } = await import("../src/db/index.js");
+const { dbGet, dbRun } = await import("../src/db/raw.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { COURIER_HANDLERS } = await import("../src/routes/courier-fns.js");
 
@@ -13,14 +13,15 @@ const TENANT_A = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const TENANT_B = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const ctx = (tenantId: string) => ({ userId: "u", tenantId, isAdmin: false }) as any;
 
-beforeAll(() => {
-  runMigrations();
+beforeAll(async () => {
+  await runMigrations();
   for (const t of [TENANT_A, TENANT_B]) {
-    sqlite.prepare("INSERT INTO tenants (id, name, owner_id) VALUES (?, ?, 'u')").run(t, t);
+    await dbRun("INSERT INTO tenants (id, name, owner_id) VALUES (?, ?, 'u')", t, t);
   }
-  sqlite
-    .prepare("INSERT INTO orders (id, order_number, tenant_id) VALUES ('order-a', 'A-001', ?)")
-    .run(TENANT_A);
+  await dbRun(
+    "INSERT INTO orders (id, order_number, tenant_id) VALUES ('order-a', 'A-001', ?)",
+    TENANT_A,
+  );
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -32,27 +33,30 @@ describe("courier-save-integration (BYOK, encrypted at rest)", () => {
       ctx(TENANT_A),
     );
     expect(res.error).toBeNull();
-    const row = sqlite
-      .prepare("SELECT api_key, api_secret FROM courier_integrations WHERE tenant_id = ? AND provider = 'steadfast'")
-      .get(TENANT_A) as { api_key: string; api_secret: string };
+    const row = (await dbGet(
+      "SELECT api_key, api_secret FROM courier_integrations WHERE tenant_id = ? AND provider = 'steadfast'",
+      TENANT_A,
+    )) as { api_key: string; api_secret: string };
     expect(row.api_key).not.toBe("PLAINKEY");
     expect(row.api_secret).not.toBe("PLAINSECRET");
     expect(row.api_key.split(".")).toHaveLength(3); // base64(iv).base64(tag).base64(ct)
   });
 
   it("preserves the stored secret when api_key is left blank on re-save", async () => {
-    const before = sqlite
-      .prepare("SELECT api_key FROM courier_integrations WHERE tenant_id = ? AND provider = 'steadfast'")
-      .get(TENANT_A) as { api_key: string };
+    const before = (await dbGet(
+      "SELECT api_key FROM courier_integrations WHERE tenant_id = ? AND provider = 'steadfast'",
+      TENANT_A,
+    )) as { api_key: string };
     await COURIER_HANDLERS["courier-save-integration"](
       { provider: "steadfast", api_key: "", api_secret: "", is_active: false },
       ctx(TENANT_A),
     );
-    const after = sqlite
-      .prepare("SELECT api_key, is_active FROM courier_integrations WHERE tenant_id = ? AND provider = 'steadfast'")
-      .get(TENANT_A) as { api_key: string; is_active: number };
+    const after = (await dbGet(
+      "SELECT api_key, is_active FROM courier_integrations WHERE tenant_id = ? AND provider = 'steadfast'",
+      TENANT_A,
+    )) as { api_key: string; is_active: boolean };
     expect(after.api_key).toBe(before.api_key); // unchanged
-    expect(after.is_active).toBe(0); // toggle applied
+    expect(after.is_active).toBe(false); // toggle applied
   });
 });
 
@@ -126,9 +130,10 @@ describe("courier-book-parcel", () => {
     const data = res.data as { success: boolean; tracking_code: string };
     expect(data.success).toBe(true);
     expect(data.tracking_code).toBe("TRK123");
-    const ship = sqlite
-      .prepare("SELECT consignment_id, courier FROM shipments WHERE order_id = 'order-a' AND tenant_id = ?")
-      .get(TENANT_A) as { consignment_id: string; courier: string };
+    const ship = (await dbGet(
+      "SELECT consignment_id, courier FROM shipments WHERE order_id = 'order-a' AND tenant_id = ?",
+      TENANT_A,
+    )) as { consignment_id: string; courier: string };
     expect(ship.consignment_id).toBe("99887");
     expect(ship.courier).toBe("steadfast");
   });

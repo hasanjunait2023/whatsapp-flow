@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbGet, dbAll, dbRun, dbTx } from "../db/raw.js";
 import { emitChange } from "../realtime/emitter.js";
 import { wahaClient, sessionNameForInstance } from "../waha/client.js";
 import { WAHA_WEBHOOK_BASE_URL, WAHA_WEBHOOK_HMAC_SECRET } from "../lib/env.js";
@@ -58,9 +58,10 @@ export async function adminDeleteTenant(raw: Record<string, unknown>, ctx: FnCon
   for (const tenantId of tenantIds) {
     try {
       // Delete WAHA sessions for the tenant's instances (idempotent on 404).
-      const instances = sqlite
-        .prepare("SELECT id, session_id FROM whatsapp_instances WHERE tenant_id = ?")
-        .all(tenantId) as TenantInstanceRow[];
+      const instances = (await dbAll(
+        "SELECT id, session_id FROM whatsapp_instances WHERE tenant_id = ?",
+        tenantId,
+      )) as TenantInstanceRow[];
       let sessionsDeleted = 0;
       for (const inst of instances) {
         if (!inst.session_id) continue;
@@ -73,13 +74,12 @@ export async function adminDeleteTenant(raw: Record<string, unknown>, ctx: FnCon
       }
 
       // Purge tenant-owned rows. Each predicate is scoped to this tenant_id.
-      const tx = sqlite.transaction(() => {
+      await dbTx(async (tx) => {
         for (const table of PURGE_TABLES) {
-          sqlite.prepare(`DELETE FROM ${table} WHERE tenant_id = ?`).run(tenantId);
+          await tx.run(`DELETE FROM ${table} WHERE tenant_id = ?`, tenantId);
         }
-        sqlite.prepare("DELETE FROM tenants WHERE id = ?").run(tenantId);
+        await tx.run("DELETE FROM tenants WHERE id = ?", tenantId);
       });
-      tx();
 
       results.push({ tenant_id: tenantId, success: true, sessions_deleted: sessionsDeleted });
     } catch (err) {
@@ -103,7 +103,7 @@ export async function adminResetUserPassword(raw: Record<string, unknown>, ctx: 
   const userId = raw.user_id as string | undefined;
   if (!userId) return ok({ success: false, error: "user_id is required" });
 
-  const target = sqlite.prepare("SELECT id, email FROM user WHERE id = ? LIMIT 1").get(userId) as
+  const target = (await dbGet("SELECT id, email FROM user WHERE id = ? LIMIT 1", userId)) as
     | { id: string; email: string | null }
     | undefined;
   if (!target) return ok({ success: false, error: "User not found" });
@@ -117,24 +117,24 @@ export async function adminResetUserPassword(raw: Record<string, unknown>, ctx: 
     return ok({ success: false, error: err instanceof Error ? err.message : "Failed to hash password" });
   }
 
-  const updated = sqlite
-    .prepare("UPDATE account SET password = ?, updated_at = ? WHERE user_id = ? AND provider_id = 'credential'")
-    .run(hash, Math.floor(Date.now() / 1000), userId);
+  const updated = await dbRun(
+    "UPDATE account SET password = ?, updated_at = ? WHERE user_id = ? AND provider_id = 'credential'",
+    hash,
+    Math.floor(Date.now() / 1000),
+    userId,
+  );
   if (updated.changes === 0) {
     return ok({ success: false, error: "No credential account found for this user" });
   }
 
-  sqlite
-    .prepare(
-      "INSERT INTO admin_audit_logs (id, admin_id, action, entity_type, entity_id, details, created_at) VALUES (?, ?, 'reset_user_password', 'user', ?, ?, ?)",
-    )
-    .run(
-      crypto.randomUUID(),
-      ctx.userId,
-      userId,
-      JSON.stringify({ target_email: target.email, reset_at: new Date().toISOString() }),
-      new Date().toISOString(),
-    );
+  await dbRun(
+    "INSERT INTO admin_audit_logs (id, admin_id, action, entity_type, entity_id, details, created_at) VALUES (?, ?, 'reset_user_password', 'user', ?, ?, ?)",
+    crypto.randomUUID(),
+    ctx.userId,
+    userId,
+    JSON.stringify({ target_email: target.email, reset_at: new Date().toISOString() }),
+    new Date().toISOString(),
+  );
 
   return ok({ success: true, temp_password: newPassword, user_email: target.email });
 }
@@ -153,9 +153,10 @@ export async function adminLinkSession(raw: Record<string, unknown>, ctx: FnCont
   const sessionId = raw.session_id as string | undefined;
   if (!instanceId || !sessionId) return ok({ error: "instance_id and session_id are required" });
 
-  const instance = sqlite
-    .prepare("SELECT id, tenant_id FROM whatsapp_instances WHERE id = ? LIMIT 1")
-    .get(instanceId) as LinkInstanceRow | undefined;
+  const instance = (await dbGet(
+    "SELECT id, tenant_id FROM whatsapp_instances WHERE id = ? LIMIT 1",
+    instanceId,
+  )) as LinkInstanceRow | undefined;
   if (!instance) return ok({ error: "Instance not found" });
 
   // Verify the session exists on WAHA before linking.
@@ -170,14 +171,21 @@ export async function adminLinkSession(raw: Record<string, unknown>, ctx: FnCont
   }
 
   const now = new Date().toISOString();
-  sqlite
-    .prepare("UPDATE whatsapp_instances SET session_id = ?, status = ?, phone_number = COALESCE(?, phone_number), updated_at = ? WHERE id = ?")
-    .run(sessionId, status, phoneNumber, now, instance.id);
+  await dbRun(
+    "UPDATE whatsapp_instances SET session_id = ?, status = ?, phone_number = COALESCE(?, phone_number), updated_at = ? WHERE id = ?",
+    sessionId,
+    status,
+    phoneNumber,
+    now,
+    instance.id,
+  );
 
   // Clear the session from any OTHER instance that referenced it (de-dupe).
-  const cleared = sqlite
-    .prepare("UPDATE whatsapp_instances SET session_id = NULL, status = 'disconnected' WHERE session_id = ? AND id != ?")
-    .run(sessionId, instance.id);
+  const cleared = await dbRun(
+    "UPDATE whatsapp_instances SET session_id = NULL, status = 'disconnected' WHERE session_id = ? AND id != ?",
+    sessionId,
+    instance.id,
+  );
   emitChange("whatsapp_instances", instance.tenant_id, { id: instance.id, status });
 
   return ok({
@@ -201,9 +209,10 @@ export async function adminFixWebhook(raw: Record<string, unknown>, ctx: FnConte
   const dryRun = raw.dry_run === true;
   if (!instanceId) return ok({ error: "instance_id is required" });
 
-  const instance = sqlite
-    .prepare("SELECT id, tenant_id, session_id, phone_number FROM whatsapp_instances WHERE id = ? LIMIT 1")
-    .get(instanceId) as { id: string; tenant_id: string; session_id: string | null; phone_number: string | null } | undefined;
+  const instance = (await dbGet(
+    "SELECT id, tenant_id, session_id, phone_number FROM whatsapp_instances WHERE id = ? LIMIT 1",
+    instanceId,
+  )) as { id: string; tenant_id: string; session_id: string | null; phone_number: string | null } | undefined;
   if (!instance) return ok({ error: "Instance not found" });
   if (!instance.session_id) return ok({ error: "Instance has no session_id - cannot update webhook" });
 
@@ -223,9 +232,11 @@ export async function adminFixWebhook(raw: Record<string, unknown>, ctx: FnConte
   }
 
   // De-dupe: clear the session from any other instance that shares it.
-  const cleared = sqlite
-    .prepare("UPDATE whatsapp_instances SET session_id = NULL, status = 'disconnected' WHERE session_id = ? AND id != ?")
-    .run(instance.session_id, instance.id);
+  const cleared = await dbRun(
+    "UPDATE whatsapp_instances SET session_id = NULL, status = 'disconnected' WHERE session_id = ? AND id != ?",
+    instance.session_id,
+    instance.id,
+  );
   if (cleared.changes > 0) {
     actions.push({ action: "sources_cleared", count: cleared.changes });
   }

@@ -2,7 +2,8 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { organization } from "better-auth/plugins";
 import { APIError } from "better-auth/api";
-import { db, sqlite } from "../db/index.js";
+import { db } from "../db/index.js";
+import { dbGet } from "../db/raw.js";
 import { authSchema } from "../db/auth-schema.js";
 import { AUTH_BASE_URL, IS_PRODUCTION, getAuthSecret } from "../lib/env.js";
 import { verifyBcrypt, isBcryptHash } from "./password.js";
@@ -25,29 +26,31 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? "";
 
 /** True when the user owns a tenant or has an explicit owner role. */
-function isTenantOwner(userId: string): boolean {
-  const owner = sqlite
-    .prepare(
-      `SELECT 1 FROM tenants WHERE owner_id = ?
-       UNION SELECT 1 FROM user_roles WHERE user_id = ? AND role = 'owner' LIMIT 1`,
-    )
-    .get(userId, userId);
+async function isTenantOwner(userId: string): Promise<boolean> {
+  const owner = await dbGet(
+    `SELECT 1 FROM tenants WHERE owner_id = ?
+     UNION SELECT 1 FROM user_roles WHERE user_id = ? AND role = 'owner' LIMIT 1`,
+    userId,
+    userId,
+  );
   return owner !== undefined;
 }
 
 /** True when the user signed up via Google (has a google account row). */
-function hasGoogleAccount(userId: string): boolean {
-  const row = sqlite
-    .prepare(`SELECT 1 FROM account WHERE user_id = ? AND provider_id = 'google' LIMIT 1`)
-    .get(userId);
+async function hasGoogleAccount(userId: string): Promise<boolean> {
+  const row = await dbGet(
+    `SELECT 1 FROM account WHERE user_id = ? AND provider_id = 'google' LIMIT 1`,
+    userId,
+  );
   return row !== undefined;
 }
 
 /** True when the user has any non-social (credential) account. */
-function hasCredentialAccount(userId: string): boolean {
-  const row = sqlite
-    .prepare(`SELECT 1 FROM account WHERE user_id = ? AND provider_id = 'credential' LIMIT 1`)
-    .get(userId);
+async function hasCredentialAccount(userId: string): Promise<boolean> {
+  const row = await dbGet(
+    `SELECT 1 FROM account WHERE user_id = ? AND provider_id = 'credential' LIMIT 1`,
+    userId,
+  );
   return row !== undefined;
 }
 
@@ -55,7 +58,7 @@ export const auth = betterAuth({
   baseURL: AUTH_BASE_URL,
   secret: getAuthSecret(),
   database: drizzleAdapter(db, {
-    provider: "sqlite",
+    provider: "pg",
     schema: authSchema,
   }),
   emailAndPassword: {
@@ -97,9 +100,9 @@ export const auth = betterAuth({
           // EXISTING non-owner (team member with a credential account) must
           // use email/password.
           if (
-            hasGoogleAccount(session.userId) &&
-            hasCredentialAccount(session.userId) &&
-            !isTenantOwner(session.userId)
+            (await hasGoogleAccount(session.userId)) &&
+            (await hasCredentialAccount(session.userId)) &&
+            !(await isTenantOwner(session.userId))
           ) {
             throw new APIError("FORBIDDEN", {
               message: "Google sign-in is for account owners. Team members use email & password.",

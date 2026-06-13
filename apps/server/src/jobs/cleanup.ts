@@ -1,6 +1,6 @@
 import { unlink } from "node:fs/promises";
 import path from "node:path";
-import { sqlite } from "../db/index.js";
+import { dbAll, dbRun } from "../db/raw.js";
 import { MEDIA_DIR } from "../lib/env.js";
 
 /**
@@ -50,23 +50,24 @@ interface MediaRow {
 
 async function cleanupMediaTable(table: "messages" | "fb_messages"): Promise<{ processed: number; filesDeleted: number }> {
   const placeholders = MEDIA_TYPES.map(() => "?").join(",");
-  const rows = sqlite
-    .prepare(
-      `SELECT id, media_url FROM ${table}
+  const rows = (await dbAll(
+    `SELECT id, media_url FROM ${table}
        WHERE content_type IN (${placeholders}) AND sent_at < ? AND media_url IS NOT NULL
        LIMIT ?`,
-    )
-    .all(...MEDIA_TYPES, cutoffIso(MEDIA_RETENTION_DAYS), BATCH_SIZE) as MediaRow[];
+    ...MEDIA_TYPES,
+    cutoffIso(MEDIA_RETENTION_DAYS),
+    BATCH_SIZE,
+  )) as MediaRow[];
 
   let filesDeleted = 0;
-  const clear = sqlite.prepare(
-    `UPDATE ${table} SET media_url = NULL, media_mime_type = NULL, media_filename = NULL WHERE id = ?`,
-  );
   for (const row of rows) {
     if (isLocalMedia(row.media_url) && (await removeLocalFile(row.media_url!))) {
       filesDeleted += 1;
     }
-    clear.run(row.id);
+    await dbRun(
+      `UPDATE ${table} SET media_url = NULL, media_mime_type = NULL, media_filename = NULL WHERE id = ?`,
+      row.id,
+    );
   }
   return { processed: rows.length, filesDeleted };
 }
@@ -96,14 +97,17 @@ export interface WebhookCleanupResult {
 }
 
 /** webhook-cleanup-cron: prune old webhook audit logs + read in-app notifications. */
-export function runWebhookCleanup(): WebhookCleanupResult {
-  const webhookEventsDeleted = sqlite
-    .prepare("DELETE FROM webhook_events_log WHERE created_at < ?")
-    .run(cutoffIso(WEBHOOK_RETENTION_DAYS)).changes;
+export async function runWebhookCleanup(): Promise<WebhookCleanupResult> {
+  const webhookEventsDeleted = (
+    await dbRun("DELETE FROM webhook_events_log WHERE created_at < ?", cutoffIso(WEBHOOK_RETENTION_DAYS))
+  ).changes;
 
-  const notificationsDeleted = sqlite
-    .prepare("DELETE FROM in_app_notifications WHERE is_read = 1 AND created_at < ?")
-    .run(cutoffIso(NOTIFICATION_RETENTION_DAYS)).changes;
+  const notificationsDeleted = (
+    await dbRun(
+      "DELETE FROM in_app_notifications WHERE is_read = true AND created_at < ?",
+      cutoffIso(NOTIFICATION_RETENTION_DAYS),
+    )
+  ).changes;
 
   return { webhookEventsDeleted, notificationsDeleted };
 }

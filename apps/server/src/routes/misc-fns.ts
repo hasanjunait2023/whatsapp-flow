@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbGet, dbAll, dbRun, dbTx } from "../db/raw.js";
 import { emitChange } from "../realtime/emitter.js";
 import { SESSION_HANDLERS } from "./waha/session.js";
 import { sendMessage } from "./messaging.js";
@@ -45,9 +45,10 @@ export async function forwardMessage(raw: Record<string, unknown>, ctx: FnContex
     return ok({ error: "Either target_contact_id or target_phone_number is required" });
   }
 
-  const instance = sqlite
-    .prepare("SELECT id, tenant_id, status FROM whatsapp_instances WHERE id = ? LIMIT 1")
-    .get(body.instance_id) as InstanceRow | undefined;
+  const instance = (await dbGet(
+    "SELECT id, tenant_id, status FROM whatsapp_instances WHERE id = ? LIMIT 1",
+    body.instance_id,
+  )) as InstanceRow | undefined;
   if (!instance) return ok({ error: "Instance not found" });
   if (!ctx.isAdmin && instance.tenant_id !== ctx.tenantId) return ok({ error: "Forbidden instance" });
   if (instance.status !== "active") return ok({ error: "Instance not connected" });
@@ -56,20 +57,24 @@ export async function forwardMessage(raw: Record<string, unknown>, ctx: FnContex
   let targetContactId = body.target_contact_id ?? null;
   if (!targetContactId && body.target_phone_number) {
     const normalized = body.target_phone_number.replace(/\D/g, "");
-    const existing = sqlite
-      .prepare(
-        "SELECT id FROM contacts WHERE tenant_id = ? AND (phone_number = ? OR wa_id = ?) LIMIT 1",
-      )
-      .get(instance.tenant_id, normalized, `${normalized}@s.whatsapp.net`) as { id: string } | undefined;
+    const existing = (await dbGet(
+      "SELECT id FROM contacts WHERE tenant_id = ? AND (phone_number = ? OR wa_id = ?) LIMIT 1",
+      instance.tenant_id,
+      normalized,
+      `${normalized}@s.whatsapp.net`,
+    )) as { id: string } | undefined;
     if (existing) {
       targetContactId = existing.id;
     } else {
       targetContactId = crypto.randomUUID();
-      sqlite
-        .prepare(
-          "INSERT INTO contacts (id, tenant_id, instance_id, phone_number, wa_id) VALUES (?, ?, ?, ?, ?)",
-        )
-        .run(targetContactId, instance.tenant_id, instance.id, normalized, `${normalized}@s.whatsapp.net`);
+      await dbRun(
+        "INSERT INTO contacts (id, tenant_id, instance_id, phone_number, wa_id) VALUES (?, ?, ?, ?, ?)",
+        targetContactId,
+        instance.tenant_id,
+        instance.id,
+        normalized,
+        `${normalized}@s.whatsapp.net`,
+      );
       emitChange("contacts", instance.tenant_id, { id: targetContactId });
     }
   }
@@ -77,9 +82,11 @@ export async function forwardMessage(raw: Record<string, unknown>, ctx: FnContex
   // SECURITY: a client-supplied target_contact_id must belong to the instance's
   // tenant — never forward into another tenant's contact (created contacts above
   // already carry the right tenant_id, so this only gates the supplied path).
-  const ownsTarget = sqlite
-    .prepare("SELECT 1 FROM contacts WHERE id = ? AND tenant_id = ? LIMIT 1")
-    .get(targetContactId, instance.tenant_id);
+  const ownsTarget = await dbGet(
+    "SELECT 1 FROM contacts WHERE id = ? AND tenant_id = ? LIMIT 1",
+    targetContactId,
+    instance.tenant_id,
+  );
   if (!ownsTarget) return ok({ error: "Forbidden target contact" });
 
   const results: Array<{ message_id: string; success: boolean; error?: string }> = [];
@@ -92,11 +99,11 @@ export async function forwardMessage(raw: Record<string, unknown>, ctx: FnContex
       ctx.isAdmin && typeof raw.source_tenant_id === "string"
         ? (raw.source_tenant_id as string)
         : instance.tenant_id;
-    const src = sqlite
-      .prepare(
-        "SELECT content, content_type, media_url, media_filename FROM messages WHERE id = ? AND tenant_id = ? LIMIT 1",
-      )
-      .get(mid, sourceTenant) as
+    const src = (await dbGet(
+      "SELECT content, content_type, media_url, media_filename FROM messages WHERE id = ? AND tenant_id = ? LIMIT 1",
+      mid,
+      sourceTenant,
+    )) as
       | { content: string | null; content_type: string; media_url: string | null; media_filename: string | null }
       | undefined;
     if (!src) {
@@ -124,9 +131,10 @@ export async function forwardMessage(raw: Record<string, unknown>, ctx: FnContex
 export async function whatsappRefreshProfile(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
   const contactId = raw.contact_id as string | undefined;
   if (!contactId) return ok({ error: "contact_id is required" });
-  const contact = sqlite
-    .prepare("SELECT id, tenant_id, profile_pic_synced_at FROM contacts WHERE id = ? LIMIT 1")
-    .get(contactId) as { id: string; tenant_id: string; profile_pic_synced_at: string | null } | undefined;
+  const contact = (await dbGet(
+    "SELECT id, tenant_id, profile_pic_synced_at FROM contacts WHERE id = ? LIMIT 1",
+    contactId,
+  )) as { id: string; tenant_id: string; profile_pic_synced_at: string | null } | undefined;
   if (!contact) return ok({ error: "Contact not found" });
   if (!ctx.isAdmin && contact.tenant_id !== ctx.tenantId) return ok({ error: "Forbidden contact" });
   if (contact.profile_pic_synced_at) return ok({ success: true, skipped: true, reason: "already_synced" });
@@ -134,9 +142,11 @@ export async function whatsappRefreshProfile(raw: Record<string, unknown>, ctx: 
   // WAHA delivers profile pictures via the contacts endpoint; for v1 we only
   // stamp the sync time so the UI stops re-requesting. Full avatar fetch is a
   // follow-up (requires a WAHA /contacts/profile-picture call per number).
-  sqlite
-    .prepare("UPDATE contacts SET profile_pic_synced_at = ? WHERE id = ?")
-    .run(new Date().toISOString(), contact.id);
+  await dbRun(
+    "UPDATE contacts SET profile_pic_synced_at = ? WHERE id = ?",
+    new Date().toISOString(),
+    contact.id,
+  );
   return ok({ success: true, skipped: false });
 }
 
@@ -186,27 +196,36 @@ export async function createAdminUser(raw: Record<string, unknown>, ctx: FnConte
   const body = raw as CreateAdminBody;
   let userId = body.user_id ?? null;
   if (!userId && body.email) {
-    const u = sqlite.prepare("SELECT id FROM user WHERE lower(email) = lower(?) LIMIT 1").get(body.email) as
+    const u = (await dbGet("SELECT id FROM user WHERE lower(email) = lower(?) LIMIT 1", body.email)) as
       | { id: string }
       | undefined;
     userId = u?.id ?? null;
   }
   if (!userId) return ok({ error: "user_id or a known email is required" });
 
-  const existing = sqlite
-    .prepare("SELECT id FROM system_roles WHERE user_id = ? AND role = 'admin' LIMIT 1")
-    .get(userId) as { id: string } | undefined;
+  const existing = (await dbGet(
+    "SELECT id FROM system_roles WHERE user_id = ? AND role = 'admin' LIMIT 1",
+    userId,
+  )) as { id: string } | undefined;
   const now = new Date().toISOString();
   if (existing) {
-    sqlite
-      .prepare("UPDATE system_roles SET is_super_admin = ?, permissions = ? WHERE id = ?")
-      .run(body.is_super_admin ? 1 : 0, JSON.stringify(body.permissions ?? {}), existing.id);
+    await dbRun(
+      "UPDATE system_roles SET is_super_admin = ?, permissions = ? WHERE id = ?",
+      body.is_super_admin ? true : false,
+      JSON.stringify(body.permissions ?? {}),
+      existing.id,
+    );
   } else {
-    sqlite
-      .prepare(
-        "INSERT INTO system_roles (id, user_id, role, is_super_admin, permissions, granted_at, granted_by, created_at) VALUES (?, ?, 'admin', ?, ?, ?, ?, ?)",
-      )
-      .run(crypto.randomUUID(), userId, body.is_super_admin ? 1 : 0, JSON.stringify(body.permissions ?? {}), now, ctx.userId, now);
+    await dbRun(
+      "INSERT INTO system_roles (id, user_id, role, is_super_admin, permissions, granted_at, granted_by, created_at) VALUES (?, ?, 'admin', ?, ?, ?, ?, ?)",
+      crypto.randomUUID(),
+      userId,
+      body.is_super_admin ? true : false,
+      JSON.stringify(body.permissions ?? {}),
+      now,
+      ctx.userId,
+      now,
+    );
   }
   return ok({ success: true, user_id: userId });
 }
@@ -222,41 +241,49 @@ interface OrderRow {
 export async function generateInvoice(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
   const orderId = raw.order_id as string | undefined;
   if (!orderId) return ok({ error: "order_id is required" });
-  const order = sqlite
-    .prepare("SELECT id, tenant_id, order_number, total FROM orders WHERE id = ? LIMIT 1")
-    .get(orderId) as OrderRow | undefined;
+  const order = (await dbGet(
+    "SELECT id, tenant_id, order_number, total FROM orders WHERE id = ? LIMIT 1",
+    orderId,
+  )) as OrderRow | undefined;
   if (!order) return ok({ error: "Order not found" });
   if (!ctx.isAdmin && order.tenant_id !== ctx.tenantId) return ok({ error: "Forbidden order" });
 
-  const existing = sqlite
-    .prepare("SELECT id, invoice_number FROM invoices WHERE order_id = ? LIMIT 1")
-    .get(orderId) as { id: string; invoice_number: string } | undefined;
+  const existing = (await dbGet(
+    "SELECT id, invoice_number FROM invoices WHERE order_id = ? LIMIT 1",
+    orderId,
+  )) as { id: string; invoice_number: string } | undefined;
   if (existing) {
     return ok({ success: true, invoice_id: existing.id, invoice_number: existing.invoice_number, reused: true });
   }
 
   // Invoice number from invoice_settings prefix + running counter.
-  const settings = sqlite
-    .prepare("SELECT invoice_prefix, next_invoice_number FROM invoice_settings WHERE tenant_id = ? LIMIT 1")
-    .get(order.tenant_id) as { invoice_prefix: string | null; next_invoice_number: number | null } | undefined;
+  const settings = (await dbGet(
+    "SELECT invoice_prefix, next_invoice_number FROM invoice_settings WHERE tenant_id = ? LIMIT 1",
+    order.tenant_id,
+  )) as { invoice_prefix: string | null; next_invoice_number: number | null } | undefined;
   const prefix = settings?.invoice_prefix ?? "INV-";
   const seq = settings?.next_invoice_number ?? 1;
   const invoiceNumber = `${prefix}${String(seq).padStart(5, "0")}`;
 
   const invoiceId = crypto.randomUUID();
-  const tx = sqlite.transaction(() => {
-    sqlite
-      .prepare(
-        "INSERT INTO invoices (id, tenant_id, order_id, invoice_number, total, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-      )
-      .run(invoiceId, order.tenant_id, order.id, invoiceNumber, order.total, new Date().toISOString());
+  await dbTx(async (tx) => {
+    await tx.run(
+      "INSERT INTO invoices (id, tenant_id, order_id, invoice_number, total, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      invoiceId,
+      order.tenant_id,
+      order.id,
+      invoiceNumber,
+      order.total,
+      new Date().toISOString(),
+    );
     if (settings) {
-      sqlite
-        .prepare("UPDATE invoice_settings SET next_invoice_number = ? WHERE tenant_id = ?")
-        .run(seq + 1, order.tenant_id);
+      await tx.run(
+        "UPDATE invoice_settings SET next_invoice_number = ? WHERE tenant_id = ?",
+        seq + 1,
+        order.tenant_id,
+      );
     }
   });
-  tx();
   emitChange("invoices", order.tenant_id, { order_id: order.id });
 
   // NOTE: PDF rendering (pdf_url) is deferred; the row + number are created so
@@ -278,9 +305,10 @@ export async function mergeInvoices(raw: Record<string, unknown>, ctx: FnContext
     tenantClause = "AND tenant_id = ?";
     params.push(ctx.tenantId);
   }
-  const rows = sqlite
-    .prepare(`SELECT id, total, tenant_id FROM invoices WHERE id IN (${placeholders}) ${tenantClause}`)
-    .all(...params) as Array<{ id: string; total: number; tenant_id: string }>;
+  const rows = (await dbAll(
+    `SELECT id, total, tenant_id FROM invoices WHERE id IN (${placeholders}) ${tenantClause}`,
+    ...params,
+  )) as Array<{ id: string; total: number; tenant_id: string }>;
   if (rows.length !== invoiceIds.length) return ok({ error: "Some invoices were not found in your tenant" });
 
   // Merged-PDF rendering is deferred; return the combined total + member list so

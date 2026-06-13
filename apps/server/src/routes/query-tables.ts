@@ -111,7 +111,7 @@ import {
   serviceLabels,
   serviceCardActivity,
 } from "../db/schema.js";
-import type { SQLiteTable } from "drizzle-orm/sqlite-core";
+import type { PgTable } from "drizzle-orm/pg-core";
 
 /**
  * Who may mutate (insert/update/upsert/delete) a table through /api/query:
@@ -122,7 +122,7 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 export type Mutability = "tenant" | "admin" | "readonly";
 
 export interface TableConfig {
-  table: SQLiteTable;
+  table: PgTable;
   /** Column that scopes rows to a tenant, or null if not tenant-scoped. */
   tenantColumn: string | null;
   /**

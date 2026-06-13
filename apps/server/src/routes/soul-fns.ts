@@ -25,7 +25,7 @@ export const SOUL_HANDLERS: Record<string, FnHandler> = {
   "soul-ingest": async (body, ctx) => {
     if (!ctx.tenantId) return fail("No active tenant");
     try {
-      const soulId = startSoulIngestion(ctx.tenantId, body as IngestRequest);
+      const soulId = await startSoulIngestion(ctx.tenantId, body as IngestRequest);
       return ok({ soul_id: soulId, status: "ingesting" });
     } catch (err) {
       return fail(err instanceof Error ? err.message : "ingestion failed to start");
@@ -34,9 +34,9 @@ export const SOUL_HANDLERS: Record<string, FnHandler> = {
 
   "soul-status": async (_body, ctx) => {
     if (!ctx.tenantId) return fail("No active tenant");
-    const soul = getSoul(ctx.tenantId);
+    const soul = await getSoul(ctx.tenantId);
     if (!soul) return ok({ status: "none" });
-    const sources = db
+    const sources = await db
       .select({
         id: soulSources.id,
         type: soulSources.type,
@@ -45,8 +45,7 @@ export const SOUL_HANDLERS: Record<string, FnHandler> = {
         error: soulSources.error,
       })
       .from(soulSources)
-      .where(eq(soulSources.soul_id, soul.id))
-      .all();
+      .where(eq(soulSources.soul_id, soul.id));
     // system_prompt_cache stays server-side; the review UI edits structured fields.
     const { system_prompt_cache: _cache, ...rest } = soul;
     return ok({ ...rest, sources });
@@ -54,13 +53,13 @@ export const SOUL_HANDLERS: Record<string, FnHandler> = {
 
   "soul-regenerate": async (_body, ctx) => {
     if (!ctx.tenantId) return fail("No active tenant");
-    const soul = getSoul(ctx.tenantId);
+    const soul = await getSoul(ctx.tenantId);
     if (!soul) return fail("No soul to regenerate — run soul-ingest first");
-    const sources = db.select().from(soulSources).where(eq(soulSources.soul_id, soul.id)).all();
+    const sources = await db.select().from(soulSources).where(eq(soulSources.soul_id, soul.id));
     const websiteUrl = sources.find((s) => s.type === "website")?.url ?? undefined;
     const fbSource = sources.find((s) => s.type === "fb_page");
     try {
-      const soulId = startSoulIngestion(ctx.tenantId, {
+      const soulId = await startSoulIngestion(ctx.tenantId, {
         websiteUrl,
         includeFacebook: Boolean(fbSource),
         facebookPageId: fbSource?.url ?? undefined,
@@ -74,17 +73,18 @@ export const SOUL_HANDLERS: Record<string, FnHandler> = {
   "soul-approve": async (body, ctx) => {
     if (!ctx.tenantId) return fail("No active tenant");
     try {
-      approveSoul(ctx.tenantId, body as Parameters<typeof approveSoul>[1]);
-      const soul = db
-        .select({
-          id: agentSouls.id,
-          status: agentSouls.status,
-          approved_at: agentSouls.approved_at,
-        })
-        .from(agentSouls)
-        .where(eq(agentSouls.tenant_id, ctx.tenantId))
-        .limit(1)
-        .all()[0];
+      await approveSoul(ctx.tenantId, body as Parameters<typeof approveSoul>[1]);
+      const soul = (
+        await db
+          .select({
+            id: agentSouls.id,
+            status: agentSouls.status,
+            approved_at: agentSouls.approved_at,
+          })
+          .from(agentSouls)
+          .where(eq(agentSouls.tenant_id, ctx.tenantId))
+          .limit(1)
+      )[0];
       return ok(soul);
     } catch (err) {
       return fail(err instanceof Error ? err.message : "approval failed");

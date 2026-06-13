@@ -1,29 +1,32 @@
 import { sql } from "drizzle-orm";
 import {
-  sqliteTable,
+  pgTable,
   text,
   integer,
-  real,
+  doublePrecision,
+  boolean,
+  jsonb,
   index,
   uniqueIndex,
   primaryKey,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 import { moduleSchema } from "./schema-modules.js";
 
 /**
- * Core SQLite schema, hand-authored from the repo's generated Supabase types
+ * Core Postgres schema, hand-authored from the repo's generated Supabase types
  * (apps/web/src/integrations/supabase/types.ts). Column names and casing match
  * the Postgres source exactly so the supabase shim returns identical row shapes.
  *
- * Type map (per migration plan):
+ * Type map:
  *   uuid        -> text (crypto.randomUUID default)
- *   timestamptz -> text (ISO-8601, toISOString())
- *   jsonb       -> text ({ mode: "json" })
- *   bool        -> integer ({ mode: "boolean" })
+ *   timestamptz -> text (ISO-8601, toISOString()) — kept as text so the shim
+ *                  returns the same ISO strings the web layer expects
+ *   jsonb       -> jsonb
+ *   bool        -> boolean
  *   numeric     -> text
- *   numeric money (price/amount/total) -> real (generated types expose number;
- *     UI does arithmetic on these, so text would break row-shape parity)
- *   text[]      -> text ({ mode: "json" })
+ *   numeric money (price/amount/total) -> doublePrecision (UI does arithmetic
+ *     on these, so the row shape must expose a number)
+ *   text[]      -> jsonb
  */
 
 const uuid = () =>
@@ -31,12 +34,12 @@ const uuid = () =>
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID());
 
-const nowIso = sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`;
+const nowIso = sql`to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
 // ---------------------------------------------------------------------------
 // tenants
 // ---------------------------------------------------------------------------
-export const tenants = sqliteTable("tenants", {
+export const tenants = pgTable("tenants", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
@@ -44,13 +47,13 @@ export const tenants = sqliteTable("tenants", {
   activated_by: text("activated_by"),
   business_type_id: text("business_type_id"),
   created_at: text("created_at").default(nowIso).notNull(),
-  is_activated: integer("is_activated", { mode: "boolean" }).default(false),
+  is_activated: boolean("is_activated").default(false),
   logo_url: text("logo_url"),
   name: text("name").notNull(),
-  onboarding_status: text("onboarding_status", { mode: "json" }),
+  onboarding_status: jsonb("onboarding_status"),
   owner_id: text("owner_id").notNull(),
   pending_plan_id: text("pending_plan_id"),
-  settings: text("settings", { mode: "json" }),
+  settings: jsonb("settings"),
   slug: text("slug"),
   updated_at: text("updated_at").default(nowIso).notNull(),
 });
@@ -58,7 +61,7 @@ export const tenants = sqliteTable("tenants", {
 // ---------------------------------------------------------------------------
 // profiles (keyed by auth user id; no tenant_id)
 // ---------------------------------------------------------------------------
-export const profiles = sqliteTable("profiles", {
+export const profiles = pgTable("profiles", {
   id: text("id").primaryKey(),
   avatar_url: text("avatar_url"),
   created_at: text("created_at").default(nowIso).notNull(),
@@ -72,7 +75,7 @@ export const profiles = sqliteTable("profiles", {
 // ---------------------------------------------------------------------------
 // user_roles (tenant membership)
 // ---------------------------------------------------------------------------
-export const userRoles = sqliteTable(
+export const userRoles = pgTable(
   "user_roles",
   {
     id: text("id")
@@ -94,7 +97,7 @@ export const userRoles = sqliteTable(
 // ---------------------------------------------------------------------------
 // system_roles (admin detection)
 // ---------------------------------------------------------------------------
-export const systemRoles = sqliteTable(
+export const systemRoles = pgTable(
   "system_roles",
   {
     id: text("id")
@@ -103,8 +106,8 @@ export const systemRoles = sqliteTable(
     created_at: text("created_at").default(nowIso).notNull(),
     granted_at: text("granted_at"),
     granted_by: text("granted_by"),
-    is_super_admin: integer("is_super_admin", { mode: "boolean" }),
-    permissions: text("permissions", { mode: "json" }),
+    is_super_admin: boolean("is_super_admin"),
+    permissions: jsonb("permissions"),
     role: text("role").default("user").notNull(),
     user_id: text("user_id").notNull(),
   },
@@ -116,7 +119,7 @@ export const systemRoles = sqliteTable(
 // ---------------------------------------------------------------------------
 // subscriptions
 // ---------------------------------------------------------------------------
-export const subscriptions = sqliteTable(
+export const subscriptions = pgTable(
   "subscriptions",
   {
     id: text("id")
@@ -126,10 +129,10 @@ export const subscriptions = sqliteTable(
     created_at: text("created_at").default(nowIso).notNull(),
     current_period_end: text("current_period_end").notNull(),
     current_period_start: text("current_period_start").notNull(),
-    feature_overrides: text("feature_overrides", { mode: "json" }),
+    feature_overrides: jsonb("feature_overrides"),
     grace_period_ends_at: text("grace_period_ends_at"),
     plan_id: text("plan_id").notNull(),
-    resource_overrides: text("resource_overrides", { mode: "json" }),
+    resource_overrides: jsonb("resource_overrides"),
     status: text("status").default("trialing").notNull(),
     tenant_id: text("tenant_id").notNull(),
     trial_ends_at: text("trial_ends_at"),
@@ -143,7 +146,7 @@ export const subscriptions = sqliteTable(
 // ---------------------------------------------------------------------------
 // whatsapp_instances
 // ---------------------------------------------------------------------------
-export const whatsappInstances = sqliteTable(
+export const whatsappInstances = pgTable(
   "whatsapp_instances",
   {
     id: text("id")
@@ -153,9 +156,9 @@ export const whatsappInstances = sqliteTable(
     connection_error: text("connection_error"),
     created_at: text("created_at").default(nowIso).notNull(),
     deleted_at: text("deleted_at"),
-    device_info: text("device_info", { mode: "json" }),
-    is_default: integer("is_default", { mode: "boolean" }).default(false).notNull(),
-    is_deleted: integer("is_deleted", { mode: "boolean" }),
+    device_info: jsonb("device_info"),
+    is_default: boolean("is_default").default(false).notNull(),
+    is_deleted: boolean("is_deleted"),
     last_connected_at: text("last_connected_at"),
     last_qr_sent_at: text("last_qr_sent_at"),
     last_status_at: text("last_status_at"),
@@ -178,7 +181,7 @@ export const whatsappInstances = sqliteTable(
 // ---------------------------------------------------------------------------
 // contacts
 // ---------------------------------------------------------------------------
-export const contacts = sqliteTable(
+export const contacts = pgTable(
   "contacts",
   {
     id: text("id")
@@ -190,11 +193,11 @@ export const contacts = sqliteTable(
     handoff_at: text("handoff_at"),
     handoff_reason: text("handoff_reason"),
     instance_id: text("instance_id"),
-    is_archived: integer("is_archived", { mode: "boolean" }).default(false).notNull(),
-    is_blocked: integer("is_blocked", { mode: "boolean" }).default(false).notNull(),
+    is_archived: boolean("is_archived").default(false).notNull(),
+    is_blocked: boolean("is_blocked").default(false).notNull(),
     last_message_at: text("last_message_at"),
     name: text("name"),
-    needs_handoff: integer("needs_handoff", { mode: "boolean" }).default(false).notNull(),
+    needs_handoff: boolean("needs_handoff").default(false).notNull(),
     phone_number: text("phone_number").notNull(),
     profile_pic_synced_at: text("profile_pic_synced_at"),
     profile_pic_url: text("profile_pic_url"),
@@ -214,7 +217,7 @@ export const contacts = sqliteTable(
 // ---------------------------------------------------------------------------
 // messages
 // ---------------------------------------------------------------------------
-export const messages = sqliteTable(
+export const messages = pgTable(
   "messages",
   {
     id: text("id")
@@ -228,8 +231,8 @@ export const messages = sqliteTable(
     direction: text("direction").notNull(),
     error_message: text("error_message"),
     instance_id: text("instance_id"),
-    is_from_ai: integer("is_from_ai", { mode: "boolean" }).default(false).notNull(),
-    is_synced_from_device: integer("is_synced_from_device", { mode: "boolean" }),
+    is_from_ai: boolean("is_from_ai").default(false).notNull(),
+    is_synced_from_device: boolean("is_synced_from_device"),
     location_lat: text("location_lat"),
     location_lng: text("location_lng"),
     media_filename: text("media_filename"),
@@ -259,7 +262,7 @@ export const messages = sqliteTable(
 // ---------------------------------------------------------------------------
 // contact_thread_state
 // ---------------------------------------------------------------------------
-export const contactThreadState = sqliteTable(
+export const contactThreadState = pgTable(
   "contact_thread_state",
   {
     contact_id: text("contact_id").primaryKey(),
@@ -271,15 +274,15 @@ export const contactThreadState = sqliteTable(
     created_at: text("created_at").default(nowIso).notNull(),
     handoff_reason: text("handoff_reason"),
     instance_id: text("instance_id"),
-    is_archived: integer("is_archived", { mode: "boolean" }).default(false).notNull(),
-    is_blocked: integer("is_blocked", { mode: "boolean" }).default(false).notNull(),
-    label_ids: text("label_ids", { mode: "json" }),
+    is_archived: boolean("is_archived").default(false).notNull(),
+    is_blocked: boolean("is_blocked").default(false).notNull(),
+    label_ids: jsonb("label_ids"),
     last_inbound_at: text("last_inbound_at"),
     last_message_at: text("last_message_at").default(nowIso).notNull(),
     last_message_direction: text("last_message_direction"),
     last_message_preview: text("last_message_preview"),
     last_message_type: text("last_message_type"),
-    needs_handoff: integer("needs_handoff", { mode: "boolean" }).default(false).notNull(),
+    needs_handoff: boolean("needs_handoff").default(false).notNull(),
     tenant_id: text("tenant_id").notNull(),
     total_messages: integer("total_messages").default(0).notNull(),
     unread_count: integer("unread_count").default(0).notNull(),
@@ -296,7 +299,7 @@ export const contactThreadState = sqliteTable(
 // ---------------------------------------------------------------------------
 // contact_labels
 // ---------------------------------------------------------------------------
-export const contactLabels = sqliteTable(
+export const contactLabels = pgTable(
   "contact_labels",
   {
     id: text("id")
@@ -314,7 +317,7 @@ export const contactLabels = sqliteTable(
 // ---------------------------------------------------------------------------
 // quick_replies
 // ---------------------------------------------------------------------------
-export const quickReplies = sqliteTable(
+export const quickReplies = pgTable(
   "quick_replies",
   {
     id: text("id")
@@ -324,7 +327,7 @@ export const quickReplies = sqliteTable(
     content_type: text("content_type"),
     created_at: text("created_at").default(nowIso).notNull(),
     media_filename: text("media_filename"),
-    media_items: text("media_items", { mode: "json" }),
+    media_items: jsonb("media_items"),
     media_url: text("media_url"),
     shortcut: text("shortcut"),
     tenant_id: text("tenant_id").notNull(),
@@ -339,7 +342,7 @@ export const quickReplies = sqliteTable(
 // ---------------------------------------------------------------------------
 // message_templates (tenant-scoped: each tenant manages its own templates)
 // ---------------------------------------------------------------------------
-export const messageTemplates = sqliteTable(
+export const messageTemplates = pgTable(
   "message_templates",
   {
     id: text("id")
@@ -354,9 +357,9 @@ export const messageTemplates = sqliteTable(
     channel: text("channel").default("whatsapp").notNull(),
     content: text("content").notNull(),
     created_at: text("created_at").default(nowIso),
-    is_active: integer("is_active", { mode: "boolean" }),
+    is_active: boolean("is_active"),
     name: text("name").notNull(),
-    placeholders: text("placeholders", { mode: "json" }),
+    placeholders: jsonb("placeholders"),
     subject: text("subject"),
     updated_at: text("updated_at").default(nowIso),
   },
@@ -368,7 +371,7 @@ export const messageTemplates = sqliteTable(
 // ---------------------------------------------------------------------------
 // tenant_daily_stats (composite PK: tenant_id + stat_date)
 // ---------------------------------------------------------------------------
-export const tenantDailyStats = sqliteTable(
+export const tenantDailyStats = pgTable(
   "tenant_daily_stats",
   {
     tenant_id: text("tenant_id").notNull(),
@@ -391,7 +394,7 @@ export const tenantDailyStats = sqliteTable(
 // ---------------------------------------------------------------------------
 // notifications
 // ---------------------------------------------------------------------------
-export const notifications = sqliteTable(
+export const notifications = pgTable(
   "notifications",
   {
     id: text("id")
@@ -401,7 +404,7 @@ export const notifications = sqliteTable(
     created_at: text("created_at").default(nowIso).notNull(),
     error_message: text("error_message"),
     instance_id: text("instance_id"),
-    metadata: text("metadata", { mode: "json" }),
+    metadata: jsonb("metadata"),
     recipient: text("recipient"),
     sent_at: text("sent_at"),
     status: text("status").default("pending").notNull(),
@@ -416,7 +419,7 @@ export const notifications = sqliteTable(
 // ---------------------------------------------------------------------------
 // admin_audit_logs (impersonation + admin action audit trail)
 // ---------------------------------------------------------------------------
-export const adminAuditLogs = sqliteTable(
+export const adminAuditLogs = pgTable(
   "admin_audit_logs",
   {
     id: text("id")
@@ -425,7 +428,7 @@ export const adminAuditLogs = sqliteTable(
     action: text("action").notNull(),
     admin_id: text("admin_id"),
     created_at: text("created_at").default(nowIso).notNull(),
-    details: text("details", { mode: "json" }),
+    details: jsonb("details"),
     entity_id: text("entity_id"),
     entity_type: text("entity_type").notNull(),
   },
@@ -437,7 +440,7 @@ export const adminAuditLogs = sqliteTable(
 // ---------------------------------------------------------------------------
 // usage_counters (per-tenant per-period message counters)
 // ---------------------------------------------------------------------------
-export const usageCounters = sqliteTable(
+export const usageCounters = pgTable(
   "usage_counters",
   {
     id: text("id")
@@ -463,7 +466,7 @@ export const usageCounters = sqliteTable(
 // ---------------------------------------------------------------------------
 // webhook_events_log (raw inbound webhook audit + replay)
 // ---------------------------------------------------------------------------
-export const webhookEventsLog = sqliteTable(
+export const webhookEventsLog = pgTable(
   "webhook_events_log",
   {
     id: text("id")
@@ -473,8 +476,8 @@ export const webhookEventsLog = sqliteTable(
     error: text("error"),
     event_type: text("event_type").notNull(),
     instance_id: text("instance_id"),
-    payload: text("payload", { mode: "json" }).notNull(),
-    processed: integer("processed", { mode: "boolean" }).default(false).notNull(),
+    payload: jsonb("payload").notNull(),
+    processed: boolean("processed").default(false).notNull(),
     tenant_id: text("tenant_id"),
   },
   (t) => ({
@@ -485,34 +488,34 @@ export const webhookEventsLog = sqliteTable(
 // ---------------------------------------------------------------------------
 // message_raw_payloads (raw provider payload keyed by our message id)
 // ---------------------------------------------------------------------------
-export const messageRawPayloads = sqliteTable("message_raw_payloads", {
+export const messageRawPayloads = pgTable("message_raw_payloads", {
   message_id: text("message_id").primaryKey(),
   created_at: text("created_at").default(nowIso).notNull(),
-  provider_metadata: text("provider_metadata", { mode: "json" }),
-  raw_payload: text("raw_payload", { mode: "json" }),
+  provider_metadata: jsonb("provider_metadata"),
+  raw_payload: jsonb("raw_payload"),
 });
 
 // ---------------------------------------------------------------------------
 // plans (global pricing catalog; not tenant-scoped)
 // ---------------------------------------------------------------------------
-export const plans = sqliteTable("plans", {
+export const plans = pgTable("plans", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  ai_enabled: integer("ai_enabled", { mode: "boolean" }).default(false).notNull(),
+  ai_enabled: boolean("ai_enabled").default(false).notNull(),
   business_type_id: text("business_type_id"),
   created_at: text("created_at").default(nowIso).notNull(),
   description: text("description"),
-  features: text("features", { mode: "json" }),
-  is_active: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+  features: jsonb("features"),
+  is_active: boolean("is_active").default(true).notNull(),
   max_agents: integer("max_agents").default(1).notNull(),
   max_instances: integer("max_instances").default(1).notNull(),
   max_messages_per_month: integer("max_messages_per_month").default(1000).notNull(),
   /** Facebook pages (each with optional linked Instagram) the tenant may connect. */
   max_pages: integer("max_pages").default(1).notNull(),
   name: text("name").notNull(),
-  price_monthly: real("price_monthly").default(0).notNull(),
-  price_yearly: real("price_yearly"),
+  price_monthly: doublePrecision("price_monthly").default(0).notNull(),
+  price_yearly: doublePrecision("price_yearly"),
   tier: text("tier"),
   tier_order: integer("tier_order"),
   updated_at: text("updated_at").default(nowIso).notNull(),
@@ -521,16 +524,16 @@ export const plans = sqliteTable("plans", {
 // ---------------------------------------------------------------------------
 // payments (manual + gateway payment records; written by server flows only)
 // ---------------------------------------------------------------------------
-export const payments = sqliteTable(
+export const payments = pgTable(
   "payments",
   {
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    amount: real("amount").notNull(),
+    amount: doublePrecision("amount").notNull(),
     created_at: text("created_at").default(nowIso).notNull(),
     currency: text("currency").default("BDT").notNull(),
-    gateway_response: text("gateway_response", { mode: "json" }),
+    gateway_response: jsonb("gateway_response"),
     notes: text("notes"),
     payment_gateway: text("payment_gateway"),
     payment_method: text("payment_method").notNull(),
@@ -550,7 +553,7 @@ export const payments = sqliteTable(
 // ---------------------------------------------------------------------------
 // categories (product categories)
 // ---------------------------------------------------------------------------
-export const categories = sqliteTable(
+export const categories = pgTable(
   "categories",
   {
     id: text("id")
@@ -559,7 +562,7 @@ export const categories = sqliteTable(
     created_at: text("created_at").default(nowIso).notNull(),
     description: text("description"),
     image_url: text("image_url"),
-    is_active: integer("is_active", { mode: "boolean" }).default(true),
+    is_active: boolean("is_active").default(true),
     name: text("name").notNull(),
     parent_id: text("parent_id"),
     sort_order: integer("sort_order").default(0),
@@ -575,30 +578,30 @@ export const categories = sqliteTable(
 // ---------------------------------------------------------------------------
 // products
 // ---------------------------------------------------------------------------
-export const products = sqliteTable(
+export const products = pgTable(
   "products",
   {
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     category_id: text("category_id"),
-    compare_at_price: real("compare_at_price"),
-    cost_price: real("cost_price"),
+    compare_at_price: doublePrecision("compare_at_price"),
+    cost_price: doublePrecision("cost_price"),
     created_at: text("created_at").default(nowIso).notNull(),
     description: text("description"),
-    images: text("images", { mode: "json" }),
-    is_active: integer("is_active", { mode: "boolean" }).default(true),
+    images: jsonb("images"),
+    is_active: boolean("is_active").default(true),
     low_stock_threshold: integer("low_stock_threshold").default(5),
     name: text("name").notNull(),
-    price: real("price").default(0).notNull(),
+    price: doublePrecision("price").default(0).notNull(),
     sku: text("sku"),
     stock_quantity: integer("stock_quantity").default(0),
-    tags: text("tags", { mode: "json" }),
+    tags: jsonb("tags"),
     tenant_id: text("tenant_id").notNull(),
-    track_inventory: integer("track_inventory", { mode: "boolean" }).default(true),
+    track_inventory: boolean("track_inventory").default(true),
     updated_at: text("updated_at").default(nowIso).notNull(),
-    variant_options: text("variant_options", { mode: "json" }),
-    variants: text("variants", { mode: "json" }),
+    variant_options: jsonb("variant_options"),
+    variants: jsonb("variants"),
     woo_last_synced_at: text("woo_last_synced_at"),
     woo_product_id: integer("woo_product_id"),
   },
@@ -610,22 +613,22 @@ export const products = sqliteTable(
 // ---------------------------------------------------------------------------
 // product_variants
 // ---------------------------------------------------------------------------
-export const productVariants = sqliteTable(
+export const productVariants = pgTable(
   "product_variants",
   {
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    compare_at_price: real("compare_at_price"),
-    cost_price: real("cost_price"),
+    compare_at_price: doublePrecision("compare_at_price"),
+    cost_price: doublePrecision("cost_price"),
     created_at: text("created_at").default(nowIso),
-    images: text("images", { mode: "json" }),
-    is_active: integer("is_active", { mode: "boolean" }).default(true),
+    images: jsonb("images"),
+    is_active: boolean("is_active").default(true),
     low_stock_threshold: integer("low_stock_threshold").default(5),
     name: text("name").notNull(),
-    options: text("options", { mode: "json" }),
+    options: jsonb("options"),
     position: integer("position").default(0),
-    price: real("price"),
+    price: doublePrecision("price"),
     product_id: text("product_id").notNull(),
     sku: text("sku"),
     stock_quantity: integer("stock_quantity").default(0),
@@ -642,13 +645,13 @@ export const productVariants = sqliteTable(
 // ---------------------------------------------------------------------------
 // orders
 // ---------------------------------------------------------------------------
-export const orders = sqliteTable(
+export const orders = pgTable(
   "orders",
   {
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    billing_address: text("billing_address", { mode: "json" }),
+    billing_address: jsonb("billing_address"),
     cancelled_at: text("cancelled_at"),
     contact_id: text("contact_id"),
     courier: text("courier"),
@@ -659,20 +662,20 @@ export const orders = sqliteTable(
     customer_name: text("customer_name"),
     customer_phone: text("customer_phone"),
     delivered_at: text("delivered_at"),
-    discount_amount: real("discount_amount").default(0),
+    discount_amount: doublePrecision("discount_amount").default(0),
     internal_notes: text("internal_notes"),
     notes: text("notes"),
     order_number: text("order_number").notNull(),
     payment_status: text("payment_status").default("unpaid").notNull(),
     shipped_at: text("shipped_at"),
-    shipping_address: text("shipping_address", { mode: "json" }),
-    shipping_amount: real("shipping_amount").default(0),
+    shipping_address: jsonb("shipping_address"),
+    shipping_amount: doublePrecision("shipping_amount").default(0),
     source: text("source"),
     status: text("status").default("pending").notNull(),
-    subtotal: real("subtotal").default(0).notNull(),
-    tax_amount: real("tax_amount").default(0),
+    subtotal: doublePrecision("subtotal").default(0).notNull(),
+    tax_amount: doublePrecision("tax_amount").default(0),
     tenant_id: text("tenant_id").notNull(),
-    total: real("total").default(0).notNull(),
+    total: doublePrecision("total").default(0).notNull(),
     tracking_number: text("tracking_number"),
     updated_at: text("updated_at").default(nowIso).notNull(),
     woo_order_id: integer("woo_order_id"),
@@ -689,14 +692,14 @@ export const orders = sqliteTable(
 // added here so the generic /api/query tenant scoping covers this table too.
 // Inserts through the query API get it stamped by forceTenantOnRow.
 // ---------------------------------------------------------------------------
-export const orderItems = sqliteTable(
+export const orderItems = pgTable(
   "order_items",
   {
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     created_at: text("created_at").default(nowIso).notNull(),
-    discount_amount: real("discount_amount").default(0),
+    discount_amount: doublePrecision("discount_amount").default(0),
     notes: text("notes"),
     order_id: text("order_id").notNull(),
     product_id: text("product_id"),
@@ -704,8 +707,8 @@ export const orderItems = sqliteTable(
     product_sku: text("product_sku"),
     quantity: integer("quantity").default(1).notNull(),
     tenant_id: text("tenant_id").notNull(),
-    total: real("total").notNull(),
-    unit_price: real("unit_price").notNull(),
+    total: doublePrecision("total").notNull(),
+    unit_price: doublePrecision("unit_price").notNull(),
     variant_id: text("variant_id"),
     variant_name: text("variant_name"),
   },
@@ -718,7 +721,7 @@ export const orderItems = sqliteTable(
 // ---------------------------------------------------------------------------
 // facebook_pages (connected Messenger pages; token used by Graph API calls)
 // ---------------------------------------------------------------------------
-export const facebookPages = sqliteTable(
+export const facebookPages = pgTable(
   "facebook_pages",
   {
     id: text("id")
@@ -726,7 +729,7 @@ export const facebookPages = sqliteTable(
       .$defaultFn(() => crypto.randomUUID()),
     app_secret: text("app_secret"),
     created_at: text("created_at").default(nowIso).notNull(),
-    is_default: integer("is_default", { mode: "boolean" }).default(false).notNull(),
+    is_default: boolean("is_default").default(false).notNull(),
     last_connected_at: text("last_connected_at"),
     // Linked Instagram Business/Creator account (discovered during OAuth connect;
     // null = Facebook-only page, which is fully supported).
@@ -755,7 +758,7 @@ export const facebookPages = sqliteTable(
 // ---------------------------------------------------------------------------
 // fb_contacts (Messenger conversations, keyed by page-scoped PSID)
 // ---------------------------------------------------------------------------
-export const fbContacts = sqliteTable(
+export const fbContacts = pgTable(
   "fb_contacts",
   {
     id: text("id")
@@ -765,19 +768,19 @@ export const fbContacts = sqliteTable(
     created_at: text("created_at").default(nowIso).notNull(),
     handoff_at: text("handoff_at"),
     handoff_reason: text("handoff_reason"),
-    is_archived: integer("is_archived", { mode: "boolean" }).default(false).notNull(),
-    is_blocked: integer("is_blocked", { mode: "boolean" }).default(false).notNull(),
+    is_archived: boolean("is_archived").default(false).notNull(),
+    is_blocked: boolean("is_blocked").default(false).notNull(),
     last_message_at: text("last_message_at"),
     locale: text("locale"),
     name: text("name"),
-    needs_handoff: integer("needs_handoff", { mode: "boolean" }).default(false).notNull(),
+    needs_handoff: boolean("needs_handoff").default(false).notNull(),
     page_id: text("page_id").notNull(),
     // 'facebook' (Messenger PSID) or 'instagram' (IGSID via the linked IG account).
     platform: text("platform").default("facebook").notNull(),
     profile_pic_synced_at: text("profile_pic_synced_at"),
     profile_pic_url: text("profile_pic_url"),
     psid: text("psid").notNull(),
-    tags: text("tags", { mode: "json" }),
+    tags: jsonb("tags"),
     tenant_id: text("tenant_id").notNull(),
     typing_at: text("typing_at"),
     unread_count: integer("unread_count").default(0).notNull(),
@@ -792,7 +795,7 @@ export const fbContacts = sqliteTable(
 // ---------------------------------------------------------------------------
 // fb_messages
 // ---------------------------------------------------------------------------
-export const fbMessages = sqliteTable(
+export const fbMessages = pgTable(
   "fb_messages",
   {
     id: text("id")
@@ -806,7 +809,7 @@ export const fbMessages = sqliteTable(
     delivered_at: text("delivered_at"),
     direction: text("direction").notNull(),
     error_message: text("error_message"),
-    is_from_ai: integer("is_from_ai", { mode: "boolean" }).default(false).notNull(),
+    is_from_ai: boolean("is_from_ai").default(false).notNull(),
     media_filename: text("media_filename"),
     media_mime_type: text("media_mime_type"),
     media_url: text("media_url"),
@@ -837,7 +840,7 @@ export const fbMessages = sqliteTable(
 // llm_settings (per-tenant LLM provider config; api_key_encrypted is sensitive —
 // NEVER expose this table via the generic /api/query allowlist)
 // ---------------------------------------------------------------------------
-export const llmSettings = sqliteTable(
+export const llmSettings = pgTable(
   "llm_settings",
   {
     id: text("id")
@@ -845,11 +848,11 @@ export const llmSettings = sqliteTable(
       .$defaultFn(() => crypto.randomUUID()),
     api_key_encrypted: text("api_key_encrypted"),
     created_at: text("created_at").default(nowIso).notNull(),
-    is_byok: integer("is_byok", { mode: "boolean" }).default(false).notNull(),
+    is_byok: boolean("is_byok").default(false).notNull(),
     model: text("model"),
     monthly_token_budget: integer("monthly_token_budget"),
     provider: text("provider"),
-    temperature: real("temperature"),
+    temperature: doublePrecision("temperature"),
     tenant_id: text("tenant_id").notNull(),
     updated_at: text("updated_at").default(nowIso).notNull(),
   },
@@ -861,14 +864,14 @@ export const llmSettings = sqliteTable(
 // ---------------------------------------------------------------------------
 // llm_usage_events (per-call token usage for billing/budget enforcement)
 // ---------------------------------------------------------------------------
-export const llmUsageEvents = sqliteTable(
+export const llmUsageEvents = pgTable(
   "llm_usage_events",
   {
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     completion_tokens: integer("completion_tokens").default(0).notNull(),
-    cost_usd: real("cost_usd").default(0).notNull(),
+    cost_usd: doublePrecision("cost_usd").default(0).notNull(),
     created_at: text("created_at").default(nowIso).notNull(),
     feature: text("feature").notNull(),
     model: text("model").notNull(),
@@ -887,25 +890,25 @@ export const llmUsageEvents = sqliteTable(
 // ---------------------------------------------------------------------------
 // agent_souls (AI persona auto-built from the tenant's FB page + website)
 // ---------------------------------------------------------------------------
-export const agentSouls = sqliteTable(
+export const agentSouls = pgTable(
   "agent_souls",
   {
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     approved_at: text("approved_at"),
-    business_profile: text("business_profile", { mode: "json" }),
+    business_profile: jsonb("business_profile"),
     created_at: text("created_at").default(nowIso).notNull(),
     error_message: text("error_message"),
-    faqs: text("faqs", { mode: "json" }),
-    hours: text("hours", { mode: "json" }),
-    languages: text("languages", { mode: "json" }),
-    policies: text("policies", { mode: "json" }),
+    faqs: jsonb("faqs"),
+    hours: jsonb("hours"),
+    languages: jsonb("languages"),
+    policies: jsonb("policies"),
     products_summary: text("products_summary"),
     status: text("status").default("pending").notNull(),
     system_prompt_cache: text("system_prompt_cache"),
     tenant_id: text("tenant_id").notNull(),
-    tone: text("tone", { mode: "json" }),
+    tone: jsonb("tone"),
     updated_at: text("updated_at").default(nowIso).notNull(),
     version: integer("version").default(1).notNull(),
   },
@@ -917,7 +920,7 @@ export const agentSouls = sqliteTable(
 // ---------------------------------------------------------------------------
 // soul_sources (raw ingested source text per soul)
 // ---------------------------------------------------------------------------
-export const soulSources = sqliteTable(
+export const soulSources = pgTable(
   "soul_sources",
   {
     id: text("id")
@@ -942,7 +945,7 @@ export const soulSources = sqliteTable(
 // ---------------------------------------------------------------------------
 // job_queue (durable in-process background jobs; polled by jobs/worker.ts)
 // ---------------------------------------------------------------------------
-export const jobQueue = sqliteTable(
+export const jobQueue = pgTable(
   "job_queue",
   {
     id: text("id")
@@ -954,7 +957,7 @@ export const jobQueue = sqliteTable(
     dedupe_key: text("dedupe_key"),
     kind: text("kind").notNull(),
     last_error: text("last_error"),
-    payload: text("payload", { mode: "json" }),
+    payload: jsonb("payload"),
     run_at: text("run_at").default(nowIso).notNull(),
     status: text("status").default("queued").notNull(),
     tenant_id: text("tenant_id"),
@@ -969,23 +972,23 @@ export const jobQueue = sqliteTable(
 // ---------------------------------------------------------------------------
 // agent_configs (per-tenant, per-agent behavior config: hermes | ceo)
 // ---------------------------------------------------------------------------
-export const agentConfigs = sqliteTable(
+export const agentConfigs = pgTable(
   "agent_configs",
   {
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     agent: text("agent").notNull(),
-    channels: text("channels", { mode: "json" }),
+    channels: jsonb("channels"),
     created_at: text("created_at").default(nowIso).notNull(),
-    enabled: integer("enabled", { mode: "boolean" }).default(false).notNull(),
-    escalation_keywords: text("escalation_keywords", { mode: "json" }),
+    enabled: boolean("enabled").default(false).notNull(),
+    escalation_keywords: jsonb("escalation_keywords"),
     max_turns_before_handoff: integer("max_turns_before_handoff").default(10),
     model_override: text("model_override"),
     reply_delay_ms: integer("reply_delay_ms").default(8000).notNull(),
     tenant_id: text("tenant_id").notNull(),
     updated_at: text("updated_at").default(nowIso).notNull(),
-    working_hours: text("working_hours", { mode: "json" }),
+    working_hours: jsonb("working_hours"),
   },
   (t) => ({
     tenantAgentUnq: uniqueIndex("agent_configs_tenant_agent_unq").on(t.tenant_id, t.agent),
@@ -995,7 +998,7 @@ export const agentConfigs = sqliteTable(
 // ---------------------------------------------------------------------------
 // agent_runs (observability: every agent invocation with tokens + outcome)
 // ---------------------------------------------------------------------------
-export const agentRuns = sqliteTable(
+export const agentRuns = pgTable(
   "agent_runs",
   {
     id: text("id")
@@ -1012,7 +1015,7 @@ export const agentRuns = sqliteTable(
     prompt_tokens: integer("prompt_tokens").default(0).notNull(),
     status: text("status").notNull(),
     tenant_id: text("tenant_id").notNull(),
-    tool_calls: text("tool_calls", { mode: "json" }),
+    tool_calls: jsonb("tool_calls"),
     trigger: text("trigger"),
   },
   (t) => ({
@@ -1026,13 +1029,13 @@ export const agentRuns = sqliteTable(
 // plan price plus a cent salt so concurrent payments are distinguishable
 // on-chain. Writes happen only via fn handlers / the admin approval route.
 // ---------------------------------------------------------------------------
-export const cryptoPaymentRequests = sqliteTable(
+export const cryptoPaymentRequests = pgTable(
   "crypto_payment_requests",
   {
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    amount_usd: real("amount_usd").notNull(),
+    amount_usd: doublePrecision("amount_usd").notNull(),
     coupon_id: text("coupon_id"),
     created_at: text("created_at").default(nowIso).notNull(),
     currency: text("currency").default("USDT").notNull(),
@@ -1046,7 +1049,7 @@ export const cryptoPaymentRequests = sqliteTable(
     submitted_at: text("submitted_at"),
     tenant_id: text("tenant_id").notNull(),
     txid: text("txid"),
-    unique_amount: real("unique_amount").notNull(),
+    unique_amount: doublePrecision("unique_amount").notNull(),
     wallet_address: text("wallet_address").notNull(),
   },
   (t) => ({
@@ -1059,7 +1062,7 @@ export const cryptoPaymentRequests = sqliteTable(
 // ---------------------------------------------------------------------------
 // coupons (admin-managed; NOT exposed via /api/query — codes must not enumerate)
 // ---------------------------------------------------------------------------
-export const coupons = sqliteTable(
+export const coupons = pgTable(
   "coupons",
   {
     id: text("id")
@@ -1070,13 +1073,13 @@ export const coupons = sqliteTable(
     created_by: text("created_by"),
     discount_type: text("discount_type").notNull(),
     expires_at: text("expires_at"),
-    is_active: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+    is_active: boolean("is_active").default(true).notNull(),
     max_uses: integer("max_uses"),
     note: text("note"),
-    plan_ids: text("plan_ids", { mode: "json" }),
+    plan_ids: jsonb("plan_ids"),
     updated_at: text("updated_at").default(nowIso).notNull(),
     used_count: integer("used_count").default(0).notNull(),
-    value: real("value").notNull(),
+    value: doublePrecision("value").notNull(),
   },
   (t) => ({
     codeUnq: uniqueIndex("coupons_code_unq").on(t.code),
@@ -1086,13 +1089,13 @@ export const coupons = sqliteTable(
 // ---------------------------------------------------------------------------
 // coupon_redemptions (one redemption per coupon per tenant)
 // ---------------------------------------------------------------------------
-export const couponRedemptions = sqliteTable(
+export const couponRedemptions = pgTable(
   "coupon_redemptions",
   {
     id: text("id")
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    amount_discounted: real("amount_discounted"),
+    amount_discounted: doublePrecision("amount_discounted"),
     coupon_id: text("coupon_id").notNull(),
     created_at: text("created_at").default(nowIso).notNull(),
     crypto_request_id: text("crypto_request_id"),
@@ -1110,7 +1113,7 @@ export const couponRedemptions = sqliteTable(
 // ---------------------------------------------------------------------------
 // telegram_links (owner chat binding via single-use deep-link code)
 // ---------------------------------------------------------------------------
-export const telegramLinks = sqliteTable(
+export const telegramLinks = pgTable(
   "telegram_links",
   {
     id: text("id")
@@ -1134,7 +1137,7 @@ export const telegramLinks = sqliteTable(
 // ---------------------------------------------------------------------------
 // ceo_reports (generated business reports + marketing ideas)
 // ---------------------------------------------------------------------------
-export const ceoReports = sqliteTable(
+export const ceoReports = pgTable(
   "ceo_reports",
   {
     id: text("id")
@@ -1142,7 +1145,7 @@ export const ceoReports = sqliteTable(
       .$defaultFn(() => crypto.randomUUID()),
     content_md: text("content_md"),
     created_at: text("created_at").default(nowIso).notNull(),
-    data_snapshot: text("data_snapshot", { mode: "json" }),
+    data_snapshot: jsonb("data_snapshot"),
     error: text("error"),
     sent_at: text("sent_at"),
     status: text("status").default("pending").notNull(),
@@ -1157,7 +1160,7 @@ export const ceoReports = sqliteTable(
 // ---------------------------------------------------------------------------
 // agent_schedules (per-tenant report cadence, evaluated by the scheduler tick)
 // ---------------------------------------------------------------------------
-export const agentSchedules = sqliteTable(
+export const agentSchedules = pgTable(
   "agent_schedules",
   {
     id: text("id")
@@ -1166,7 +1169,7 @@ export const agentSchedules = sqliteTable(
     agent: text("agent").default("ceo").notNull(),
     cadence: text("cadence").notNull(),
     created_at: text("created_at").default(nowIso).notNull(),
-    enabled: integer("enabled", { mode: "boolean" }).default(true).notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
     hour_utc: integer("hour_utc").default(9).notNull(),
     last_run_at: text("last_run_at"),
     report_type: text("report_type").notNull(),
@@ -1185,7 +1188,7 @@ export const agentSchedules = sqliteTable(
 // ---------------------------------------------------------------------------
 // push_subscriptions (web push endpoints per user; pruned on 404/410)
 // ---------------------------------------------------------------------------
-export const pushSubscriptions = sqliteTable(
+export const pushSubscriptions = pgTable(
   "push_subscriptions",
   {
     id: text("id")
@@ -1193,7 +1196,7 @@ export const pushSubscriptions = sqliteTable(
       .$defaultFn(() => crypto.randomUUID()),
     created_at: text("created_at").default(nowIso).notNull(),
     endpoint: text("endpoint").notNull(),
-    keys: text("keys", { mode: "json" }).notNull(),
+    keys: jsonb("keys").notNull(),
     tenant_id: text("tenant_id").notNull(),
     user_agent: text("user_agent"),
     user_id: text("user_id").notNull(),

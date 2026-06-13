@@ -4,17 +4,17 @@ import { useTempDb } from "./helpers.js";
 useTempDb();
 process.env.MASTER_KEY = "0".repeat(64);
 
-const { sqlite } = await import("../src/db/index.js");
+const { dbGet, dbRun } = await import("../src/db/raw.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { COURIER_HANDLERS } = await import("../src/routes/courier-fns.js");
 
 const TENANT = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const ctx = () => ({ userId: "u", tenantId: TENANT, isAdmin: false }) as any;
 
-beforeAll(() => {
-  runMigrations();
-  sqlite.prepare("INSERT INTO tenants (id, name, owner_id) VALUES (?, 'T', 'o')").run(TENANT);
-  sqlite.prepare("INSERT INTO orders (id, order_number, tenant_id) VALUES ('order-p', 'P-1', ?)").run(TENANT);
+beforeAll(async () => {
+  await runMigrations();
+  await dbRun("INSERT INTO tenants (id, name, owner_id) VALUES (?, 'T', 'o')", TENANT);
+  await dbRun("INSERT INTO orders (id, order_number, tenant_id) VALUES ('order-p', 'P-1', ?)", TENANT);
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -32,10 +32,13 @@ describe("Pathao courier (OAuth + booking)", () => {
       },
       ctx(),
     );
-    const row = sqlite
-      .prepare("SELECT settings FROM courier_integrations WHERE tenant_id = ? AND provider = 'pathao'")
-      .get(TENANT) as { settings: string };
-    const s = JSON.parse(row.settings);
+    const row = (await dbGet(
+      "SELECT settings FROM courier_integrations WHERE tenant_id = ? AND provider = 'pathao'",
+      TENANT,
+    )) as { settings: string | Record<string, unknown> };
+    // jsonb columns come back already-parsed from node-postgres/pglite; only
+    // JSON.parse when the driver handed us a raw string.
+    const s = typeof row.settings === "string" ? JSON.parse(row.settings) : row.settings;
     expect(s.username).toBe("merchant@example.com");
     expect(s.password).toBeUndefined(); // never stored plaintext
     expect(typeof s.password_enc).toBe("string");
@@ -75,9 +78,10 @@ describe("Pathao courier (OAuth + booking)", () => {
     expect(data.success).toBe(true);
     expect(data.consignment_id).toBe("DA123456");
 
-    const ship = sqlite
-      .prepare("SELECT courier, consignment_id FROM shipments WHERE order_id = 'order-p' AND tenant_id = ?")
-      .get(TENANT) as { courier: string; consignment_id: string };
+    const ship = (await dbGet(
+      "SELECT courier, consignment_id FROM shipments WHERE order_id = 'order-p' AND tenant_id = ?",
+      TENANT,
+    )) as { courier: string; consignment_id: string };
     expect(ship.courier).toBe("pathao");
     expect(ship.consignment_id).toBe("DA123456");
   });

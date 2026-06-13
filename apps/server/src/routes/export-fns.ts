@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbAll } from "../db/raw.js";
 import { toCsv } from "../services/export/csv.js";
 import type { FnContext, FnResult } from "./waha/session.js";
 
@@ -33,8 +33,8 @@ interface ContactRow {
   name: string | null;
   phone_number: string | null;
   wa_id: string | null;
-  is_blocked: number;
-  is_archived: number;
+  is_blocked: boolean;
+  is_archived: boolean;
   unread_count: number;
   last_message_at: string | null;
   created_at: string;
@@ -47,9 +47,8 @@ async function exportContacts(_body: Record<string, unknown>, ctx: FnContext): P
 
   // Labels live in contact_labels (contact_id, label_id) -> labels (id, name),
   // all tenant-scoped. group_concat collapses each contact's labels to one cell.
-  const rows = sqlite
-    .prepare(
-      `SELECT
+  const rows = (await dbAll(
+    `SELECT
          c.name                AS name,
          c.phone_number        AS phone_number,
          c.wa_id               AS wa_id,
@@ -59,7 +58,7 @@ async function exportContacts(_body: Record<string, unknown>, ctx: FnContext): P
          c.last_message_at     AS last_message_at,
          c.created_at          AS created_at,
          (
-           SELECT group_concat(l.name, '; ')
+           SELECT string_agg(l.name::text, '; ')
              FROM contact_labels cl
              JOIN labels l ON l.id = cl.label_id AND l.tenant_id = c.tenant_id
             WHERE cl.contact_id = c.id
@@ -68,8 +67,9 @@ async function exportContacts(_body: Record<string, unknown>, ctx: FnContext): P
       WHERE c.tenant_id = ?
       ORDER BY c.created_at DESC
       LIMIT ?`,
-    )
-    .all(ctx.tenantId, MAX_ROWS) as ContactRow[];
+    ctx.tenantId,
+    MAX_ROWS,
+  )) as ContactRow[];
 
   const headers = [
     "name",
@@ -120,9 +120,8 @@ interface OrderRow {
 async function exportOrders(_body: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
   if (!ctx.tenantId) return fail("No active tenant");
 
-  const rows = sqlite
-    .prepare(
-      `SELECT
+  const rows = (await dbAll(
+    `SELECT
          order_number, customer_name, customer_phone, customer_email,
          status, payment_status, currency, subtotal, discount_amount,
          shipping_amount, total, source, created_at
@@ -130,8 +129,9 @@ async function exportOrders(_body: Record<string, unknown>, ctx: FnContext): Pro
       WHERE tenant_id = ?
       ORDER BY created_at DESC
       LIMIT ?`,
-    )
-    .all(ctx.tenantId, MAX_ROWS) as OrderRow[];
+    ctx.tenantId,
+    MAX_ROWS,
+  )) as OrderRow[];
 
   const headers = [
     "order_number",

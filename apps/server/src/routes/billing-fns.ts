@@ -1,4 +1,4 @@
-import { sqlite } from "../db/index.js";
+import { dbGet } from "../db/raw.js";
 import {
   createCryptoCheckout,
   submitTxid,
@@ -23,7 +23,7 @@ export const BILLING_HANDLERS: Record<string, FnHandler> = {
     const couponCode = typeof body.coupon_code === "string" ? body.coupon_code : undefined;
     if (!planId) return fail("plan_id is required");
     try {
-      const checkout = createCryptoCheckout(
+      const checkout = await createCryptoCheckout(
         ctx.tenantId,
         planId,
         network as CryptoNetwork,
@@ -41,7 +41,7 @@ export const BILLING_HANDLERS: Record<string, FnHandler> = {
     const txid = typeof body.txid === "string" ? body.txid : "";
     if (!requestId || !txid) return fail("request_id and txid are required");
     try {
-      submitTxid(ctx.tenantId, requestId, txid);
+      await submitTxid(ctx.tenantId, requestId, txid);
       return { data: { success: true, status: "submitted" }, error: null };
     } catch (err) {
       return fail(err instanceof Error ? err.message : "submission failed");
@@ -53,11 +53,12 @@ export const BILLING_HANDLERS: Record<string, FnHandler> = {
     const code = typeof body.code === "string" ? body.code : "";
     const planId = typeof body.plan_id === "string" ? body.plan_id : "";
     if (!code || !planId) return fail("code and plan_id are required");
-    const plan = sqlite
-      .prepare(`SELECT price_monthly FROM plans WHERE id = ? AND is_active = 1 LIMIT 1`)
-      .get(planId) as { price_monthly: number } | undefined;
+    const plan = (await dbGet(
+      `SELECT price_monthly FROM plans WHERE id = ? AND is_active = true LIMIT 1`,
+      planId,
+    )) as { price_monthly: number } | undefined;
     if (!plan) return fail("Plan not found");
-    const validation = validateCoupon(code, ctx.tenantId, planId, plan.price_monthly);
+    const validation = await validateCoupon(code, ctx.tenantId, planId, plan.price_monthly);
     if (!validation.valid) {
       return { data: { valid: false, reason: validation.reason }, error: null };
     }

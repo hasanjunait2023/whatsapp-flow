@@ -5,7 +5,8 @@ import { useTempDb } from "./helpers.js";
 useTempDb();
 process.env.FB_WEBHOOK_VERIFY_TOKEN = "app-level-token";
 
-const { db, sqlite } = await import("../src/db/index.js");
+const { db } = await import("../src/db/index.js");
+const { dbGet, dbAll } = await import("../src/db/raw.js");
 const { runMigrations } = await import("../src/db/migrate.js");
 const { tenants, facebookPages } = await import("../src/db/schema.js");
 const { fbWebhookRoute } = await import("../src/routes/webhooks/fb.js");
@@ -21,21 +22,19 @@ function sign(body: string): string {
 const app = new Hono();
 app.route("/api/webhooks/fb", fbWebhookRoute);
 
-beforeAll(() => {
-  runMigrations();
-  db.insert(tenants).values({ id: TENANT_A, name: "A", owner_id: "u" }).run();
-  db.insert(facebookPages)
-    .values({
-      id: "page-a",
-      tenant_id: TENANT_A,
-      page_id: "FB-PAGE-1",
-      page_name: "Page A",
-      page_access_token: "tok",
-      app_secret: APP_SECRET,
-      webhook_verify_token: "page-level-token",
-      status: "disconnected",
-    })
-    .run();
+beforeAll(async () => {
+  await runMigrations();
+  await db.insert(tenants).values({ id: TENANT_A, name: "A", owner_id: "u" });
+  await db.insert(facebookPages).values({
+    id: "page-a",
+    tenant_id: TENANT_A,
+    page_id: "FB-PAGE-1",
+    page_name: "Page A",
+    page_access_token: "tok",
+    app_secret: APP_SECRET,
+    webhook_verify_token: "page-level-token",
+    status: "disconnected",
+  });
 });
 
 describe("fb webhook verify-token handshake", () => {
@@ -53,7 +52,7 @@ describe("fb webhook verify-token handshake", () => {
     );
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("CHAL2");
-    const page = sqlite.prepare("SELECT status FROM facebook_pages WHERE id = 'page-a'").get() as {
+    const page = (await dbGet("SELECT status FROM facebook_pages WHERE id = 'page-a'")) as {
       status: string;
     };
     expect(page.status).toBe("active");
@@ -98,7 +97,7 @@ describe("fb webhook inbound message ingest", () => {
     const res2 = await post(); // duplicate mid
     expect(res2.status).toBe(200);
 
-    const msgs = sqlite.prepare("SELECT id, content, direction FROM fb_messages WHERE mid = 'm_abc'").all() as Array<{
+    const msgs = (await dbAll("SELECT id, content, direction FROM fb_messages WHERE mid = 'm_abc'")) as Array<{
       content: string;
       direction: string;
     }>;
@@ -106,7 +105,7 @@ describe("fb webhook inbound message ingest", () => {
     expect(msgs[0].content).toBe("hello there");
     expect(msgs[0].direction).toBe("inbound");
 
-    const contact = sqlite.prepare("SELECT unread_count FROM fb_contacts WHERE psid = 'PSID-9'").get() as {
+    const contact = (await dbGet("SELECT unread_count FROM fb_contacts WHERE psid = 'PSID-9'")) as {
       unread_count: number;
     };
     expect(contact.unread_count).toBe(1);
@@ -124,7 +123,7 @@ describe("fb webhook inbound message ingest", () => {
       body: raw,
     });
     expect(res.status).toBe(200);
-    const count = sqlite.prepare("SELECT COUNT(*) AS n FROM fb_messages WHERE mid = 'm_z'").get() as { n: number };
+    const count = (await dbGet("SELECT COUNT(*)::int AS n FROM fb_messages WHERE mid = 'm_z'")) as { n: number };
     expect(count.n).toBe(0);
   });
 
@@ -146,24 +145,22 @@ describe("fb webhook inbound message ingest", () => {
     });
     // Webhook always 200s to Meta, but the spoofed message must not be ingested.
     expect(res.status).toBe(200);
-    const count = sqlite.prepare("SELECT COUNT(*) AS n FROM fb_messages WHERE mid = 'm_bad'").get() as { n: number };
+    const count = (await dbGet("SELECT COUNT(*)::int AS n FROM fb_messages WHERE mid = 'm_bad'")) as { n: number };
     expect(count.n).toBe(0);
   });
 
   it("fails closed: refuses to ingest when the page has no app_secret", async () => {
     // A page with no secret cannot authenticate payloads → no ingest.
-    db.insert(facebookPages)
-      .values({
-        id: "page-nosecret",
-        tenant_id: TENANT_A,
-        page_id: "FB-PAGE-NOSEC",
-        page_name: "No Secret",
-        page_access_token: "tok",
-        app_secret: null,
-        webhook_verify_token: "vt2",
-        status: "active",
-      })
-      .run();
+    await db.insert(facebookPages).values({
+      id: "page-nosecret",
+      tenant_id: TENANT_A,
+      page_id: "FB-PAGE-NOSEC",
+      page_name: "No Secret",
+      page_access_token: "tok",
+      app_secret: null,
+      webhook_verify_token: "vt2",
+      status: "active",
+    });
     const payload = {
       object: "page",
       entry: [
@@ -177,27 +174,25 @@ describe("fb webhook inbound message ingest", () => {
       body: raw,
     });
     expect(res.status).toBe(200);
-    const count = sqlite.prepare("SELECT COUNT(*) AS n FROM fb_messages WHERE mid = 'm_nosec'").get() as { n: number };
+    const count = (await dbGet("SELECT COUNT(*)::int AS n FROM fb_messages WHERE mid = 'm_nosec'")) as { n: number };
     expect(count.n).toBe(0);
   });
 });
 
 describe("instagram webhook ingest", () => {
-  beforeAll(() => {
-    db.insert(facebookPages)
-      .values({
-        id: "page-ig",
-        tenant_id: TENANT_A,
-        page_id: "FB-PAGE-IG",
-        page_name: "Page With IG",
-        page_access_token: "tok",
-        app_secret: APP_SECRET,
-        webhook_verify_token: "vt-ig",
-        status: "active",
-        ig_account_id: "IG-ACC-1",
-        ig_username: "myshop_ig",
-      })
-      .run();
+  beforeAll(async () => {
+    await db.insert(facebookPages).values({
+      id: "page-ig",
+      tenant_id: TENANT_A,
+      page_id: "FB-PAGE-IG",
+      page_name: "Page With IG",
+      page_access_token: "tok",
+      app_secret: APP_SECRET,
+      webhook_verify_token: "vt-ig",
+      status: "active",
+      ig_account_id: "IG-ACC-1",
+      ig_username: "myshop_ig",
+    });
   });
 
   it("ingests an Instagram DM as a platform=instagram contact + message", async () => {
@@ -225,14 +220,16 @@ describe("instagram webhook ingest", () => {
     });
     expect(res.status).toBe(200);
 
-    const msg = sqlite
-      .prepare("SELECT content, page_id FROM fb_messages WHERE mid = 'ig_m_1'")
-      .get() as { content: string; page_id: string };
+    const msg = (await dbGet("SELECT content, page_id FROM fb_messages WHERE mid = 'ig_m_1'")) as {
+      content: string;
+      page_id: string;
+    };
     expect(msg.content).toBe("salam, price koto?");
     expect(msg.page_id).toBe("page-ig");
-    const contact = sqlite
-      .prepare("SELECT platform, unread_count FROM fb_contacts WHERE psid = 'IGSID-7'")
-      .get() as { platform: string; unread_count: number };
+    const contact = (await dbGet("SELECT platform, unread_count FROM fb_contacts WHERE psid = 'IGSID-7'")) as {
+      platform: string;
+      unread_count: number;
+    };
     expect(contact.platform).toBe("instagram");
     expect(contact.unread_count).toBe(1);
   });
@@ -253,7 +250,7 @@ describe("instagram webhook ingest", () => {
       headers: { "Content-Type": "application/json", "x-hub-signature-256": sign(raw) },
       body: raw,
     });
-    const count = sqlite.prepare("SELECT COUNT(*) AS n FROM fb_messages WHERE mid = 'ig_echo'").get() as { n: number };
+    const count = (await dbGet("SELECT COUNT(*)::int AS n FROM fb_messages WHERE mid = 'ig_echo'")) as { n: number };
     expect(count.n).toBe(0);
   });
 
@@ -268,7 +265,7 @@ describe("instagram webhook ingest", () => {
       body: JSON.stringify(payload),
     });
     expect(res.status).toBe(200);
-    const count = sqlite.prepare("SELECT COUNT(*) AS n FROM fb_messages WHERE mid = 'ig_spoof'").get() as { n: number };
+    const count = (await dbGet("SELECT COUNT(*)::int AS n FROM fb_messages WHERE mid = 'ig_spoof'")) as { n: number };
     expect(count.n).toBe(0);
   });
 
@@ -302,18 +299,18 @@ describe("instagram webhook ingest", () => {
     await post();
     await post(); // duplicate event
 
-    const comments = sqlite
-      .prepare("SELECT platform, message, commenter_name, is_from_page FROM fb_post_comments WHERE fb_comment_id = 'IG-COMMENT-1'")
-      .all() as Array<{ platform: string; message: string; commenter_name: string; is_from_page: number }>;
+    const comments = (await dbAll(
+      "SELECT platform, message, commenter_name, is_from_page FROM fb_post_comments WHERE fb_comment_id = 'IG-COMMENT-1'",
+    )) as Array<{ platform: string; message: string; commenter_name: string; is_from_page: boolean }>;
     expect(comments).toHaveLength(1);
     expect(comments[0].platform).toBe("instagram");
     expect(comments[0].message).toBe("dam koto vai");
     expect(comments[0].commenter_name).toBe("curious_buyer");
-    expect(comments[0].is_from_page).toBe(0);
+    expect(comments[0].is_from_page).toBe(false);
 
-    const postRow = sqlite
-      .prepare("SELECT post_type, comment_count, unread_comment_count FROM fb_posts WHERE fb_post_id = 'IG-MEDIA-1'")
-      .get() as { post_type: string; comment_count: number; unread_comment_count: number };
+    const postRow = (await dbGet(
+      "SELECT post_type, comment_count, unread_comment_count FROM fb_posts WHERE fb_post_id = 'IG-MEDIA-1'",
+    )) as { post_type: string; comment_count: number; unread_comment_count: number };
     expect(postRow.post_type).toBe("instagram");
     expect(postRow.comment_count).toBe(1);
     expect(postRow.unread_comment_count).toBe(1);

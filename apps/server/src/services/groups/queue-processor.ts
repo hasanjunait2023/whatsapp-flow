@@ -1,4 +1,4 @@
-import { sqlite } from "../../db/index.js";
+import { dbGet, dbAll, dbRun, coerceJson } from "../../db/raw.js";
 import { emitChange } from "../../realtime/emitter.js";
 import { wahaClient, sessionNameForInstance } from "../../waha/client.js";
 
@@ -42,23 +42,30 @@ function today(): string {
 }
 
 /** Remaining members the tenant may add today (creates the row lazily). */
-function remainingDailyQuota(tenantId: string): { remaining: number; limit: number; added: number } {
-  const row = sqlite
-    .prepare("SELECT max_daily_limit, members_added FROM tenant_daily_group_limits WHERE tenant_id = ? AND date = ?")
-    .get(tenantId, today()) as { max_daily_limit: number | null; members_added: number | null } | undefined;
+async function remainingDailyQuota(
+  tenantId: string,
+): Promise<{ remaining: number; limit: number; added: number }> {
+  const row = await dbGet<{ max_daily_limit: number | null; members_added: number | null }>(
+    "SELECT max_daily_limit, members_added FROM tenant_daily_group_limits WHERE tenant_id = ? AND date = ?",
+    tenantId,
+    today(),
+  );
   const limit = row?.max_daily_limit ?? DEFAULT_DAILY_LIMIT;
   const added = row?.members_added ?? 0;
   return { remaining: Math.max(0, limit - added), limit, added };
 }
 
-function bumpDailyQuota(tenantId: string, n: number): void {
-  sqlite
-    .prepare(
-      `INSERT INTO tenant_daily_group_limits (id, tenant_id, date, max_daily_limit, members_added)
+async function bumpDailyQuota(tenantId: string, n: number): Promise<void> {
+  await dbRun(
+    `INSERT INTO tenant_daily_group_limits (id, tenant_id, date, max_daily_limit, members_added)
        VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(tenant_id, date) DO UPDATE SET members_added = members_added + excluded.members_added`,
-    )
-    .run(crypto.randomUUID(), tenantId, today(), DEFAULT_DAILY_LIMIT, n);
+       ON CONFLICT (tenant_id, date) DO UPDATE SET members_added = tenant_daily_group_limits.members_added + EXCLUDED.members_added`,
+    crypto.randomUUID(),
+    tenantId,
+    today(),
+    DEFAULT_DAILY_LIMIT,
+    n,
+  );
 }
 
 function toJid(phone: string): string {
@@ -69,7 +76,7 @@ function toJid(phone: string): string {
 async function processOne(q: QueueRow): Promise<void> {
   const phones: string[] = (() => {
     try {
-      const parsed = JSON.parse(q.phone_numbers);
+      const parsed = coerceJson(q.phone_numbers);
       return Array.isArray(parsed) ? parsed.map(String) : [];
     } catch {
       return [];
@@ -77,26 +84,30 @@ async function processOne(q: QueueRow): Promise<void> {
   })();
   const processed = q.processed_count ?? 0;
   if (processed >= phones.length) {
-    sqlite
-      .prepare("UPDATE group_add_queue SET status = 'completed', completed_at = ? WHERE id = ?")
-      .run(new Date().toISOString(), q.id);
+    await dbRun(
+      "UPDATE group_add_queue SET status = 'completed', completed_at = ? WHERE id = ?",
+      new Date().toISOString(),
+      q.id,
+    );
     emitChange("group_add_queue", q.tenant_id, { id: q.id });
     return;
   }
 
-  const group = sqlite
-    .prepare("SELECT id, tenant_id, instance_id, wa_group_id FROM whatsapp_groups WHERE id = ? AND tenant_id = ? LIMIT 1")
-    .get(q.group_id, q.tenant_id) as GroupRow | undefined;
+  const group = await dbGet<GroupRow>(
+    "SELECT id, tenant_id, instance_id, wa_group_id FROM whatsapp_groups WHERE id = ? AND tenant_id = ? LIMIT 1",
+    q.group_id,
+    q.tenant_id,
+  );
   if (!group) {
-    appendError(q.id, "Group not found; cancelling queue");
-    sqlite.prepare("UPDATE group_add_queue SET status = 'cancelled' WHERE id = ?").run(q.id);
+    await appendError(q.id, "Group not found; cancelling queue");
+    await dbRun("UPDATE group_add_queue SET status = 'cancelled' WHERE id = ?", q.id);
     return;
   }
 
-  const { remaining } = remainingDailyQuota(q.tenant_id);
+  const { remaining } = await remainingDailyQuota(q.tenant_id);
   if (remaining <= 0) {
     // Daily cap hit — leave pending and try again after the interval (tomorrow).
-    pushSchedule(q);
+    await pushSchedule(q);
     return;
   }
 
@@ -110,57 +121,65 @@ async function processOne(q: QueueRow): Promise<void> {
   try {
     await wahaClient.addGroupParticipants(session, group.wa_group_id, batch.map(toJid));
     const now = new Date().toISOString();
-    const ins = sqlite.prepare(
-      `INSERT OR IGNORE INTO whatsapp_group_participants (id, group_id, tenant_id, phone_number, is_admin, added_at)
-       VALUES (?, ?, ?, ?, 0, ?)`,
-    );
-    for (const phone of batch) ins.run(crypto.randomUUID(), group.id, group.tenant_id, phone.replace(/[^0-9]/g, ""), now);
+    for (const phone of batch)
+      await dbRun(
+        `INSERT INTO whatsapp_group_participants (id, group_id, tenant_id, phone_number, is_admin, added_at)
+       VALUES (?, ?, ?, ?, false, ?)
+       ON CONFLICT DO NOTHING`,
+        crypto.randomUUID(),
+        group.id,
+        group.tenant_id,
+        phone.replace(/[^0-9]/g, ""),
+        now,
+      );
     added = batch.length;
   } catch (err) {
     failed = batch.length;
-    appendError(q.id, err instanceof Error ? err.message : "Batch add failed");
+    await appendError(q.id, err instanceof Error ? err.message : "Batch add failed");
   }
 
-  if (added > 0) bumpDailyQuota(q.tenant_id, added);
+  if (added > 0) await bumpDailyQuota(q.tenant_id, added);
 
   const newProcessed = processed + added + failed;
   const done = newProcessed >= phones.length;
-  sqlite
-    .prepare(
-      `UPDATE group_add_queue
+  await dbRun(
+    `UPDATE group_add_queue
          SET processed_count = ?, failed_count = ?, status = ?, completed_at = ?
        WHERE id = ?`,
-    )
-    .run(
-      newProcessed,
-      (q.failed_count ?? 0) + failed,
-      done ? "completed" : "processing",
-      done ? new Date().toISOString() : null,
-      q.id,
-    );
-  if (!done) pushSchedule(q);
+    newProcessed,
+    (q.failed_count ?? 0) + failed,
+    done ? "completed" : "processing",
+    done ? new Date().toISOString() : null,
+    q.id,
+  );
+  if (!done) await pushSchedule(q);
   emitChange("group_add_queue", q.tenant_id, { id: q.id });
 }
 
 /** Push the next batch's scheduled_for forward by the queue's interval. */
-function pushSchedule(q: QueueRow): void {
+async function pushSchedule(q: QueueRow): Promise<void> {
   const intervalMin = Math.max(1, q.interval_minutes ?? DEFAULT_INTERVAL_MIN);
   const next = new Date(Date.now() + intervalMin * 60 * 1000).toISOString();
-  sqlite.prepare("UPDATE group_add_queue SET scheduled_for = ? WHERE id = ?").run(next, q.id);
+  await dbRun("UPDATE group_add_queue SET scheduled_for = ? WHERE id = ?", next, q.id);
 }
 
-function appendError(queueId: string, message: string): void {
-  const row = sqlite.prepare("SELECT error_log FROM group_add_queue WHERE id = ?").get(queueId) as
-    | { error_log: string | null }
-    | undefined;
+async function appendError(queueId: string, message: string): Promise<void> {
+  const row = await dbGet<{ error_log: string | null }>(
+    "SELECT error_log FROM group_add_queue WHERE id = ?",
+    queueId,
+  );
   let log: unknown[] = [];
   try {
-    log = row?.error_log ? JSON.parse(row.error_log) : [];
+    log = row?.error_log ? coerceJson(row.error_log) : [];
   } catch {
     log = [];
   }
   log.push({ at: new Date().toISOString(), message });
-  sqlite.prepare("UPDATE group_add_queue SET error_log = ? WHERE id = ?").run(JSON.stringify(log.slice(-20)), queueId);
+  await dbRun(
+    "UPDATE group_add_queue SET error_log = ? WHERE id = ?",
+    JSON.stringify(log.slice(-20)),
+    queueId,
+  );
 }
 
 /**
@@ -169,15 +188,14 @@ function appendError(queueId: string, message: string): void {
  */
 export async function processGroupAddQueue(tenantId?: string): Promise<{ processed: number }> {
   const now = new Date().toISOString();
-  const rows = sqlite
-    .prepare(
-      `SELECT id, tenant_id, group_id, phone_numbers, batch_size, interval_minutes,
+  const rows = await dbAll<QueueRow>(
+    `SELECT id, tenant_id, group_id, phone_numbers, batch_size, interval_minutes,
               processed_count, failed_count, error_log, status
          FROM group_add_queue
         WHERE status IN ('pending','processing') AND scheduled_for <= ?
           ${tenantId ? "AND tenant_id = ?" : ""}`,
-    )
-    .all(...(tenantId ? [now, tenantId] : [now])) as QueueRow[];
+    ...(tenantId ? [now, tenantId] : [now]),
+  );
 
   for (const q of rows) {
     try {

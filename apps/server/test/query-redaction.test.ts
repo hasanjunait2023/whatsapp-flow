@@ -19,56 +19,46 @@ function ctxFor(tenantId: string | null, isAdmin = false): TenantContext {
   return { userId: USER_A, tenantId, isAdmin, isImpersonating: false };
 }
 
-beforeAll(() => {
-  runMigrations();
-  db.insert(tenants)
-    .values([
-      { id: TENANT_A, name: "A", owner_id: USER_A },
-      { id: TENANT_B, name: "B", owner_id: "user-b" },
-    ])
-    .run();
+beforeAll(async () => {
+  await runMigrations();
+  await db.insert(tenants).values([
+    { id: TENANT_A, name: "A", owner_id: USER_A },
+    { id: TENANT_B, name: "B", owner_id: "user-b" },
+  ]);
 
-  db.insert(whatsappInstances)
-    .values([
-      {
-        id: "inst-a",
-        tenant_id: TENANT_A,
-        name: "Inst A",
-        status: "active",
-        phone_number: "111",
-        api_key_encrypted: "SECRET_API_KEY",
-        webhook_secret: "SECRET_WEBHOOK",
-      },
-    ])
-    .run();
+  await db.insert(whatsappInstances).values([
+    {
+      id: "inst-a",
+      tenant_id: TENANT_A,
+      name: "Inst A",
+      status: "active",
+      phone_number: "111",
+      api_key_encrypted: "SECRET_API_KEY",
+      webhook_secret: "SECRET_WEBHOOK",
+    },
+  ]);
 
-  db.insert(facebookPages)
-    .values([
-      {
-        id: "page-a",
-        tenant_id: TENANT_A,
-        page_id: "fb-1",
-        page_name: "Page A",
-        page_access_token: "SECRET_FB_TOKEN",
-        app_secret: "SECRET_APP",
-        status: "connected",
-      },
-    ])
-    .run();
+  await db.insert(facebookPages).values([
+    {
+      id: "page-a",
+      tenant_id: TENANT_A,
+      page_id: "fb-1",
+      page_name: "Page A",
+      page_access_token: "SECRET_FB_TOKEN",
+      app_secret: "SECRET_APP",
+      status: "connected",
+    },
+  ]);
 
   // Tenant-scoping fixtures for two new module tables.
-  db.insert(labels)
-    .values([
-      { id: "label-a", tenant_id: TENANT_A, name: "VIP", color: "#fff" },
-      { id: "label-b", tenant_id: TENANT_B, name: "Secret-B", color: "#000" },
-    ])
-    .run();
-  db.insert(customerSegments)
-    .values([
-      { id: "seg-a", tenant_id: TENANT_A, name: "Loyal" },
-      { id: "seg-b", tenant_id: TENANT_B, name: "Hidden-B" },
-    ])
-    .run();
+  await db.insert(labels).values([
+    { id: "label-a", tenant_id: TENANT_A, name: "VIP", color: "#fff" },
+    { id: "label-b", tenant_id: TENANT_B, name: "Secret-B", color: "#000" },
+  ]);
+  await db.insert(customerSegments).values([
+    { id: "seg-a", tenant_id: TENANT_A, name: "Loyal" },
+    { id: "seg-b", tenant_id: TENANT_B, name: "Hidden-B" },
+  ]);
 });
 
 describe("credential redaction on /api/query", () => {
