@@ -7,7 +7,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { MoreVertical, Eye, Truck, CreditCard, Trash2, Package, Phone, MessageCircle, AlertTriangle, CheckCircle, HelpCircle, ShoppingBag, ShoppingCart, Globe, PhoneCall, Facebook, Instagram, MoreHorizontal, Pencil, Printer } from 'lucide-react';
-import { Order, OrderSource, ORDER_STATUSES, PAYMENT_STATUSES } from '@/hooks/useOrders';
+import { Order, OrderSource } from '@/hooks/useOrders';
+import { OrderStatusPill, PaymentStatusPill } from '@/components/orders/order-status';
 import { BookParcelDialog } from '@/components/orders/BookParcelDialog';
 import { format } from 'date-fns';
 import { formatCurrency } from '@/lib/currency';
@@ -51,24 +52,6 @@ export function OrdersTable({
   onDelete,
 }: OrdersTableProps) {
   const [bookingOrder, setBookingOrder] = useState<Order | null>(null);
-
-  const getStatusBadge = (status: string) => {
-    const config = ORDER_STATUSES.find(s => s.value === status) || ORDER_STATUSES[0];
-    return (
-      <Badge variant="outline" className={`${config.color} text-white border-0 text-xs`}>
-        {config.label}
-      </Badge>
-    );
-  };
-
-  const getPaymentBadge = (status: string) => {
-    const config = PAYMENT_STATUSES.find(s => s.value === status) || PAYMENT_STATUSES[0];
-    return (
-      <Badge variant="outline" className={`${config.color} text-white border-0 text-xs`}>
-        {config.label}
-      </Badge>
-    );
-  };
 
   const getRiskBadge = (phoneNumber: string | null) => {
     if (!phoneNumber) {
@@ -272,7 +255,7 @@ export function OrdersTable({
 
   return (
     <TooltipProvider>
-      <div className="rounded-lg border bg-card">
+      <div className="overflow-hidden rounded-card border border-border bg-card shadow-elevation-1">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30 hover:bg-muted/30">
@@ -401,19 +384,19 @@ export function OrdersTable({
 
                   {/* Total */}
                   <TableCell className="text-right">
-                    <span className="font-semibold text-sm">
+                    <span className="font-semibold text-sm tabular-nums">
                       {formatCurrency(order.total)}
                     </span>
                   </TableCell>
 
                   {/* Status */}
                   <TableCell className="text-center">
-                    {getStatusBadge(order.status)}
+                    <OrderStatusPill status={order.status} />
                   </TableCell>
 
                   {/* Payment */}
                   <TableCell className="text-center">
-                    {getPaymentBadge(order.payment_status)}
+                    <PaymentStatusPill status={order.payment_status} />
                   </TableCell>
 
                   {/* Risk */}

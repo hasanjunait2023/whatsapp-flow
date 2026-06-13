@@ -6,19 +6,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { PageHeader } from '@/components/ui/page-header';
-import { StatCard } from '@/components/ui/stat-card';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Plus, Search, Package, FolderTree, MoreVertical, Edit, Trash2, Loader2, ToggleLeft, ToggleRight, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Package, PackageCheck, PackageX, FolderTree, MoreVertical, Edit, Trash2, ToggleLeft, ToggleRight, AlertTriangle } from 'lucide-react';
 import { useProducts, Product } from '@/hooks/useProducts';
 import { useCategories, Category } from '@/hooks/useCategories';
 import { useSelection } from '@/hooks/useSelection';
 import { ProductCard } from '@/components/products/ProductCard';
 import { ProductDialog } from '@/components/products/ProductDialog';
 import { CategoryDialog } from '@/components/products/CategoryDialog';
+import { InventoryValueTile } from '@/components/products/InventoryValueTile';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
 import { BulkActionsBar } from '@/components/admin/BulkActionsBar';
+import { m, pageEnter, staggerContainer, staggerItem } from '@/lib/motion';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -100,49 +103,71 @@ export default function Products() {
     }
   };
 
+  const trackedProducts = products.filter(p => p.track_inventory && p.stock_quantity !== null);
   const stats = {
     totalProducts: products.length,
-    activeProducts: products.filter(p => p.is_active).length,
-    lowStock: products.filter(p => p.track_inventory && p.stock_quantity !== null && p.stock_quantity <= (p.low_stock_threshold || 5)).length,
+    inStock: trackedProducts.filter(p => p.stock_quantity > (p.low_stock_threshold || 5)).length,
+    lowStock: trackedProducts.filter(p => p.stock_quantity > 0 && p.stock_quantity <= (p.low_stock_threshold || 5)).length,
+    outOfStock: trackedProducts.filter(p => p.stock_quantity <= 0).length,
     totalCategories: categories.length,
+    inventoryValue: trackedProducts.reduce((sum, p) => sum + p.price * p.stock_quantity, 0),
   };
 
   return (
     <DashboardLayout>
-      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8 space-y-6"
+      >
         {/* Header */}
         <PageHeader
           title="Products"
           description="Manage your product catalog"
         />
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-animation">
-          <StatCard
-            title="Total Products"
-            value={stats.totalProducts}
-            icon={Package}
-            iconColor="text-primary"
+        {/* KPI strip — stat cards + the ONE orange inventory-value tile */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+        >
+          <m.div variants={staggerItem}>
+            <KpiCard
+              title="In Stock"
+              value={stats.inStock}
+              icon={PackageCheck}
+              tone="success"
+              loading={productsLoading}
+            />
+          </m.div>
+          <m.div variants={staggerItem}>
+            <KpiCard
+              title="Low Stock"
+              value={stats.lowStock}
+              icon={AlertTriangle}
+              tone="warning"
+              loading={productsLoading}
+            />
+          </m.div>
+          <m.div variants={staggerItem}>
+            <KpiCard
+              title="Out of Stock"
+              value={stats.outOfStock}
+              icon={PackageX}
+              tone="destructive"
+              loading={productsLoading}
+            />
+          </m.div>
+          {/* The single orange surface on this page */}
+          <InventoryValueTile
+            value={stats.inventoryValue}
+            productCount={stats.totalProducts}
+            loading={productsLoading}
           />
-          <StatCard
-            title="Active"
-            value={stats.activeProducts}
-            icon={Package}
-            iconColor="text-success"
-          />
-          <StatCard
-            title="Low Stock"
-            value={stats.lowStock}
-            icon={AlertTriangle}
-            iconColor="text-warning"
-          />
-          <StatCard
-            title="Categories"
-            value={stats.totalCategories}
-            icon={FolderTree}
-            iconColor="text-info"
-          />
-        </div>
+        </m.div>
 
         {/* Tabs */}
         <Tabs defaultValue="products">
@@ -202,11 +227,17 @@ export default function Products() {
             </Card>
 
             {productsLoading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <p className="text-sm text-muted-foreground">Loading products...</p>
-                </div>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <Card key={i} className="overflow-hidden">
+                    <Skeleton className="aspect-square rounded-none" />
+                    <CardContent className="space-y-2 p-4">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-4 w-1/3" />
+                      <Skeleton className="h-5 w-24 rounded-full" />
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             ) : filteredProducts.length === 0 ? (
               <Card>
@@ -238,24 +269,38 @@ export default function Products() {
                   </CardContent>
                 </Card>
 
-                <div data-tour="products-grid" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 stagger-animation">
-                  {filteredProducts.map((product) => (
-                    <div key={product.id} className="relative">
-                      <div className="absolute top-2 left-2 z-10">
-                        <Checkbox
-                          checked={selection.isSelected(product.id)}
-                          onCheckedChange={() => selection.toggle(product.id)}
-                          className="bg-background shadow-sm"
+                <m.div
+                  data-tour="products-grid"
+                  variants={staggerContainer}
+                  initial="hidden"
+                  animate="show"
+                  className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+                >
+                  {filteredProducts.map((product, index) => {
+                    // Cap entrance animation to the first viewport (~12 cards) per DESIGN motion budget.
+                    const animated = index < 12;
+                    return (
+                      <m.div
+                        key={product.id}
+                        variants={animated ? staggerItem : undefined}
+                        className="relative"
+                      >
+                        <div className="absolute left-2 top-2 z-10">
+                          <Checkbox
+                            checked={selection.isSelected(product.id)}
+                            onCheckedChange={() => selection.toggle(product.id)}
+                            className="bg-background shadow-sm"
+                          />
+                        </div>
+                        <ProductCard
+                          product={product}
+                          onEdit={handleEditProduct}
+                          onDelete={setDeletingProduct}
                         />
-                      </div>
-                      <ProductCard
-                        product={product}
-                        onEdit={handleEditProduct}
-                        onDelete={setDeletingProduct}
-                      />
-                    </div>
-                  ))}
-                </div>
+                      </m.div>
+                    );
+                  })}
+                </m.div>
               </>
             )}
           </TabsContent>
@@ -270,11 +315,18 @@ export default function Products() {
             </div>
 
             {categoriesLoading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <p className="text-sm text-muted-foreground">Loading categories...</p>
-                </div>
+              <div className="grid gap-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Card key={i}>
+                    <CardContent className="flex items-center gap-3 py-4">
+                      <Skeleton className="h-10 w-10 rounded-xl" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-56" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             ) : categories.length === 0 ? (
               <Card>
@@ -343,7 +395,7 @@ export default function Products() {
             )}
           </TabsContent>
         </Tabs>
-      </div>
+      </m.div>
 
       {/* Bulk Actions Bar */}
       <BulkActionsBar

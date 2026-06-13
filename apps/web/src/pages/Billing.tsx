@@ -1,31 +1,34 @@
 import { useState, useRef } from 'react';
+import { format } from 'date-fns';
+import { MessageSquare, CalendarClock, Receipt, Columns3, History, ListOrdered } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Plan } from '@/hooks/usePlans';
 import { usePayments, CreatePaymentInput } from '@/hooks/usePayments';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useDemoSession } from '@/hooks/useDemoSession';
-import { SubscriptionOverview } from '@/components/billing/SubscriptionOverview';
-import { RenewalCard } from '@/components/billing/RenewalCard';
 import { UsageSummary } from '@/components/billing/UsageSummary';
+import { RenewalCard } from '@/components/billing/RenewalCard';
 import { BillingTimeline } from '@/components/billing/BillingTimeline';
 import { UpgradePlanSection } from '@/components/billing/UpgradePlanSection';
 import { PaymentDialog } from '@/components/billing/PaymentDialog';
 import { CryptoPaymentDialog } from '@/components/billing/CryptoPaymentDialog';
 import { AiUsageWidget } from '@/components/billing/AiUsageWidget';
-import { PaymentHistory } from '@/components/billing/PaymentHistory';
 import { SubscriptionOrdersCard } from '@/components/billing/SubscriptionOrdersCard';
 import { PlanDetailsCard } from '@/components/billing/PlanDetailsCard';
 import { PlanComparisonModal } from '@/components/billing/PlanComparisonModal';
+import { BillingPlanHero } from '@/components/billing/BillingPlanHero';
+import { InvoiceTable } from '@/components/billing/InvoiceTable';
 import { DemoSpecialOfferCard } from '@/components/demo/DemoSpecialOfferCard';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { m, pageEnter, staggerContainer, staggerItem } from '@/lib/motion';
 import { toast } from 'sonner';
-import { Columns3 } from 'lucide-react';
 
 export default function Billing() {
   const { payments, loading: paymentsLoading, submitPayment } = usePayments();
-  const { subscription, plan: currentPlan, refetch } = useSubscription();
+  const { subscription, usage, plan: currentPlan, loading: subLoading, isActive, isTrialing, isPastDue, isSuspended, daysUntilExpiry, refetch } = useSubscription();
   const { isDemoTenant } = useDemoSession();
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -73,52 +76,138 @@ export default function Billing() {
     }
   };
 
+  // --- Presentational derivations (no new data sources) ---
+  const statusLabel = isSuspended
+    ? 'Suspended'
+    : isPastDue
+      ? 'Past due'
+      : isTrialing
+        ? 'Trial'
+        : isActive
+          ? 'Active'
+          : 'No plan';
+
+  const messagesUsed = usage?.messages_sent ?? 0;
+  const messageLimit = currentPlan?.max_messages_per_month ?? 1000;
+  const renewalDate = subscription?.current_period_end ?? null;
+  const daysLeft = daysUntilExpiry != null ? Math.max(0, daysUntilExpiry) : 0;
+  const verifiedCount = payments.filter((p) => p.status === 'verified').length;
+
+  // Renew surfaces when past-due or within 7 days of period end.
+  const showRenew =
+    isPastDue ||
+    (!!subscription &&
+      new Date(subscription.current_period_end) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+
+  const renewalSubtitle = renewalDate
+    ? `Renews ${format(new Date(renewalDate), 'MMM d, yyyy')}`
+    : 'Manage your subscription and payments';
+
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-8">
-        {/* Page Header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
-            <p className="text-muted-foreground">
-              Manage your subscription and payments
-            </p>
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
+        {/* Header */}
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Billing</h1>
+            <p className="text-sm text-muted-foreground">{renewalSubtitle}</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setComparisonModalOpen(true)}
-            className="gap-2"
-          >
+          <Button variant="outline" onClick={() => setComparisonModalOpen(true)} className="gap-2">
             <Columns3 className="h-4 w-4" />
-            Compare Plans
+            Compare plans
           </Button>
-        </div>
+        </header>
 
-        {/* Subscription Overview - Hero Card */}
-        <SubscriptionOverview 
-          onUpgradeClick={handleUpgradeClick}
-          onRenewClick={handleRenewClick}
-        />
+        {/* Hero: orange current-plan surface + KPI strip */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 gap-5 md:gap-6 lg:grid-cols-12"
+        >
+          {/* The ONE orange surface */}
+          <div className="lg:col-span-5">
+            <BillingPlanHero
+              planName={currentPlan?.name ?? null}
+              priceMonthly={currentPlan?.price_monthly ?? 0}
+              used={messagesUsed}
+              limit={messageLimit}
+              renewalDate={renewalDate}
+              statusLabel={statusLabel}
+              loading={subLoading}
+              onUpgradeClick={handleUpgradeClick}
+              onRenewClick={handleRenewClick}
+              showRenew={showRenew}
+            />
+          </div>
 
-        {/* Main Content Grid */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Left Column - Usage, Orders and Payment History */}
-          <div className="lg:col-span-2 space-y-6">
+          {/* KPI strip — real billing metrics */}
+          <div className="grid grid-cols-2 gap-4 md:gap-5 lg:col-span-7 lg:grid-cols-3">
+            <m.div variants={staggerItem}>
+              <KpiCard
+                title="Messages used"
+                value={messagesUsed}
+                icon={MessageSquare}
+                tone="primary"
+                trendLabel={`of ${messageLimit.toLocaleString('en-US')} this cycle`}
+                loading={subLoading}
+              />
+            </m.div>
+            <m.div variants={staggerItem}>
+              <KpiCard
+                title="Days left in cycle"
+                value={daysLeft}
+                icon={CalendarClock}
+                tone="info"
+                trendLabel={renewalDate ? `until ${format(new Date(renewalDate), 'MMM d')}` : undefined}
+                loading={subLoading}
+              />
+            </m.div>
+            <m.div variants={staggerItem} className="col-span-2 lg:col-span-1">
+              <KpiCard
+                title="Paid invoices"
+                value={verifiedCount}
+                icon={Receipt}
+                tone="success"
+                trendLabel={`${payments.length} total`}
+                loading={paymentsLoading}
+              />
+            </m.div>
+          </div>
+        </m.div>
+
+        {/* Body bento — usage + history (left) · plan/renewal/timeline (right) */}
+        <div className="grid grid-cols-1 gap-5 md:gap-6 lg:grid-cols-12">
+          <div className="space-y-5 md:space-y-6 lg:col-span-8">
             <UsageSummary onUpgradeClick={handleUpgradeClick} />
-            
+
             <Tabs defaultValue="payments" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="payments">Payment History</TabsTrigger>
-                <TabsTrigger value="orders">Subscription Orders</TabsTrigger>
+              <TabsList>
+                <TabsTrigger value="payments" className="gap-2">
+                  <History className="h-4 w-4" />
+                  Payment History
+                </TabsTrigger>
+                <TabsTrigger value="orders" className="gap-2">
+                  <ListOrdered className="h-4 w-4" />
+                  Subscription Orders
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="payments" className="mt-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Payment History</CardTitle>
-                    <CardDescription>Your payment submissions and their status</CardDescription>
+                    <CardTitle className="text-base">Payment History</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <PaymentHistory payments={payments} loading={paymentsLoading} />
+                    <InvoiceTable
+                      payments={payments}
+                      loading={paymentsLoading}
+                      onEmptyAction={handleUpgradeClick}
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -128,11 +217,9 @@ export default function Billing() {
             </Tabs>
           </div>
 
-          {/* Right Column - Plan Details, Renewal and Timeline */}
-          <div className="space-y-6">
-            {/* Demo Special Offer - Show for demo users */}
+          {/* Right rail */}
+          <div className="space-y-5 md:space-y-6 lg:col-span-4">
             {isDemoTenant && <DemoSpecialOfferCard />}
-            
             <PlanDetailsCard />
             <AiUsageWidget />
             <RenewalCard onRenewClick={handleRenewClick} />
@@ -144,7 +231,7 @@ export default function Billing() {
         <div ref={planSectionRef} id="plans-section">
           <UpgradePlanSection onSelectPlan={handleSelectPlan} />
         </div>
-      </div>
+      </m.div>
 
       <PaymentDialog
         open={paymentDialogOpen}

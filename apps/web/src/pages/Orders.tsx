@@ -7,15 +7,15 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { PageHeader } from '@/components/ui/page-header';
-import { StatCard } from '@/components/ui/stat-card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Plus, Search, ShoppingCart, Loader2, Trash2, FileText, Printer, Package, DollarSign, Truck, CalendarIcon, X, Download } from 'lucide-react';
-import { useOrders, Order, ORDER_STATUSES } from '@/hooks/useOrders';
+import { Plus, Search, ShoppingCart, Trash2, FileText, Printer, Package, Truck, CheckCircle2, CalendarIcon, X, Download, ArrowUpRight, Wallet } from 'lucide-react';
+import { useOrders, Order } from '@/hooks/useOrders';
 import { useSelection } from '@/hooks/useSelection';
 import { useInvoices } from '@/hooks/useInvoices';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
 import { OrdersTable } from '@/components/orders/OrdersTable';
 import { OrderCard } from '@/components/orders/OrderCard';
 import { CreateOrderDialog } from '@/components/orders/CreateOrderDialog';
@@ -26,9 +26,52 @@ import { toast } from 'sonner';
 import { exportToCSV } from '@/lib/csv-export';
 import { format, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/currency';
+import { m, pageEnter, staggerContainer, staggerItem, useCountUp } from '@/lib/motion';
 import { DateRange } from 'react-day-picker';
 
 const ORDERS_PER_PAGE = 20;
+
+/**
+ * The single full-orange surface on the Orders page (DESIGN.md §2.2): the focal KPI.
+ * Total paid revenue is the page's most important metric. Orange stays rare — this is
+ * the only `bg-primary` tile; every other stat uses a soft KpiCard.
+ */
+function RevenueHighlightTile({ revenue, count }: { revenue: number; count: number }) {
+  const display = useCountUp(revenue);
+
+  return (
+    <m.div variants={staggerItem} whileHover={{ y: -2 }} transition={{ duration: 0.15 }} className="h-full">
+      <div className="relative flex h-full min-h-[140px] flex-col overflow-hidden rounded-card bg-primary p-5 text-primary-foreground shadow-elevation-2">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/10"
+        />
+        <div className="relative z-10 flex h-full flex-col">
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-2 text-sm font-medium text-primary-foreground/85">
+              <Wallet className="h-4 w-4" aria-hidden />
+              Paid revenue
+            </span>
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tabular-nums">
+              <CheckCircle2 className="h-3 w-3" aria-hidden />
+              {count.toLocaleString('en-US')} paid
+            </span>
+          </div>
+
+          <p className="mt-2 tabular-nums text-3xl font-bold leading-none tracking-tight md:text-4xl">
+            {formatCurrency(display)}
+          </p>
+
+          <span className="mt-auto inline-flex w-fit items-center gap-1 text-xs font-medium text-primary-foreground/80">
+            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+            Collected across paid orders
+          </span>
+        </div>
+      </div>
+    </m.div>
+  );
+}
 
 export default function Orders() {
   const { orders, isLoading, deleteOrder, purchaseBehavior } = useOrders();
@@ -168,64 +211,52 @@ export default function Orders() {
 
   return (
     <DashboardLayout>
-      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 py-5 space-y-6"
+      >
         {/* Header */}
-        <PageHeader
-          title="Orders"
-          description="Manage customer orders and fulfillment"
-        >
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Orders</h1>
+            <p className="text-sm text-muted-foreground">Manage customer orders and fulfillment</p>
+          </div>
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleExportCSV}
               disabled={filteredOrders.length === 0}
             >
               <Download className="h-4 w-4 mr-2" />
               Export
               {filteredOrders.length > 0 && (
-                <span className="ml-1 text-xs text-muted-foreground">({filteredOrders.length})</span>
+                <span className="ml-1 text-xs text-muted-foreground tabular-nums">({filteredOrders.length})</span>
               )}
             </Button>
-            <Button onClick={() => setCreateDialogOpen(true)} variant="premium">
+            <Button onClick={() => setCreateDialogOpen(true)} variant="secondary">
               <Plus className="h-4 w-4 mr-2" />
               Create Order
             </Button>
           </div>
-        </PageHeader>
+        </header>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 stagger-animation">
-          <StatCard
-            title="Total Orders"
-            value={stats.total}
-            icon={Package}
-            iconColor="text-primary"
-          />
-          <StatCard
-            title="Pending"
-            value={stats.pending}
-            icon={ShoppingCart}
-            iconColor="text-warning"
-          />
-          <StatCard
-            title="Processing"
-            value={stats.processing}
-            icon={Package}
-            iconColor="text-info"
-          />
-          <StatCard
-            title="Shipped"
-            value={stats.shipped}
-            icon={Truck}
-            iconColor="text-primary"
-          />
-          <StatCard
-            title="Revenue"
-            value={`৳${stats.totalRevenue.toFixed(0)}`}
-            icon={DollarSign}
-            iconColor="text-success"
-          />
-        </div>
+        {/* KPI strip — soft stat cards + the ONE orange highlight (paid revenue) */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-5"
+        >
+          <KpiCard title="Total Orders" value={stats.total} icon={Package} tone="primary" loading={isLoading} />
+          <KpiCard title="Pending" value={stats.pending} icon={ShoppingCart} tone="warning" loading={isLoading} />
+          <KpiCard title="Processing" value={stats.processing} icon={Package} tone="info" loading={isLoading} />
+          <KpiCard title="Shipped" value={stats.shipped} icon={Truck} tone="success" loading={isLoading} />
+          <div className="col-span-2 lg:col-span-1">
+            <RevenueHighlightTile revenue={stats.totalRevenue} count={orders.filter((o) => o.payment_status === 'paid').length} />
+          </div>
+        </m.div>
 
         {/* Filters */}
         <Card>
@@ -307,11 +338,23 @@ export default function Orders() {
 
         {/* Orders List */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Loading orders...</p>
+          <div className="overflow-hidden rounded-card border border-border bg-card shadow-elevation-1">
+            <div className="flex items-center gap-4 border-b border-border px-4 py-3">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="ml-auto h-3 w-16" />
+              <Skeleton className="h-3 w-20" />
             </div>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 border-b border-border px-4 py-3 last:border-0">
+                <Skeleton className="h-4 w-4 rounded" />
+                <div className="space-y-1.5">
+                  <Skeleton className="h-3.5 w-28" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+                <Skeleton className="ml-auto h-4 w-16" />
+                <Skeleton className="h-6 w-20 rounded-full" />
+              </div>
+            ))}
           </div>
         ) : filteredOrders.length === 0 ? (
           <Card>
@@ -360,7 +403,7 @@ export default function Orders() {
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-2">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground tabular-nums">
                   Showing {startIndex + 1} to {Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length} orders
                 </p>
                 <Pagination>
@@ -406,7 +449,7 @@ export default function Orders() {
             )}
           </div>
         )}
-      </div>
+      </m.div>
 
       {/* Bulk Actions Bar */}
       <BulkActionsBar

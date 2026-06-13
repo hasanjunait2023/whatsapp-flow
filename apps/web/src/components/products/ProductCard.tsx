@@ -2,7 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreVertical, Edit, Trash2, Package, AlertTriangle } from 'lucide-react';
+import { MoreVertical, Edit, Trash2, Package } from 'lucide-react';
 import { Product } from '@/hooks/useProducts';
 import { formatCurrency } from '@/lib/currency';
 
@@ -13,14 +13,22 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
-  const isLowStock = product.track_inventory && product.stock_quantity <= product.low_stock_threshold;
+  const isOutOfStock = product.track_inventory && product.stock_quantity <= 0;
+  const isLowStock =
+    product.track_inventory && !isOutOfStock && product.stock_quantity <= product.low_stock_threshold;
   const hasDiscount = product.compare_at_price && product.compare_at_price > product.price;
-  const discountPercent = hasDiscount 
+  const discountPercent = hasDiscount
     ? Math.round((1 - product.price / product.compare_at_price!) * 100)
     : 0;
 
+  const stockPill = isOutOfStock
+    ? { variant: "destructive-soft" as const, label: "Out of stock", dot: "bg-destructive" }
+    : isLowStock
+      ? { variant: "warning-soft" as const, label: `Low · ${product.stock_quantity}`, dot: "bg-warning" }
+      : { variant: "success-soft" as const, label: `In stock · ${product.stock_quantity}`, dot: "bg-success" };
+
   return (
-    <Card className="overflow-hidden hover:shadow-md transition-shadow">
+    <Card hover="lift" className="overflow-hidden">
       <div className="aspect-square relative bg-muted">
         {product.images && product.images.length > 0 ? (
           <img
@@ -35,13 +43,13 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
         )}
         
         {hasDiscount && (
-          <Badge className="absolute top-2 left-2 bg-destructive">
+          <Badge variant="destructive-soft" className="absolute top-2 left-2 tabular-nums">
             -{discountPercent}%
           </Badge>
         )}
-        
+
         {!product.is_active && (
-          <Badge variant="secondary" className="absolute top-2 right-2">
+          <Badge variant="neutral-soft" className="absolute top-2 right-2">
             Inactive
           </Badge>
         )}
@@ -79,30 +87,22 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
         </div>
         
         <div className="mt-2 flex items-center gap-2">
-          <span className="font-semibold">
+          <span className="font-semibold tabular-nums">
             {formatCurrency(product.price)}
           </span>
           {hasDiscount && (
-            <span className="text-sm text-muted-foreground line-through">
+            <span className="text-sm text-muted-foreground line-through tabular-nums">
               {formatCurrency(product.compare_at_price!)}
             </span>
           )}
         </div>
-        
+
         {product.track_inventory && (
-          <div className="mt-2 flex items-center gap-1">
-            {isLowStock ? (
-              <>
-                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-                <span className="text-xs text-amber-500">
-                  Low stock: {product.stock_quantity}
-                </span>
-              </>
-            ) : (
-              <span className="text-xs text-muted-foreground">
-                In stock: {product.stock_quantity}
-              </span>
-            )}
+          <div className="mt-2.5">
+            <Badge variant={stockPill.variant} className="gap-1.5 tabular-nums">
+              <span className={`h-1.5 w-1.5 rounded-full ${stockPill.dot}`} aria-hidden />
+              {stockPill.label}
+            </Badge>
           </div>
         )}
         

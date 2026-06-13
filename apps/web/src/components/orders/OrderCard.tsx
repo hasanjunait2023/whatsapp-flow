@@ -1,9 +1,9 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreVertical, Eye, Truck, CreditCard, Trash2, Package } from 'lucide-react';
-import { Order, ORDER_STATUSES, PAYMENT_STATUSES } from '@/hooks/useOrders';
+import { Order } from '@/hooks/useOrders';
+import { OrderStatusPill, PaymentStatusPill } from '@/components/orders/order-status';
 import { formatDistanceToNow } from 'date-fns';
 import { formatCurrency } from '@/lib/currency';
 
@@ -16,31 +16,24 @@ interface OrderCardProps {
 }
 
 export function OrderCard({ order, onView, onUpdateStatus, onUpdatePayment, onDelete }: OrderCardProps) {
-  const statusConfig = ORDER_STATUSES.find(s => s.value === order.status) || ORDER_STATUSES[0];
-  const paymentConfig = PAYMENT_STATUSES.find(s => s.value === order.payment_status) || PAYMENT_STATUSES[0];
-
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover:shadow-elevation-2 transition-shadow">
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
               <span className="font-semibold">{order.order_number}</span>
-              <Badge variant="outline" className={`${statusConfig.color} text-white border-0`}>
-                {statusConfig.label}
-              </Badge>
-              <Badge variant="outline" className={`${paymentConfig.color} text-white border-0`}>
-                {paymentConfig.label}
-              </Badge>
+              <OrderStatusPill status={order.status} />
+              <PaymentStatusPill status={order.payment_status} />
             </div>
-            
+
             <p className="text-sm text-muted-foreground">
               {order.customer_name || order.contact?.name || 'Unknown Customer'}
               {order.customer_phone && ` • ${order.customer_phone}`}
             </p>
-            
+
             <div className="flex items-center gap-4 mt-2">
-              <span className="text-lg font-bold">
+              <span className="text-lg font-bold tabular-nums">
                 {formatCurrency(order.total)}
               </span>
               <span className="text-sm text-muted-foreground">

@@ -4,7 +4,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useContacts, Contact } from '@/hooks/useContacts';
 import { useLabels, Label } from '@/hooks/useLabels';
 import { useCustomerJourney, JourneyEvent, EVENT_ICONS } from '@/hooks/useCustomerJourney';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,10 +76,14 @@ import {
   ChevronRight,
   History,
   Download,
+  UserPlus,
+  MessageCircle,
 } from 'lucide-react';
 import { exportToCSV } from '@/lib/csv-export';
 import { format, isToday, isYesterday } from 'date-fns';
 import { toast } from 'sonner';
+import { m, pageEnter, staggerContainer, staggerItem, useCountUp } from '@/lib/motion';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   MessageCirclePlus,
@@ -91,27 +103,71 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Tag,
 };
 
+/**
+ * The single full-orange surface on this page (DESIGN.md §2.2).
+ * Headline metric for Contacts = total contacts in view.
+ */
+function ContactsHighlightTile({ total, loading }: { total: number; loading: boolean }) {
+  const display = useCountUp(total);
+
+  if (loading) {
+    return (
+      <div className="flex h-full min-h-[148px] flex-col gap-4 rounded-card bg-primary/80 p-6">
+        <Skeleton className="h-4 w-28 bg-white/30" />
+        <Skeleton className="h-10 w-24 bg-white/30" />
+        <Skeleton className="mt-auto h-4 w-32 bg-white/30" />
+      </div>
+    );
+  }
+
+  return (
+    <m.div variants={staggerItem} whileHover={{ y: -2 }} transition={{ duration: 0.15 }} className="h-full">
+      <div className="relative flex h-full min-h-[148px] flex-col overflow-hidden rounded-card bg-primary p-6 text-primary-foreground shadow-elevation-accent">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/10"
+        />
+        <div className="relative z-10 flex h-full flex-col">
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-2 text-sm font-medium text-primary-foreground/85">
+              <Users className="h-4 w-4" aria-hidden />
+              Total contacts
+            </span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-control bg-white/15">
+              <Users className="h-4 w-4" aria-hidden />
+            </span>
+          </div>
+          <p className="mt-3 tabular-nums text-4xl font-bold leading-none tracking-tight md:text-5xl">
+            {display.toLocaleString('en-US')}
+          </p>
+          <p className="mt-auto pt-3 text-xs text-primary-foreground/80">In your current view</p>
+        </div>
+      </div>
+    </m.div>
+  );
+}
+
 export default function Contacts() {
   const navigate = useNavigate();
   const { contacts, loading, refetch, updateContact } = useContacts();
   const { labels, createLabel, addLabelToContact, removeLabelFromContact, getContactLabels } = useLabels();
-  
+
   const [search, setSearch] = useState('');
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   const [filterLabels, setFilterLabels] = useState<string[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [showBlocked, setShowBlocked] = useState(false);
-  
+
   // Contact detail sheet
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [contactLabels, setContactLabels] = useState<Label[]>([]);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
-  
+
   // Customer Journey
   const { events: journeyEvents, isLoading: loadingJourney } = useCustomerJourney(
     detailSheetOpen ? selectedContact?.id || null : null
   );
-  
+
   // Label dialog
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
@@ -131,6 +187,12 @@ export default function Contacts() {
 
     return matchesSearch && matchesStatus;
   });
+
+  // KPI metrics derived from existing data (no extra fetches)
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const newThisWeek = contacts.filter((c) => new Date(c.created_at).getTime() >= weekAgo).length;
+  const activeChats = contacts.filter((c) => c.unread_count > 0).length;
+  const blockedCount = contacts.filter((c) => c.is_blocked).length;
 
   // Load contact labels when detail sheet opens
   useEffect(() => {
@@ -225,21 +287,29 @@ export default function Contacts() {
     '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#6b7280',
   ];
 
+  const allSelected =
+    filteredContacts.length > 0 && selectedContacts.size === filteredContacts.length;
+
   return (
     <DashboardLayout>
-      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 py-5 space-y-6"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
-            <p className="text-muted-foreground">
-              {filteredContacts.length} contacts
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Contacts</h1>
+            <p className="text-sm text-muted-foreground">
+              Manage the people you talk to across your WhatsApp workspace.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => {
                 exportToCSV(
                   filteredContacts,
@@ -266,12 +336,49 @@ export default function Contacts() {
               Refresh
             </Button>
           </div>
-        </div>
+        </header>
+
+        {/* KPI strip — stat cards + the ONE orange tile */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+        >
+          <ContactsHighlightTile total={filteredContacts.length} loading={loading} />
+          <m.div variants={staggerItem}>
+            <KpiCard
+              title="New this week"
+              value={newThisWeek}
+              icon={UserPlus}
+              tone="success"
+              loading={loading}
+            />
+          </m.div>
+          <m.div variants={staggerItem}>
+            <KpiCard
+              title="Active chats"
+              value={activeChats}
+              icon={MessageCircle}
+              tone="info"
+              loading={loading}
+            />
+          </m.div>
+          <m.div variants={staggerItem}>
+            <KpiCard
+              title="Blocked"
+              value={blockedCount}
+              icon={Ban}
+              tone="destructive"
+              loading={loading}
+            />
+          </m.div>
+        </m.div>
 
         {/* Filters and Search */}
         <Card>
           <CardContent className="p-4">
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col md:flex-row gap-3">
               {/* Search */}
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -343,8 +450,8 @@ export default function Contacts() {
 
             {/* Bulk actions */}
             {selectedContacts.size > 0 && (
-              <div className="flex items-center gap-2 mt-4 pt-4 border-t">
-                <span className="text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t">
+                <span className="text-sm font-medium tabular-nums text-foreground">
                   {selectedContacts.size} selected
                 </span>
                 <Button variant="outline" size="sm" onClick={handleBulkArchive}>
@@ -369,120 +476,167 @@ export default function Contacts() {
         </Card>
 
         {/* Contacts List */}
-        <Card>
-          <CardHeader className="py-3 px-4 border-b">
-            <div className="flex items-center gap-4">
-              <Checkbox
-                checked={
-                  filteredContacts.length > 0 &&
-                  selectedContacts.size === filteredContacts.length
-                }
-                onCheckedChange={handleSelectAll}
-              />
-              <span className="text-sm font-medium flex-1">Contact</span>
-              <span className="text-sm font-medium w-32 hidden md:block">Phone</span>
-              <span className="text-sm font-medium w-32 hidden lg:block">Last Activity</span>
-              <span className="text-sm font-medium w-24 hidden lg:block">Labels</span>
-              <span className="w-10"></span>
-            </div>
-          </CardHeader>
-          <ScrollArea className="h-[calc(100vh-380px)]">
+        <Card className="overflow-hidden">
+          <ScrollArea className="h-[calc(100vh-460px)] min-h-[320px]">
             {loading ? (
               <div className="p-4 space-y-3">
                 {[...Array(8)].map((_, i) => (
-                  <Skeleton key={i} className="h-16 w-full" />
-                ))}
-              </div>
-            ) : filteredContacts.length === 0 ? (
-              <div className="p-8 text-center">
-                <Users className="h-12 w-12 mx-auto text-muted-foreground/50" />
-                <p className="mt-4 text-muted-foreground">No contacts found</p>
-              </div>
-            ) : (
-              <div className="divide-y">
-                {filteredContacts.map((contact) => (
-                  <div
-                    key={contact.id}
-                    className="flex items-center gap-4 p-4 hover:bg-accent/50 cursor-pointer transition-colors"
-                    onClick={() => handleOpenDetail(contact)}
-                  >
-                    <Checkbox
-                      checked={selectedContacts.has(contact.id)}
-                      onCheckedChange={() => handleSelectContact(contact.id)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={contact.profile_pic_url || undefined} />
-                      <AvatarFallback className="bg-primary/10 text-primary">
-                        {(contact.name || contact.phone_number).charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">
-                        {contact.name || contact.phone_number}
-                      </p>
-                      {contact.name && (
-                        <p className="text-xs text-muted-foreground md:hidden">
-                          {contact.phone_number}
-                        </p>
-                      )}
-                      {contact.unread_count > 0 && (
-                        <Badge className="mt-1 bg-whatsapp text-whatsapp-foreground">
-                          {contact.unread_count} unread
-                        </Badge>
-                      )}
+                  <div key={i} className="flex items-center gap-4">
+                    <Skeleton className="h-9 w-9 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-3.5 w-40" />
+                      <Skeleton className="h-3 w-24" />
                     </div>
-                    <span className="text-sm text-muted-foreground w-32 hidden md:block">
-                      {contact.phone_number}
-                    </span>
-                    <span className="text-sm text-muted-foreground w-32 hidden lg:block">
-                      {contact.last_message_at
-                        ? format(new Date(contact.last_message_at), 'MMM d, h:mm a')
-                        : 'Never'}
-                    </span>
-                    <div className="w-24 hidden lg:flex gap-1">
-                      {contact.is_blocked && (
-                        <Badge variant="destructive" className="text-xs">Blocked</Badge>
-                      )}
-                      {contact.is_archived && (
-                        <Badge variant="secondary" className="text-xs">Archived</Badge>
-                      )}
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleOpenChat(contact)}>
-                          <MessageSquare className="mr-2 h-4 w-4" />
-                          Open Chat
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={async () => {
-                            await updateContact(contact.id, { is_archived: !contact.is_archived });
-                            refetch();
-                          }}
-                        >
-                          <Archive className="mr-2 h-4 w-4" />
-                          {contact.is_archived ? 'Unarchive' : 'Archive'}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={async () => {
-                            await updateContact(contact.id, { is_blocked: !contact.is_blocked });
-                            refetch();
-                          }}
-                        >
-                          <Ban className="mr-2 h-4 w-4" />
-                          {contact.is_blocked ? 'Unblock' : 'Block'}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Skeleton className="h-5 w-20 rounded-full hidden md:block" />
+                    <Skeleton className="h-5 w-16 rounded-full hidden lg:block" />
                   </div>
                 ))}
               </div>
+            ) : filteredContacts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-control bg-muted-soft text-muted-foreground">
+                  <Users className="h-6 w-6" aria-hidden />
+                </span>
+                <p className="mt-4 text-sm font-medium text-foreground">No contacts found</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {search || showArchived || showBlocked
+                    ? 'Try adjusting your search or filters.'
+                    : 'Contacts appear here once people message your number.'}
+                </p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={handleSelectAll}
+                        aria-label="Select all contacts"
+                      />
+                    </TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead className="hidden md:table-cell">Phone</TableHead>
+                    <TableHead className="hidden sm:table-cell">Channel</TableHead>
+                    <TableHead className="hidden lg:table-cell">Last Activity</TableHead>
+                    <TableHead className="hidden lg:table-cell">Status</TableHead>
+                    <TableHead className="w-10 text-right">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredContacts.map((contact) => (
+                    <TableRow
+                      key={contact.id}
+                      data-state={selectedContacts.has(contact.id) ? 'selected' : undefined}
+                      className="cursor-pointer"
+                      onClick={() => handleOpenDetail(contact)}
+                    >
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedContacts.has(contact.id)}
+                          onCheckedChange={() => handleSelectContact(contact.id)}
+                          aria-label={`Select ${contact.name || contact.phone_number}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Avatar className="h-9 w-9 shrink-0">
+                            <AvatarImage src={contact.profile_pic_url || undefined} />
+                            <AvatarFallback className="bg-accent text-primary text-sm font-semibold">
+                              {(contact.name || contact.phone_number).charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-foreground truncate">
+                                {contact.name || contact.phone_number}
+                              </p>
+                              {contact.unread_count > 0 && (
+                                <Badge variant="whatsapp" className="tabular-nums">
+                                  {contact.unread_count}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs tabular-nums text-muted-foreground md:hidden">
+                              {contact.phone_number}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell tabular-nums text-sm text-muted-foreground">
+                        {contact.phone_number}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-whatsapp-light px-2.5 py-0.5 text-xs font-semibold text-whatsapp">
+                          <span className="h-1.5 w-1.5 rounded-full bg-whatsapp" aria-hidden />
+                          WhatsApp
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+                        {contact.last_message_at
+                          ? format(new Date(contact.last_message_at), 'MMM d, h:mm a')
+                          : 'Never'}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <div className="flex flex-wrap gap-1.5">
+                          {contact.is_blocked && (
+                            <Badge variant="destructive-soft">
+                              <span className="mr-1 h-1.5 w-1.5 rounded-full bg-destructive" aria-hidden />
+                              Blocked
+                            </Badge>
+                          )}
+                          {contact.is_archived && (
+                            <Badge variant="neutral-soft">Archived</Badge>
+                          )}
+                          {!contact.is_blocked && !contact.is_archived && (
+                            <Badge variant="success-soft">
+                              <span className="mr-1 h-1.5 w-1.5 rounded-full bg-success" aria-hidden />
+                              Active
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Open menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleOpenChat(contact)}>
+                              <MessageSquare className="mr-2 h-4 w-4" />
+                              Open Chat
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={async () => {
+                                await updateContact(contact.id, { is_archived: !contact.is_archived });
+                                refetch();
+                              }}
+                            >
+                              <Archive className="mr-2 h-4 w-4" />
+                              {contact.is_archived ? 'Unarchive' : 'Archive'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={async () => {
+                                await updateContact(contact.id, { is_blocked: !contact.is_blocked });
+                                refetch();
+                              }}
+                            >
+                              <Ban className="mr-2 h-4 w-4" />
+                              {contact.is_blocked ? 'Unblock' : 'Block'}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </ScrollArea>
         </Card>
@@ -496,7 +650,7 @@ export default function Contacts() {
                   <div className="flex items-center gap-4">
                     <Avatar className="h-16 w-16">
                       <AvatarImage src={selectedContact.profile_pic_url || undefined} />
-                      <AvatarFallback className="bg-primary/10 text-primary text-xl">
+                      <AvatarFallback className="bg-accent text-primary text-xl font-semibold">
                         {(selectedContact.name || selectedContact.phone_number).charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
@@ -504,7 +658,7 @@ export default function Contacts() {
                       <SheetTitle>
                         {selectedContact.name || selectedContact.phone_number}
                       </SheetTitle>
-                      <SheetDescription>{selectedContact.phone_number}</SheetDescription>
+                      <SheetDescription className="tabular-nums">{selectedContact.phone_number}</SheetDescription>
                     </div>
                   </div>
                 </SheetHeader>
@@ -525,7 +679,7 @@ export default function Contacts() {
                   <div className="space-y-4">
                     <div className="flex items-center gap-3 text-sm">
                       <Phone className="h-4 w-4 text-muted-foreground" />
-                      <span>{selectedContact.phone_number}</span>
+                      <span className="tabular-nums">{selectedContact.phone_number}</span>
                     </div>
                     <div className="flex items-center gap-3 text-sm">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -626,7 +780,7 @@ export default function Contacts() {
                         <History className="h-4 w-4" />
                         Customer Journey
                       </span>
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="neutral-soft" className="tabular-nums">
                         {journeyEvents.length} events
                       </Badge>
                     </div>
@@ -644,7 +798,7 @@ export default function Contacts() {
                         ))}
                       </div>
                     ) : journeyEvents.length === 0 ? (
-                      <div className="py-6 text-center bg-muted/30 rounded-lg">
+                      <div className="py-6 text-center bg-muted-soft rounded-card">
                         <MessageCirclePlus className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
                         <p className="text-sm text-muted-foreground">No journey events yet</p>
                       </div>
@@ -677,11 +831,11 @@ export default function Contacts() {
 
                             const getCategoryBgColor = (category: string) => {
                               switch (category) {
-                                case 'communication': return 'bg-blue-500/10';
-                                case 'order': return 'bg-violet-500/10';
-                                case 'payment': return 'bg-green-500/10';
-                                case 'system': return 'bg-amber-500/10';
-                                default: return 'bg-muted';
+                                case 'communication': return 'bg-info-soft';
+                                case 'order': return 'bg-accent';
+                                case 'payment': return 'bg-success-soft';
+                                case 'system': return 'bg-warning-soft';
+                                default: return 'bg-muted-soft';
                               }
                             };
 
@@ -729,7 +883,7 @@ export default function Contacts() {
                                               </Button>
                                             )}
                                           </div>
-                                          <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
+                                          <span className="text-[10px] tabular-nums text-muted-foreground whitespace-nowrap shrink-0">
                                             {formatTime(event.created_at)}
                                           </span>
                                         </div>
@@ -822,7 +976,7 @@ export default function Contacts() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      </m.div>
     </DashboardLayout>
   );
 }
