@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { AuthLayout } from '@/components/auth/AuthLayout';
 import { cn } from '@/lib/utils';
 
 const benefits = [
-  '14-day free trial',
+  '5-day free trial',
   'No credit card required',
   'Full access to all features',
 ];
@@ -25,6 +25,8 @@ export default function Signup() {
   const { signUp } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const plan = searchParams.get('plan'); // carried from landing pricing CTA
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,11 +60,14 @@ export default function Signup() {
         variant: 'destructive',
       });
     } else {
+      // better-auth signs the user in on signup — send them straight to
+      // onboarding (carrying the chosen plan) to create their workspace + start
+      // the 5-day trial, NOT back to the login page.
       toast({
         title: 'Account created!',
-        description: 'Please check your email to verify your account.',
+        description: 'Let’s set up your workspace.',
       });
-      navigate('/auth/login');
+      navigate(plan ? `/onboarding?plan=${encodeURIComponent(plan)}` : '/onboarding', { replace: true });
     }
 
     setIsLoading(false);

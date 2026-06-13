@@ -78,6 +78,7 @@ export default function RootRedirect() {
     return <Navigate to="/admin" replace />;
   }
 
-  // Regular user without tenants → login page
-  return <Navigate to="/auth/login" replace />;
+  // Logged-in user without a tenant yet → onboarding (NOT login — that was a
+  // dead-end loop). Onboarding creates their workspace + starts the 5-day trial.
+  return <Navigate to="/onboarding" replace />;
 }

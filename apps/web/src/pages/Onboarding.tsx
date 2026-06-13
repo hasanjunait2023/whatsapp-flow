@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTenant } from '@/hooks/useTenant';
 import { useBusinessTypes } from '@/hooks/useBusinessTypes';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,14 @@ export default function Onboarding() {
   const { businessTypes, loading: businessTypesLoading } = useBusinessTypes();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Preselect the plan chosen on the landing pricing CTA (/onboarding?plan=pro).
+  useEffect(() => {
+    const plan = searchParams.get('plan');
+    if (plan && !selectedPlanId) setSelectedPlanId(plan);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Only redirect if the user already has an ACTIVATED tenant.
   // Non-activated tenants stay on /pending-activation, so we also redirect there if needed.
@@ -74,11 +82,13 @@ export default function Onboarding() {
 
     try {
       await createTenant(workspaceName, selectedBusinessType, selectedPlanId);
+      // The 5-day trial auto-activates the tenant server-side, so go straight to
+      // the panel — no "complete payment to activate" gate during the trial.
       toast({
-        title: 'Workspace created!',
-        description: `"${workspaceName}" is ready. Complete payment to activate.`,
+        title: 'Workspace ready!',
+        description: `Your 5-day free trial of "${workspaceName}" is live.`,
       });
-      navigate('/pending-activation');
+      navigate('/dashboard', { replace: true });
     } catch (error: any) {
       toast({
         title: 'Failed to create workspace',

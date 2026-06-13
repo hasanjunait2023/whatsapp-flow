@@ -47,21 +47,26 @@ export function startTrialForTenant(tenantId: string): void {
   const nowIso = now.toISOString();
   const endIso = addDays(now, TRIAL_DAYS).toISOString();
 
-  sqlite
-    .prepare(
-      `INSERT INTO subscriptions
-         (id, tenant_id, plan_id, status, current_period_start, current_period_end,
-          trial_ends_at, created_at, updated_at)
-       VALUES (?, ?, ?, 'trialing', ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      crypto.randomUUID(),
-      tenantId,
-      TRIAL_PLAN_ID,
-      nowIso,
-      endIso,
-      endIso,
-      nowIso,
-      nowIso,
-    );
+  // Provision the trial AND activate the tenant in one transaction: a trial means
+  // immediate full access, so the new tenant goes straight to their panel instead
+  // of the /pending-activation "complete payment to activate" gate.
+  const tx = sqlite.transaction(() => {
+    sqlite
+      .prepare(
+        `INSERT INTO subscriptions
+           (id, tenant_id, plan_id, status, current_period_start, current_period_end,
+            trial_ends_at, created_at, updated_at)
+         VALUES (?, ?, ?, 'trialing', ?, ?, ?, ?, ?)`,
+      )
+      .run(crypto.randomUUID(), tenantId, TRIAL_PLAN_ID, nowIso, endIso, endIso, nowIso, nowIso);
+
+    sqlite
+      .prepare(
+        `UPDATE tenants
+           SET is_activated = 1, activated_at = ?, updated_at = ?
+         WHERE id = ? AND (is_activated IS NULL OR is_activated = 0)`,
+      )
+      .run(nowIso, nowIso, tenantId);
+  });
+  tx();
 }
