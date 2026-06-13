@@ -19,7 +19,7 @@ export function AppLogo({ className, size = 'md', showText = false }: AppLogoPro
     <div className={cn("flex items-center gap-2", className)}>
       <img 
         src={logoImage} 
-        alt="Ecomex Automation" 
+        alt="What A App" 
         className={cn(sizeClasses[size], "object-contain")}
       />
     </div>

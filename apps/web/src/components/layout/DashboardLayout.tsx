@@ -96,6 +96,14 @@ interface NavItem {
   badge?: number;
 }
 
+/** Time-of-day greeting prefix shown in the dashboard top bar. */
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
 export default function DashboardLayout({ children, hideMobileNav }: DashboardLayoutProps) {
   const isNested = useIsInsideDashboardLayout();
   if (isNested) return <>{children}</>;
@@ -268,19 +276,21 @@ function DashboardLayoutInner({ children, hideMobileNav }: DashboardLayoutProps)
       <Link
         to={item.href}
         className={cn(
-          'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
+          // Soft orange tint active treatment (Finexy) — calm for all-day use, not a loud gradient.
+          'group relative flex items-center gap-3 rounded-control px-3 py-2.5 text-sm font-medium transition-all duration-200',
           isActive
-            ? 'bg-gradient-to-r from-primary/90 to-primary/70 text-primary-foreground shadow-lg shadow-primary/20 border border-primary/20'
-            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground hover:shadow-sm'
+            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
         )}
+        aria-current={isActive ? 'page' : undefined}
       >
-        {/* Active indicator bar */}
+        {/* 3px orange left-edge bar marks the active item. */}
         {isActive && (
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary-foreground/30 rounded-r-full" />
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary rounded-r-full" />
         )}
         <span className={cn(
           "relative transition-all duration-200 flex-shrink-0",
-          isActive ? "scale-110 text-primary-foreground" : "group-hover:scale-105 group-hover:text-primary"
+          isActive ? "text-primary" : "group-hover:text-primary"
         )}>
           {item.icon}
           {/* Badge for collapsed sidebar - show on icon */}
@@ -395,7 +405,7 @@ function DashboardLayoutInner({ children, hideMobileNav }: DashboardLayoutProps)
       {/* Desktop Sidebar - Hidden on mobile */}
       <aside
         className={cn(
-          'hidden md:flex flex-col bg-gradient-to-b from-sidebar via-sidebar to-sidebar/95 border-r border-sidebar-border/50 transition-all duration-300 shadow-xl',
+          'hidden md:flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 shadow-elevation-1',
           collapsed ? 'w-[72px]' : 'w-[260px]'
         )}
       >
@@ -413,7 +423,7 @@ function DashboardLayoutInner({ children, hideMobileNav }: DashboardLayoutProps)
                 <Avatar className="h-8 w-8 rounded-lg flex-shrink-0">
                   <AvatarImage src={currentTenant?.logo_url || undefined} alt={currentTenant?.name} />
                   <AvatarFallback className="rounded-lg bg-brand text-brand-foreground p-1">
-                    <img src={logoImage} alt="Ecomex" className="h-full w-full object-contain" />
+                    <img src={logoImage} alt="What A App" className="h-full w-full object-contain" />
                   </AvatarFallback>
                 </Avatar>
                 {!collapsed && (
@@ -613,11 +623,28 @@ function DashboardLayoutInner({ children, hideMobileNav }: DashboardLayoutProps)
         {/* Mobile Header */}
         <MobileHeader />
         
-        {/* Top Right Sticky Header - Desktop only */}
-        <div className="hidden md:flex sticky top-0 z-20 h-12 items-center justify-end gap-2 px-4 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <NotificationCenter />
-          <ThemeToggle variant="dropdown" size="sm" />
-          <LanguageSwitcher variant="ghost" size="sm" showLabel />
+        {/* Sticky glass top bar — greeting/title slot on the left, controls on the right (§5.2). */}
+        <div className="hidden md:flex glass sticky top-0 z-20 h-14 items-center justify-between gap-2 px-4">
+          <div className="min-w-0">
+            {location.pathname === '/dashboard' ? (
+              <div className="leading-tight">
+                <p className="text-base font-bold truncate text-foreground">
+                  {t('greeting.hello', {
+                    defaultValue: `${getGreeting()}, {{name}}`,
+                    name: profile?.full_name?.split(' ')[0] || user?.user_metadata?.full_name?.split(' ')[0] || t('user.there', { defaultValue: 'there' }),
+                  })}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {t('greeting.subtitle', { defaultValue: "Here's what's happening today" })}
+                </p>
+              </div>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <NotificationCenter />
+            <ThemeToggle variant="dropdown" size="sm" />
+            <LanguageSwitcher variant="ghost" size="sm" showLabel />
+          </div>
         </div>
         
         <DemoBanner />

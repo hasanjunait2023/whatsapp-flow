@@ -221,12 +221,17 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                         to={item.href}
                         onClick={onItemClick}
                         className={cn(
-                          'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                          // Inverted near-black admin rail; active = soft orange tint + 3px bar.
+                          'relative flex items-center gap-3 rounded-control px-3 py-2 text-sm font-medium transition-colors',
                           isActive
-                            ? 'bg-destructive text-destructive-foreground'
-                            : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                            ? 'bg-primary/15 text-primary'
+                            : 'text-secondary-foreground/70 hover:bg-white/5 hover:text-secondary-foreground'
                         )}
+                        aria-current={isActive ? 'page' : undefined}
                       >
+                        {isActive && (
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary rounded-r-full" />
+                        )}
                         {item.icon}
                         {(!collapsed || isMobile) && <span className="flex-1">{item.title}</span>}
                       </Link>
@@ -273,7 +278,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             >
               <Avatar className="h-8 w-8">
                 <AvatarImage src="" />
-                <AvatarFallback className="bg-destructive text-destructive-foreground text-xs">
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                   {user?.email?.charAt(0).toUpperCase() || 'A'}
                 </AvatarFallback>
               </Avatar>
@@ -325,8 +330,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <Menu className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-destructive flex items-center justify-center">
-                <Shield className="h-4 w-4 text-destructive-foreground" />
+              <div className="h-8 w-8 rounded-control bg-primary flex items-center justify-center">
+                <Shield className="h-4 w-4 text-primary-foreground" />
               </div>
               <span className="font-semibold text-sidebar-foreground">Admin</span>
             </div>
@@ -336,7 +341,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="text-sidebar-foreground">
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-destructive text-destructive-foreground text-xs">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                     {user?.email?.charAt(0).toUpperCase() || 'A'}
                   </AvatarFallback>
                 </Avatar>
@@ -369,8 +374,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <SheetContent side="left" className="w-[280px] p-0 bg-sidebar border-sidebar-border">
           <SheetHeader className="p-4 border-b border-sidebar-border">
             <SheetTitle className="flex items-center gap-2 text-sidebar-foreground">
-              <div className="h-8 w-8 rounded-lg bg-destructive flex items-center justify-center">
-                <Shield className="h-4 w-4 text-destructive-foreground" />
+              <div className="h-8 w-8 rounded-control bg-primary flex items-center justify-center">
+                <Shield className="h-4 w-4 text-primary-foreground" />
               </div>
               <div className="text-left flex-1">
                 <p className="text-sm font-semibold">{APP_NAME} Admin</p>
@@ -389,32 +394,33 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {!isMobile && (
         <aside
           className={cn(
-            'flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300',
+            // Distinct near-black admin identity so staff never confuse it with the tenant panel (§5.5).
+            'flex flex-col bg-secondary text-secondary-foreground border-r border-white/10 transition-all duration-300',
             collapsed ? 'w-[68px]' : 'w-[260px]'
           )}
         >
           {/* Header */}
-          <div className="p-3 border-b border-sidebar-border">
+          <div className="p-3 border-b border-white/10">
             <div
               className={cn(
                 'flex items-center gap-2 px-2 py-2',
                 collapsed && 'flex-col gap-3 px-0'
               )}
             >
-              <div className="h-8 w-8 rounded-lg bg-destructive flex items-center justify-center flex-shrink-0">
-                <Shield className="h-4 w-4 text-destructive-foreground" />
+              <div className="h-8 w-8 rounded-control bg-primary flex items-center justify-center flex-shrink-0">
+                <Shield className="h-4 w-4 text-primary-foreground" />
               </div>
               {!collapsed && (
                 <div className="text-left overflow-hidden flex-1">
-                  <p className="text-sm font-semibold truncate text-sidebar-foreground">
+                  <p className="text-sm font-semibold truncate text-secondary-foreground">
                     {APP_NAME} Admin
                   </p>
-                  <p className="text-xs text-sidebar-muted truncate">
+                  <p className="text-xs text-secondary-foreground/60 truncate">
                     System Management
                   </p>
                 </div>
               )}
-              <ThemeToggle size="sm" className="text-sidebar-foreground hover:bg-sidebar-accent" />
+              <ThemeToggle size="sm" className="text-secondary-foreground hover:bg-white/10" />
             </div>
           </div>
           <NavContent />
@@ -426,6 +432,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         'flex-1 flex flex-col overflow-hidden',
         isMobile && 'pt-14'
       )}>
+        {/* Thin orange ADMIN ribbon — reinforces the distinct admin identity (§5.5). */}
+        {!isMobile && (
+          <div className="h-7 flex items-center justify-center bg-primary text-primary-foreground text-[11px] font-bold uppercase tracking-[0.15em]">
+            Admin
+          </div>
+        )}
         <main className="flex-1 overflow-auto">
           {children}
         </main>

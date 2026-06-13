@@ -4,20 +4,21 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const cardVariants = cva(
-  "rounded-xl border bg-card text-card-foreground transition-all duration-200",
+  // Finexy-signature 20px radius; rests at elevation-1, lifts to elevation-2 on hover.
+  "rounded-card border bg-card text-card-foreground transition-all duration-200",
   {
     variants: {
       variant: {
-        default: "shadow-sm hover:shadow-premium",
-        glass: "glass shadow-premium",
+        default: "shadow-elevation-1 hover:shadow-elevation-2",
+        glass: "glass shadow-elevation-2",
         outline: "border-2 shadow-none hover:border-primary/50",
         ghost: "border-transparent shadow-none bg-transparent",
-        elevated: "shadow-premium border-0",
+        elevated: "shadow-elevation-2 border-0",
       },
       hover: {
         none: "",
-        lift: "hover:-translate-y-0.5 hover:shadow-premium-lg cursor-pointer",
-        glow: "hover:shadow-glow cursor-pointer",
+        lift: "hover:-translate-y-0.5 hover:shadow-elevation-2 cursor-pointer",
+        glow: "hover:shadow-elevation-accent cursor-pointer",
         scale: "hover:scale-[1.02] cursor-pointer",
       },
     },

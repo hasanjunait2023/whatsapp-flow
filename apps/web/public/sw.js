@@ -60,7 +60,7 @@ self.addEventListener("fetch", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  let payload = { title: "Ecomex", body: "You have a new notification", url: "/" };
+  let payload = { title: "What A App", body: "You have a new notification", url: "/" };
   try {
     payload = { ...payload, ...event.data.json() };
   } catch {

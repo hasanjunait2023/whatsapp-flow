@@ -88,7 +88,7 @@ export default function Signup() {
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Create an account</h1>
-          <p className="text-muted-foreground">Start your journey with Ecomex Automation</p>
+          <p className="text-muted-foreground">Start your journey with What A App</p>
         </div>
 
         {/* Benefits Pills */}

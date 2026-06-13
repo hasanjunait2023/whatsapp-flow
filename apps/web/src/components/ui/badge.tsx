@@ -15,6 +15,12 @@ const badgeVariants = cva(
         success: "border-transparent bg-success text-success-foreground",
         warning: "border-transparent bg-warning text-warning-foreground",
         info: "border-transparent bg-info text-info-foreground",
+        // Finexy status pills — soft tinted background + solid status text (the calm, readable look).
+        "success-soft": "border-transparent bg-success-soft text-success",
+        "warning-soft": "border-transparent bg-warning-soft text-warning",
+        "info-soft": "border-transparent bg-info-soft text-info",
+        "destructive-soft": "border-transparent bg-destructive-soft text-destructive",
+        "neutral-soft": "border-transparent bg-muted-soft text-muted-foreground",
         brand: "border-transparent bg-brand text-brand-foreground",
         whatsapp: "border-transparent bg-whatsapp text-whatsapp-foreground",
         pulse: "border-transparent bg-primary text-primary-foreground animate-pulse-ring",

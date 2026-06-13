@@ -34,14 +34,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <!-- Fonts loaded NON-BLOCKING: preload as style, then swap to stylesheet on
          load so the font fetch never blocks first paint. display=swap keeps text
-         visible meanwhile. One combined request (Inter + Noto Serif Bengali). -->
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@400;500;600;700&display=swap"></noscript>
-    <title>Ecomex Automation - WhatsApp CRM for your business</title>
-    <meta name="description" content="Manage your WhatsApp business conversations, automate responses, and grow your business with Ecomex Automation CRM." />
-    <meta name="author" content="Ecomex Automation" />
+         visible meanwhile. One combined request:
+           Inter (Latin UI + tabular numbers, app + landing),
+           Hind Siliguri (dense Bengali APP UI — DESIGN_SYSTEM.md §2.1),
+           Noto Serif Bengali (Bengali display, retained for the `.lp` landing scope only). -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600&family=Noto+Serif+Bengali:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600&family=Noto+Serif+Bengali:wght@400;500;600;700&display=swap"></noscript>
+    <title>What A App - WhatsApp CRM for your business</title>
+    <meta name="description" content="Manage your WhatsApp business conversations, automate responses, and grow your business with What A App CRM." />
+    <meta name="author" content="What A App" />
 
-    <meta property="og:title" content="Ecomex Automation - WhatsApp, Facebook & Instagram CRM for Bangladesh" />
+    <meta property="og:title" content="What A App - WhatsApp, Facebook & Instagram CRM for Bangladesh" />
     <meta property="og:description" content="One inbox for WhatsApp, Facebook & Instagram. AI replies in Bangla, courier booking, bKash/Nagad, and your own customer data — ban-proof. Start free." />
     <meta property="og:type" content="website" />
     <!-- OG_IMAGE: replace /og-image.png with the 1200x630 branded share card (see LANDING_DESIGN.md §4). -->

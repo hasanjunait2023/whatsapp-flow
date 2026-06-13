@@ -18,6 +18,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import DashboardLayoutWrapper from "@/components/layout/DashboardLayoutWrapper";
 import AdminLayoutWrapper from "@/components/layout/AdminLayoutWrapper";
 import RootRedirect from "@/components/routing/RootRedirect";
+import { MotionProvider } from "@/lib/motion";
 import Login from "./pages/auth/Login";
 import Signup from "./pages/auth/Signup";
 import Onboarding from "./pages/Onboarding";
@@ -153,12 +154,13 @@ const App = () => (
     <ErrorBoundaryWithReporter>
       <GlobalErrorHandler>
         <QueryClientProvider client={queryClient}>
-          <ThemeProvider attribute="class" defaultTheme="dark" storageKey="ecomex-theme" disableTransitionOnChange>
+          <ThemeProvider attribute="class" defaultTheme="light" storageKey="ecomex-theme" disableTransitionOnChange>
             <ColorSchemeProvider>
               <AuthProvider>
                 <ImpersonationProvider>
                   <TenantProvider>
                     <TooltipProvider>
+                      <MotionProvider>
                       <Toaster />
                       <Sonner />
                       <BrowserRouter>
@@ -265,6 +267,7 @@ const App = () => (
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </BrowserRouter>
+                      </MotionProvider>
                     </TooltipProvider>
                   </TenantProvider>
                 </ImpersonationProvider>

@@ -19,7 +19,7 @@ interface Testimonial {
 const TESTIMONIALS: Testimonial[] = [
   {
     quote:
-      "Ecomex put WhatsApp, Facebook and Instagram in one place. We stopped missing night orders and our replies got way faster.",
+      "What A App put WhatsApp, Facebook and Instagram in one place. We stopped missing night orders and our replies got way faster.",
     name: "[Customer name]",
     shop: "[Boutique name]",
     district: "Dhaka",

@@ -27,7 +27,7 @@ const PILLARS: Pillar[] = [
     icon: Database,
     en: "Stored on your side",
     bn: "আপনার কাছে সংরক্ষিত",
-    body: "Every contact, chat and order is saved securely in your Ecomex account — not locked inside Meta.",
+    body: "Every contact, chat and order is saved securely in your What A App account — not locked inside Meta.",
   },
   {
     icon: ShieldCheck,
@@ -78,7 +78,7 @@ export function DataOwnership() {
           <Reveal>
             <span className="inline-flex items-center gap-2 rounded-[var(--lp-r-pill)] border border-[var(--lp-border-violet)] bg-[var(--lp-surface-glass)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-lp-violet-300 backdrop-blur-xl">
               <ShieldCheck className="h-3.5 w-3.5" />
-              The Ecomex difference
+              The What A App difference
             </span>
             <h2
               id="data-ownership-heading"
@@ -91,7 +91,7 @@ export function DataOwnership() {
             </p>
             <p className="mx-auto mt-4 max-w-[640px] text-[var(--lp-text-body)] leading-relaxed text-lp-muted">
               On WhatsApp, Facebook and Instagram you don&apos;t own your audience — Meta does. One page or
-              number ban and your customers and their history can vanish overnight. Ecomex keeps a secure copy
+              number ban and your customers and their history can vanish overnight. What A App keeps a secure copy
               on your side, so a ban can&apos;t erase the business you built.
             </p>
           </Reveal>

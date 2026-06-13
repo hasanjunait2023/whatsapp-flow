@@ -28,7 +28,7 @@ export function FinalCta() {
               আজই ফ্রি শুরু করুন — কয়েক মিনিটেই WhatsApp কানেক্ট করুন
             </p>
             <p className="mx-auto mt-3 max-w-[560px] text-[var(--lp-text-body)] text-lp-muted">
-              Connect your channels, let Ecomex handle the replies and orders, and keep your customer data on
+              Connect your channels, let What A App handle the replies and orders, and keep your customer data on
               your side.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">

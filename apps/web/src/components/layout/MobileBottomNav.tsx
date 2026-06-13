@@ -60,7 +60,7 @@ export default function MobileBottomNav() {
   const isMoreActive = moreNavItems.some(item => location.pathname === item.href);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-card border-t border-border safe-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden glass border-t border-border safe-bottom">
       <div className="flex items-center justify-around h-16 px-2">
         {mainNavItems.map((item) => {
           const isActive = location.pathname === item.href;

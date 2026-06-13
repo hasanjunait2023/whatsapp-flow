@@ -6,94 +6,161 @@
 
 @layer base {
   :root {
-    --background: 0 10% 98%;
-    --foreground: 0 10% 8%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 10% 8%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 10% 8%;
-    --primary: 0 65% 35%;
+    /* ---------- LIGHT (default) — Direction A "Warm Light Fintech" ---------- */
+    /* Canvas & surfaces */
+    --background: 40 30% 94%;       /* #F5F2EC cream */
+    --foreground: 40 6% 10%;        /* #1A1A18 ink */
+    --card: 42 36% 98%;             /* #FCFAF6 */
+    --card-foreground: 40 6% 10%;
+    --popover: 42 36% 98%;
+    --popover-foreground: 40 6% 10%;
+
+    /* Accent = warm orange (primary) */
+    --primary: 12 86% 56%;          /* #F0552B */
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 20% 94%;
-    --secondary-foreground: 0 10% 8%;
-    --muted: 0 15% 96%;
-    --muted-foreground: 0 10% 45%;
-    --accent: 350 30% 95%;
-    --accent-foreground: 0 10% 8%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --success: 142 76% 36%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 0%;
-    --info: 199 89% 48%;
-    --info-foreground: 0 0% 100%;
-    --brand: 0 65% 35%;
+    --brand: 12 86% 56%;
     --brand-foreground: 0 0% 100%;
-    --brand-light: 0 65% 95%;
-    --border: 0 15% 90%;
-    --input: 0 15% 90%;
-    --ring: 0 65% 35%;
-    --radius: 0.75rem;
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 0 10% 15%;
-    --sidebar-primary: 0 65% 35%;
+    --brand-light: 16 80% 94%;      /* accent-soft */
+
+    /* Secondary = near-black (Finexy's dark buttons) */
+    --secondary: 40 6% 14%;         /* #26241F near-black */
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 38 22% 90%;            /* surface-2 #F0EBE2 */
+    --muted-foreground: 36 8% 45%;  /* ink-muted #7A736A */
+    --accent: 16 80% 94%;           /* soft orange tint surface */
+    --accent-foreground: 12 77% 40%;
+
+    /* Status — solid */
+    --success: 142 67% 37%;
+    --success-foreground: 0 0% 100%;
+    --warning: 35 83% 42%;
+    --warning-foreground: 0 0% 100%;
+    --info: 216 69% 51%;
+    --info-foreground: 0 0% 100%;
+    --destructive: 4 66% 54%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Status — soft pill backgrounds (NEW) */
+    --success-soft: 142 50% 92%;
+    --warning-soft: 38 75% 91%;
+    --info-soft: 216 70% 93%;
+    --destructive-soft: 6 75% 93%;
+    --muted-soft: 38 24% 91%;
+
+    /* Channel brand (NEW) */
+    --whatsapp: 145 63% 49%;        /* #25D366 */
+    --whatsapp-foreground: 0 0% 100%;
+    --whatsapp-light: 145 60% 94%;
+    --facebook: 214 89% 52%;        /* #1877F2 */
+    --instagram: 329 70% 52%;
+
+    --border: 38 25% 86%;           /* #E6DFD3 */
+    --input: 38 25% 86%;
+    --ring: 12 86% 56%;
+    --radius: 1rem;                 /* 16px base; cards override to 20px */
+
+    /* Sidebar (icon rail) */
+    --sidebar-background: 42 36% 98%;
+    --sidebar-foreground: 40 6% 18%;
+    --sidebar-primary: 12 86% 56%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 15% 96%;
-    --sidebar-accent-foreground: 0 10% 15%;
-    --sidebar-border: 0 15% 90%;
-    --sidebar-ring: 0 65% 35%;
-    --sidebar-muted: 0 10% 45%;
-    --chart-1: 0 65% 35%;
-    --chart-2: 350 80% 45%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 0 40% 55%;
-    --chart-5: 345 60% 30%;
+    --sidebar-accent: 16 80% 94%;   /* active item tint */
+    --sidebar-accent-foreground: 12 77% 40%;
+    --sidebar-border: 38 25% 88%;
+    --sidebar-ring: 12 86% 56%;
+    --sidebar-muted: 36 8% 50%;
+
+    /* Charts — orange + ink primary, then status hues */
+    --chart-1: 12 86% 56%;          /* orange */
+    --chart-2: 40 6% 18%;           /* near-black */
+    --chart-3: 216 69% 51%;         /* info blue */
+    --chart-4: 142 67% 37%;         /* success green */
+    --chart-5: 35 83% 50%;          /* amber */
+
+    /* Elevation shadow channel (warm, not pure black) — see §3 */
+    --shadow-color: 36 30% 20%;
+    --elevation-1: 0 1px 2px hsl(var(--shadow-color) / 0.04),
+                   0 1px 3px hsl(var(--shadow-color) / 0.06);
+    --elevation-2: 0 2px 4px hsl(var(--shadow-color) / 0.04),
+                   0 8px 16px -4px hsl(var(--shadow-color) / 0.08);
+    --elevation-3: 0 4px 8px hsl(var(--shadow-color) / 0.05),
+                   0 16px 32px -8px hsl(var(--shadow-color) / 0.12);
+    --elevation-accent: 0 6px 20px -6px hsl(var(--primary) / 0.35);
+
+    /* Glass (NEW) — see §3 */
+    --glass-bg: 42 36% 98% / 0.72;
+    --glass-border: 40 20% 100% / 0.55;
   }
 
   .dark {
-    /* Premium dark mode - rich charcoal tones */
-    --background: 220 20% 7%;
-    --foreground: 210 20% 98%;
-    --card: 220 20% 9%;
-    --card-foreground: 210 20% 98%;
-    --popover: 220 20% 9%;
-    --popover-foreground: 210 20% 98%;
-    --primary: 0 60% 55%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 15% 14%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 220 15% 12%;
-    --muted-foreground: 210 10% 65%;
-    --accent: 220 15% 14%;
-    --accent-foreground: 210 20% 98%;
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 0 0% 100%;
-    --success: 142 70% 45%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 0%;
-    --info: 199 89% 48%;
-    --info-foreground: 0 0% 100%;
-    --brand: 0 60% 55%;
-    --brand-foreground: 0 0% 100%;
-    --brand-light: 0 40% 18%;
-    --border: 220 15% 16%;
-    --input: 220 15% 16%;
-    --ring: 0 60% 55%;
-    --sidebar-background: 220 20% 5%;
-    --sidebar-foreground: 210 20% 98%;
-    --sidebar-primary: 0 60% 55%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 11%;
-    --sidebar-accent-foreground: 210 20% 98%;
-    --sidebar-border: 220 15% 14%;
-    --sidebar-ring: 0 60% 55%;
-    --chart-1: 0 60% 55%;
-    --chart-2: 350 75% 55%;
-    --chart-3: 38 92% 55%;
-    --chart-4: 0 45% 60%;
-    --chart-5: 345 55% 40%;
+    /* ---------- DARK (night shift) ---------- */
+    --background: 40 16% 8%;        /* #16140F warm charcoal */
+    --foreground: 40 30% 94%;       /* #F4F1EA */
+    --card: 38 14% 11%;             /* #1E1B16 */
+    --card-foreground: 40 30% 94%;
+    --popover: 38 14% 11%;
+    --popover-foreground: 40 30% 94%;
+
+    --primary: 14 95% 66%;          /* #FB7B57 brighter orange */
+    --primary-foreground: 40 16% 8%;
+    --brand: 14 95% 66%;
+    --brand-foreground: 40 16% 8%;
+    --brand-light: 16 40% 18%;
+
+    --secondary: 38 10% 18%;        /* raised dark */
+    --secondary-foreground: 40 30% 94%;
+
+    --muted: 38 12% 15%;
+    --muted-foreground: 38 10% 62%;
+    --accent: 16 40% 18%;
+    --accent-foreground: 14 95% 78%;
+
+    --success: 142 55% 48%;
+    --success-foreground: 40 16% 8%;
+    --warning: 38 75% 56%;
+    --warning-foreground: 40 16% 8%;
+    --info: 216 65% 62%;
+    --info-foreground: 40 16% 8%;
+    --destructive: 6 70% 60%;
+    --destructive-foreground: 40 16% 8%;
+
+    --success-soft: 142 40% 16%;
+    --warning-soft: 38 50% 18%;
+    --info-soft: 216 55% 20%;
+    --destructive-soft: 6 55% 20%;
+    --muted-soft: 38 14% 18%;
+
+    --whatsapp: 145 58% 52%;
+    --whatsapp-foreground: 0 0% 100%;
+    --whatsapp-light: 145 30% 18%;
+    --facebook: 214 80% 60%;
+    --instagram: 329 65% 60%;
+
+    --border: 38 12% 20%;
+    --input: 38 12% 20%;
+    --ring: 14 95% 66%;
+
+    --sidebar-background: 40 16% 6%;
+    --sidebar-foreground: 40 30% 94%;
+    --sidebar-primary: 14 95% 66%;
+    --sidebar-primary-foreground: 40 16% 8%;
+    --sidebar-accent: 16 40% 16%;
+    --sidebar-accent-foreground: 14 95% 78%;
+    --sidebar-border: 38 12% 16%;
+    --sidebar-ring: 14 95% 66%;
+    --sidebar-muted: 38 10% 58%;
+
+    --chart-1: 14 95% 66%;
+    --chart-2: 40 20% 80%;
+    --chart-3: 216 65% 62%;
+    --chart-4: 142 55% 52%;
+    --chart-5: 38 75% 58%;
+
+    --shadow-color: 0 0% 0%;
+    --elevation-accent: 0 6px 20px -6px hsl(var(--primary) / 0.35);
+    --glass-bg: 38 14% 11% / 0.62;
+    --glass-border: 40 20% 100% / 0.08;
   }
 
   /* ===== COLOR SCHEMES ===== */
@@ -232,8 +299,25 @@ body[data-scroll-locked] {
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: "Noto Serif Bengali", serif;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    /* App UI font stack — Inter for Latin/numbers, Hind Siliguri for dense Bengali UI.
+       (Landing `.lp` scope overrides this with its own stack — see landing.css.) */
+    font-family: "Inter", "Hind Siliguri", system-ui, -apple-system, sans-serif;
+    font-feature-settings: "cv11" 1, "ss01" 1;
+  }
+
+  /* Bengali content reads with the UI-first Hind Siliguri (never the serif in app body). */
+  :lang(bn),
+  [lang="bn"] {
+    font-family: "Hind Siliguri", "Inter", sans-serif;
+  }
+
+  /* Numbers: tabular + lining everywhere amounts/counts appear. */
+  .tabular-nums,
+  .stat-value,
+  td.num,
+  .amount {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
   }
 }
 
@@ -265,13 +349,20 @@ body[data-scroll-locked] {
 
 /* Premium Utilities */
 @layer utilities {
-  /* Glass morphism effect */
-  .glass {
-    @apply bg-background/80 backdrop-blur-xl border border-border/50;
+  /* content-visibility for below-the-fold tiles — skips rendering work until near
+     the viewport. contain-intrinsic-size reserves space to avoid CLS on scroll. */
+  .content-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px;
   }
-  
-  .dark .glass {
-    @apply bg-background/60 border-border/30;
+
+  /* Glass — frosted surface for sticky chrome, overlays, card-style visuals (§3.4).
+     Token-driven so it re-themes; do NOT use over dense tables/forms/long text. */
+  .glass {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    border: 1px solid hsl(var(--glass-border));
   }
 
   /* Gradient utilities - use CSS variables for dynamic theming */
@@ -295,24 +386,24 @@ body[data-scroll-locked] {
     background: linear-gradient(135deg, hsl(var(--destructive)) 0%, hsl(0 84% 70%) 100%);
   }
 
-  /* Premium shadows */
+  /* Premium shadows — warm, diffuse elevation scale (§3.3).
+     Mapped onto the existing utility names so components don't change. */
   .shadow-premium {
-    box-shadow: 
-      0 1px 2px 0 hsl(var(--foreground) / 0.03),
-      0 4px 8px -2px hsl(var(--foreground) / 0.05),
-      0 12px 24px -4px hsl(var(--foreground) / 0.08);
+    box-shadow: var(--elevation-2);
   }
-  
+
   .shadow-premium-lg {
-    box-shadow: 
-      0 2px 4px 0 hsl(var(--foreground) / 0.03),
-      0 8px 16px -4px hsl(var(--foreground) / 0.06),
-      0 20px 40px -8px hsl(var(--foreground) / 0.1);
+    box-shadow: var(--elevation-3);
   }
 
   .shadow-glow {
-    box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.25);
+    box-shadow: var(--elevation-accent);
   }
+
+  /* Explicit elevation utilities for new component styling. */
+  .shadow-elevation-1 { box-shadow: var(--elevation-1); }
+  .shadow-elevation-2 { box-shadow: var(--elevation-2); }
+  .shadow-elevation-3 { box-shadow: var(--elevation-3); }
 
   /* Text gradient */
   .text-gradient {

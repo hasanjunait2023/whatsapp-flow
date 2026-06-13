@@ -14,7 +14,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['"Noto Serif Bengali"', 'serif'],
+        sans: ['"Inter"', '"Hind Siliguri"', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -33,18 +33,22 @@ export default {
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+          soft: "hsl(var(--destructive-soft))",
         },
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+          soft: "hsl(var(--success-soft))",
         },
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
+          soft: "hsl(var(--warning-soft))",
         },
         info: {
           DEFAULT: "hsl(var(--info))",
           foreground: "hsl(var(--info-foreground))",
+          soft: "hsl(var(--info-soft))",
         },
         brand: {
           DEFAULT: "hsl(var(--brand))",
@@ -56,9 +60,12 @@ export default {
           foreground: "hsl(var(--whatsapp-foreground))",
           light: "hsl(var(--whatsapp-light))",
         },
+        facebook: "hsl(var(--facebook))",
+        instagram: "hsl(var(--instagram))",
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
+          soft: "hsl(var(--muted-soft))",
         },
         accent: {
           DEFAULT: "hsl(var(--accent))",
@@ -133,6 +140,16 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        // Design-system radius scale (§3.2)
+        card: "20px",       // cards, stat cards, modals, sheets — Finexy signature
+        control: "12px",    // buttons, inputs, selects, dropdowns
+      },
+      boxShadow: {
+        // Warm, diffuse elevation scale (§3.3) — token-driven so dark theme re-themes.
+        "elevation-1": "var(--elevation-1)",
+        "elevation-2": "var(--elevation-2)",
+        "elevation-3": "var(--elevation-3)",
+        "elevation-accent": "var(--elevation-accent)",
       },
       keyframes: {
         "accordion-down": {

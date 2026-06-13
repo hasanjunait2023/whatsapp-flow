@@ -48,7 +48,7 @@ export function ProductVideoPlayer({ compact = false }: ProductVideoPlayerProps)
               <div className="flex-1 flex justify-center">
                 <div className="flex items-center gap-1.5 px-3 py-0.5 rounded bg-background/50 text-[10px] text-muted-foreground">
                   <Monitor className="h-3 w-3" />
-                  <span>Ecomex Dashboard</span>
+                  <span>What A App Dashboard</span>
                 </div>
               </div>
             </div>

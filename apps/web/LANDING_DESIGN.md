@@ -1,6 +1,6 @@
 # LANDING_DESIGN.md — Sales Landing Page Design System
 
-**Product:** Ecomex Automation — a Bangladesh WhatsApp + Facebook + Instagram CRM / commerce-automation SaaS for small businesses.
+**Product:** What A App — a Bangladesh WhatsApp + Facebook + Instagram CRM / commerce-automation SaaS for small businesses.
 **Surface:** Public marketing/sales landing page (`/`), high-conversion, mobile-first.
 **Reference language:** Dark AI-SaaS ("Eclipse / BoostIQ" style) — near-black canvas, violet primary, soft purple glows, glassy translucent cards, geometric sans.
 **Stack:** Existing `apps/web` — Vite + React + TS + Tailwind 3.4 + shadcn/ui (default style) + lucide-react + framer-motion + embla-carousel + radix accordion.
@@ -227,7 +227,7 @@ Global section wrapper: `<section className="relative px-5 md:px-6 py-[var(--lp-
 ### 3.1 Nav (sticky, translucent)
 
 **Layout:** sticky top, full-width, `h-16` (64px). Inner `max-w-[1200px]` flex row, `justify-between items-center`.
-- **Left:** wordmark — reuse `AppLogo` mark + "Ecomex" wordmark in Inter 700, `--lp-text`. Mark may carry a small violet glow.
+- **Left:** wordmark — reuse `AppLogo` mark + "What A App" wordmark in Inter 700, `--lp-text`. Mark may carry a small violet glow.
 - **Center (desktop ≥1024px):** links `Features · How it works · Pricing · FAQs` → smooth-scroll anchors. `--lp-text-sm`, color `--lp-text-muted`, hover `--lp-text` + 2px violet underline grow (transform scaleX). 32px gap.
 - **Right:** ghost "Log in" (text link, `--lp-text-muted`→`--lp-text`) + solid **violet pill "Get Started"** (`--lp-r-pill`, `bg-lp-violet-500 hover:bg-lp-violet-600`, white text 600, `px-5 py-2.5`, `--lp-glow-violet` on hover).
 
@@ -243,11 +243,11 @@ Global section wrapper: `<section className="relative px-5 md:px-6 py-[var(--lp-
 ```
 DESKTOP NAV
 ┌──────────────────────────────────────────────────────────────────────┐
-│ ◆ Ecomex      Features  How it works  Pricing  FAQs     Log in  [Get Started]│
+│ ◆ What A App      Features  How it works  Pricing  FAQs     Log in  [Get Started]│
 └──────────────────────────────────────────────────────────────────────┘
 MOBILE NAV
 ┌───────────────────────────────────────┐
-│ ◆ Ecomex                 [Get Started] ≡ │
+│ ◆ What A App                 [Get Started] ≡ │
 └───────────────────────────────────────┘
 ```
 
@@ -265,7 +265,7 @@ Layers (back→front):
    > <span class="text-lp-violet-400">One inbox. AI replies. Zero missed orders.</span>
    Second line (or the 3 noun-phrases) in `--lp-violet-400` for the accent gradient moment. Optionally apply a violet→white text-gradient to the second line (mind contrast — keep the lightest stop ≥ `--lp-violet-300`).
 4. **Subhead** (`--lp-text-lead`, `--lp-text-muted`, `max-w-[640px] mx-auto`):
-   > Ecomex unifies your WhatsApp, Messenger & Instagram DMs in one screen, auto-replies to customers day and night, and turns chats into confirmed orders — with bKash & Nagad, courier booking, and delivery tracking built in.
+   > What A App unifies your WhatsApp, Messenger & Instagram DMs in one screen, auto-replies to customers day and night, and turns chats into confirmed orders — with bKash & Nagad, courier booking, and delivery tracking built in.
 5. **CTA row** (`flex flex-col sm:flex-row gap-3 justify-center`, full-width buttons on mobile):
    - **Primary:** "Start free trial" — violet pill, white 600, `h-12 px-7`, `--lp-glow-violet` on hover, `lucide ArrowRight` icon that nudges +2px on hover. **`type=button` → routes to signup.**
    - **Secondary:** "Get a demo" — ghost/outline: transparent bg, `--lp-border-strong`, `--lp-text`, hover `--lp-surface-2`. Opens `DemoRequestDialog` (already in repo). Optionally a `lucide Play`/`MessageCircle` leading icon.
@@ -281,7 +281,7 @@ HERO
                 ( • Now with AI replies in Bangla & English )
             Sell more on WhatsApp, Facebook & Instagram.
             One inbox.  AI replies.  Zero missed orders.       ← violet accent line
-        Ecomex unifies your DMs, auto-replies day & night, and
+        What A App unifies your DMs, auto-replies day & night, and
               turns chats into confirmed orders. bKash/Nagad,
                       courier & tracking built in.
                  [ Start free trial → ]   [ Get a demo ]
@@ -387,7 +387,7 @@ FEATURE SPOTLIGHT (image right, then next one image left)
 
 Centered conversion band on a violet-tinted surface with glow. `--lp-r-xl`, `--lp-elevated` or a violet gradient wash (`linear-gradient(135deg, rgba(124,58,237,0.18), rgba(139,92,246,0.06))`) over `--lp-bg-1`, `--lp-border-violet`, `--lp-glow-violet`, generous `py-12 md:py-16`, content `max-w-[720px] mx-auto text-center`.
 - H2 `--lp-text-h2`: **"Stop losing orders to slow replies."**
-- Sub `--lp-text-lead --lp-text-muted`: "Start free today. Connect WhatsApp in minutes and let Ecomex handle the rest."
+- Sub `--lp-text-lead --lp-text-muted`: "Start free today. Connect WhatsApp in minutes and let What A App handle the rest."
 - Primary violet CTA "Start free trial →" + ghost "Talk to us".
 - Optional tiny trust line: "Join 500+ Bangladeshi businesses".
 
@@ -488,7 +488,7 @@ Carousel of photo/video testimonial cards (use **embla-carousel-react**, already
 TESTIMONIALS
    LOVED BY SELLERS · What Bangladeshi sellers say
 ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-│ “ Ecomex…”  │ │ [▶ video]   │ │ “ AI replies│
+│ “ What A App…”  │ │ [▶ video]   │ │ “ AI replies│
 │             │ │  green play │ │   in Bangla”│
 │ (•) Rahim   │ │  Nusrat —   │ │ (•) Karim   │
 │  Dhaka shop │ │  Boutique   │ │  Ctg store  │
@@ -540,7 +540,7 @@ Dark, structured. `--lp-bg-1`, top `--lp-border`. `py-16`. Inner `max-w-[1200px]
 - Col 5 **Legal**: Privacy, Terms, Refund policy.
 Links `--lp-text-sm --lp-text-muted` hover `--lp-text`. Column headers `--lp-text-xs uppercase --lp-text-dim tracking`.
 
-**Bottom bar** (`pt-8 border-t --lp-border flex flex-col md:flex-row justify-between gap-4`): `© 2026 Ecomex Automation. Made in Bangladesh 🇧🇩` `--lp-text-xs --lp-text-dim` + a small **language switcher** (EN / বাংলা) reusing `LanguageSwitcher` + payment-trust mini-row (bKash/Nagad monochrome).
+**Bottom bar** (`pt-8 border-t --lp-border flex flex-col md:flex-row justify-between gap-4`): `© 2026 What A App. Made in Bangladesh 🇧🇩` `--lp-text-xs --lp-text-dim` + a small **language switcher** (EN / বাংলা) reusing `LanguageSwitcher` + payment-trust mini-row (bKash/Nagad monochrome).
 
 **A11y:** `<footer>`, nav landmarks per column (`<nav aria-label="Product">` etc.), all icon links labeled.
 
@@ -584,7 +584,7 @@ Provide exact aspect ratios so layout never shifts (set `width`/`height` or `asp
 | `PHOTO_MISSION` | Commitment | **3:4** portrait | Packing/handover/delivery moment | local context |
 | `AVATAR_1..n` | Testimonials | **1:1**, 80px | Real customer faces (with consent) | rounded |
 | `VIDEO_THUMB_1..n` | Testimonials | **16:9** | Video poster frames | green play overlay; mp4 in dialog |
-| `OG_IMAGE` | `<head>` meta | **1200×630** | Branded share card (replace current lovable.dev placeholder) | update `index.html` og/twitter image |
+| `OG_IMAGE` | `<head>` meta | **1200×630** | Branded share card (What A App) | update `index.html` og/twitter image |
 
 **Placeholder strategy until assets exist:** use a `--lp-surface` block with `--lp-border`, a centered `lucide ImageIcon` `--lp-text-dim`, and the slot name — never a broken `<img>`. Keep the exact aspect box so swapping in the real asset causes zero layout shift.
 

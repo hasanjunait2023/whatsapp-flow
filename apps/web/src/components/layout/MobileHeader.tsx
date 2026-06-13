@@ -158,7 +158,7 @@ export default function MobileHeader() {
                 <Avatar className="h-10 w-10 rounded-lg flex-shrink-0">
                   <AvatarImage src={currentTenant?.logo_url || undefined} alt={currentTenant?.name} />
                   <AvatarFallback className="rounded-lg bg-brand text-brand-foreground p-1">
-                    <img src={logoImage} alt="Ecomex" className="h-full w-full object-contain" />
+                    <img src={logoImage} alt="What A App" className="h-full w-full object-contain" />
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
@@ -268,7 +268,7 @@ export default function MobileHeader() {
           <Avatar className="h-7 w-7 rounded-lg flex-shrink-0">
             <AvatarImage src={currentTenant?.logo_url || undefined} alt={currentTenant?.name} />
             <AvatarFallback className="rounded-lg bg-brand text-brand-foreground p-0.5">
-              <img src={logoImage} alt="Ecomex" className="h-full w-full object-contain" />
+              <img src={logoImage} alt="What A App" className="h-full w-full object-contain" />
             </AvatarFallback>
           </Avatar>
           <span className="font-semibold text-sm max-w-[140px] truncate">

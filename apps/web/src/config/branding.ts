@@ -1,10 +1,14 @@
 // Centralized branding configuration for the application
 // Update these values to rebrand the entire application
 
-export const APP_NAME = "Ecomex Automation";
-export const APP_SHORT_NAME = "Ecomex";
+export const APP_NAME = "What A App";
+export const APP_SHORT_NAME = "What A App";
 export const APP_DESCRIPTION = "WhatsApp CRM for your business";
 export const APP_TAGLINE = "Manage your WhatsApp conversations efficiently";
+
+// Company that builds and operates the product
+export const APP_COMPANY = "Ecomex";
+export const APP_LEGAL_NAME = "What A App by Ecomex";
 
 // Support information
 export const SUPPORT_EMAIL = "support@ecomexautomation.com";
@@ -23,4 +27,4 @@ export const WHATSAPP_API_URL = "https://wasenderapi.com";
 
 // SEO & Meta
 export const META_TITLE = `${APP_NAME} - ${APP_DESCRIPTION}`;
-export const META_DESCRIPTION = "Manage your WhatsApp business conversations, automate responses, and grow your business with Ecomex Automation CRM.";
+export const META_DESCRIPTION = "Manage your WhatsApp business conversations, automate responses, and grow your business with What A App.";

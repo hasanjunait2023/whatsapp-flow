@@ -208,7 +208,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="flex flex-col items-start justify-between gap-4 border-t border-[var(--lp-border)] pt-8 md:flex-row md:items-center">
           <p className="text-xs text-lp-dim">
-            © {new Date().getFullYear()} Ecomex Automation. Made in Bangladesh 🇧🇩
+            © {new Date().getFullYear()} What A App by Ecomex. Made in Bangladesh 🇧🇩
           </p>
           <div className="flex items-center gap-4">
             <ul className="flex items-center gap-3" aria-label="Accepted payments">

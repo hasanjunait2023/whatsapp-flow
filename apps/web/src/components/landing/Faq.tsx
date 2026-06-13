@@ -15,7 +15,7 @@ const FAQS: Faq[] = [
   {
     q: "Can I keep my existing WhatsApp number?",
     qBn: "আমার বর্তমান নম্বর রাখতে পারব?",
-    a: "Yes. Ecomex connects to your existing WhatsApp number — no new number and nothing for your customers to install. Your chats keep coming to the same number, now in one shared inbox.",
+    a: "Yes. What A App connects to your existing WhatsApp number — no new number and nothing for your customers to install. Your chats keep coming to the same number, now in one shared inbox.",
   },
   {
     q: "Can I take payments via bKash & Nagad?",
