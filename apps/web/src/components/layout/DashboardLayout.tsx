@@ -169,13 +169,13 @@ function DashboardLayoutInner({ children, hideMobileNav }: DashboardLayoutProps)
     { titleKey: 'main.dashboard', href: '/dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
   ];
 
-  // Communication section
+  // Inbox & Contacts section
   const communicationNavItems: NavItem[] = [
     { titleKey: 'main.waInbox', href: '/inbox', icon: <Inbox className="h-5 w-5" />, badge: waUnreadCount || undefined },
     { titleKey: 'main.fbInbox', href: '/fb-inbox', icon: <Facebook className="h-5 w-5" />, badge: fbUnreadCount || undefined },
-    { titleKey: 'main.waFunctions', href: '/whatsapp-functions', icon: <Zap className="h-5 w-5" /> },
     { titleKey: 'main.contacts', href: '/contacts', icon: <Users className="h-5 w-5" /> },
     { titleKey: 'main.groups', href: '/groups', icon: <UsersRound className="h-5 w-5" /> },
+    { titleKey: 'main.waFunctions', href: '/whatsapp-functions', icon: <Zap className="h-5 w-5" /> },
   ];
 
   // Sales & Operations section
@@ -183,8 +183,14 @@ function DashboardLayoutInner({ children, hideMobileNav }: DashboardLayoutProps)
     { titleKey: 'main.orders', href: '/orders', icon: <ShoppingCart className="h-5 w-5" /> },
     { titleKey: 'main.products', href: '/products', icon: <Package className="h-5 w-5" /> },
     { titleKey: 'main.inventory', href: '/inventory', icon: <Warehouse className="h-5 w-5" /> },
-    { titleKey: 'main.accounting', href: '/accounting', icon: <Receipt className="h-5 w-5" /> },
     { titleKey: 'main.complaints', href: '/complaints', icon: <AlertTriangle className="h-5 w-5" /> },
+  ];
+
+  // Finance section. Accounting consolidated onto /accounts (the full P&L /
+  // cashflow / recurring-expense page) — the old simpler /accounting redirects here.
+  const financeNavItems: NavItem[] = [
+    { titleKey: 'main.accounting', href: '/accounts', icon: <Receipt className="h-5 w-5" /> },
+    { titleKey: 'main.billing', href: '/billing', icon: <CreditCard className="h-5 w-5" /> },
   ];
 
   // Channels section - WhatsApp instances
@@ -205,19 +211,20 @@ function DashboardLayoutInner({ children, hideMobileNav }: DashboardLayoutProps)
     },
   ];
 
+  // AI & Automation section (collapsible)
   const toolsNavItems: NavItem[] = [
-    { titleKey: 'tools.accounts', href: '/accounts', icon: <Calculator className="h-5 w-5" /> },
-    { titleKey: 'tools.segmentation', href: '/segmentation', icon: <Target className="h-5 w-5" /> },
+    { titleKey: 'tools.aiAgent', href: '/ai-agent', icon: <Bot className="h-5 w-5" /> },
     { titleKey: 'tools.automation', href: '/automation', icon: <Zap className="h-5 w-5" /> },
     { titleKey: 'tools.workflows', href: '/workflows', icon: <GitBranch className="h-5 w-5" /> },
-    { titleKey: 'tools.aiAgent', href: '/ai-agent', icon: <Bot className="h-5 w-5" /> },
+    { titleKey: 'tools.segmentation', href: '/segmentation', icon: <Target className="h-5 w-5" /> },
     { titleKey: 'tools.analytics', href: '/analytics', icon: <BarChart3 className="h-5 w-5" /> },
   ];
 
+  // Team section (collapsible)
   const teamWorkNavItems: NavItem[] = [
+    { titleKey: 'teamWork.team', href: '/team', icon: <Building2 className="h-5 w-5" /> },
     { titleKey: 'teamWork.teamChat', href: '/internal-chat', icon: <MessagesSquare className="h-5 w-5" /> },
     { titleKey: 'teamWork.serviceBoards', href: '/service/boards', icon: <Kanban className="h-5 w-5" /> },
-    { titleKey: 'teamWork.team', href: '/team', icon: <Building2 className="h-5 w-5" /> },
     { titleKey: 'teamWork.teamReports', href: '/team-reports', icon: <BarChart3 className="h-5 w-5" /> },
   ];
 
@@ -225,6 +232,7 @@ function DashboardLayoutInner({ children, hideMobileNav }: DashboardLayoutProps)
   const filteredCoreNavItems = useMemo(() => filterNavItems(coreNavItems), [isOwnerOrManager, canAccess]);
   const filteredCommunicationNavItems = useMemo(() => filterNavItems(communicationNavItems), [isOwnerOrManager, canAccess, waUnreadCount, fbUnreadCount]);
   const filteredSalesNavItems = useMemo(() => filterNavItems(salesNavItems), [isOwnerOrManager, canAccess]);
+  const filteredFinanceNavItems = useMemo(() => filterNavItems(financeNavItems), [isOwnerOrManager, canAccess]);
   const filteredChannelsNavItems = useMemo(() => filterNavItems(channelsNavItems), [isOwnerOrManager, canAccess, hasDisconnected, disconnectedCount]);
   const filteredToolsNavItems = useMemo(() => filterNavItems(toolsNavItems), [isOwnerOrManager, canAccess]);
   const filteredTeamWorkNavItems = useMemo(() => filterNavItems(teamWorkNavItems), [isOwnerOrManager, canAccess]);
@@ -456,60 +464,60 @@ function DashboardLayoutInner({ children, hideMobileNav }: DashboardLayoutProps)
         <nav ref={sidebarNavRef} className="flex-1 overflow-y-auto p-3 scrollbar-thin space-y-1">
           {/* Dashboard - Always on top */}
           <NavSection items={filteredCoreNavItems} />
-          
-          <SectionDivider label="Communication" />
-          
-          {/* Communication Section */}
+
+          <SectionDivider label="Inbox" />
+
+          {/* Inbox & Contacts */}
           <NavSection items={filteredCommunicationNavItems} />
-          
+
           <SectionDivider label="Sales" />
-          
-          {/* Sales & Operations Section */}
+
+          {/* Sales & Operations */}
           <NavSection items={filteredSalesNavItems} />
-          
-          <SectionDivider label="Channels" />
-          
-          {/* Channels Section - WhatsApp instances */}
-          <NavSection items={filteredChannelsNavItems} />
-          
-          <SectionDivider label="Business" />
-          
-          {/* Business Section */}
+
+          <SectionDivider label="Finance" />
+
+          {/* Finance: Accounting (P&L/cashflow), Billing, Reports */}
           <div className="space-y-1">
-            <NavLink item={{ titleKey: 'main.billing', href: '/billing', icon: <CreditCard className="h-5 w-5" /> }} />
+            <NavSection items={filteredFinanceNavItems} />
             {(isOwnerOrManager || canAccess('reports')) && (
               <NavLink item={{ titleKey: 'main.reports', href: '/reports', icon: <FileBarChart className="h-5 w-5" /> }} />
             )}
           </div>
-          
-          <SectionDivider label="Team" />
-          
-          {/* Collapsible Team Work Section */}
-          {filteredTeamWorkNavItems.length > 0 && (
-            <CollapsibleNavSection 
-              items={filteredTeamWorkNavItems} 
-              titleKey="teamWork.title" 
-              icon={<Users className="h-5 w-5" />}
-              open={teamWorkOpen}
-              onOpenChange={setTeamWorkOpen}
-            />
-          )}
-          
-          <SectionDivider label="Automation" />
-          
-          {/* Collapsible Tools Section */}
+
+          <SectionDivider label="AI & Automation" />
+
+          {/* Collapsible AI & Automation Section */}
           {filteredToolsNavItems.length > 0 && (
-            <CollapsibleNavSection 
-              items={filteredToolsNavItems} 
-              titleKey="tools.title" 
+            <CollapsibleNavSection
+              items={filteredToolsNavItems}
+              titleKey="tools.title"
               icon={<Wrench className="h-5 w-5" />}
               open={toolsOpen}
               onOpenChange={setToolsOpen}
             />
           )}
-          
+
+          <SectionDivider label="Team" />
+
+          {/* Collapsible Team Section */}
+          {filteredTeamWorkNavItems.length > 0 && (
+            <CollapsibleNavSection
+              items={filteredTeamWorkNavItems}
+              titleKey="teamWork.title"
+              icon={<Users className="h-5 w-5" />}
+              open={teamWorkOpen}
+              onOpenChange={setTeamWorkOpen}
+            />
+          )}
+
+          <SectionDivider label="Channels" />
+
+          {/* Channels - WhatsApp instances (setup) */}
+          <NavSection items={filteredChannelsNavItems} />
+
           <SectionDivider />
-          
+
           {/* Settings - Direct Link */}
           {(isOwnerOrManager || canAccess('settings')) && (
             <NavLink item={{ titleKey: 'settings.settings', href: '/settings', icon: <Settings className="h-5 w-5" /> }} />

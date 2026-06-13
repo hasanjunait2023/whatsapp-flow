@@ -1,6 +1,7 @@
 import { Outlet, matchPath, useLocation } from 'react-router-dom';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import DashboardLayout from './DashboardLayout';
+import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary';
 
 /**
  * Wrapper component that combines ProtectedRoute with DashboardLayout.
@@ -22,7 +23,12 @@ export default function DashboardLayoutWrapper() {
   return (
     <ProtectedRoute>
       <DashboardLayout hideMobileNav={hideMobileNav}>
-        <Outlet />
+        {/* Per-route error boundary, keyed by path so a crash on one page is
+            contained (sidebar stays, user can navigate away) and resets when
+            they move to another page — instead of white-screening the whole app. */}
+        <GlobalErrorBoundary key={pathname}>
+          <Outlet />
+        </GlobalErrorBoundary>
       </DashboardLayout>
     </ProtectedRoute>
   );
