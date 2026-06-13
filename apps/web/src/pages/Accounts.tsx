@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { PageHeader } from '@/components/ui/page-header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, RefreshCw } from 'lucide-react';
+import { CalendarIcon, RefreshCw, TrendingUp, ShoppingBag, Receipt, Clock } from 'lucide-react';
 import { useTenantAccounts } from '@/hooks/useTenantAccounts';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { FinanceHeroTile } from '@/components/accounting/FinanceHeroTile';
+import { formatCurrency } from '@/lib/currency';
+import { m, pageEnter, staggerContainer, staggerItem } from '@/lib/motion';
 import { TenantAccountsDashboard } from '@/components/accounts/TenantAccountsDashboard';
 import { TenantExpensesList } from '@/components/accounts/TenantExpensesList';
 import { TenantRecurringExpensesList } from '@/components/accounts/TenantRecurringExpensesList';
@@ -40,14 +43,28 @@ export default function Accounts() {
     refetch,
   } = useTenantAccounts(startDate, endDate);
 
+  // Presentational derivations only — sourced from the existing accountsData.
+  const totalSales = accountsData?.totalSales ?? 0;
+  const totalExpenses = accountsData?.totalExpenses ?? 0;
+  const netProfit = accountsData?.netProfit ?? 0;
+  const netMargin = accountsData ? Math.round(accountsData.netProfitMargin) : 0;
+  const totalOrders = accountsData?.totalOrders ?? 0;
+  const unpaidAmount = accountsData?.unpaidOrdersAmount ?? 0;
+  const unpaidCount = accountsData?.unpaidOrdersCount ?? 0;
+
   return (
     <DashboardLayout>
-      <div className="p-4 md:p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <PageHeader
-            title="Accounts"
-            description="Track sales, expenses, and profitability"
-          />
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-5 sm:px-6 lg:px-8"
+      >
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">Accounts</h1>
+            <p className="text-sm text-muted-foreground">Track sales, expenses, and profitability.</p>
+          </div>
           <div className="flex items-center gap-2">
             {/* Date Range Picker */}
             <Popover>
@@ -114,11 +131,61 @@ export default function Accounts() {
               </PopoverContent>
             </Popover>
 
-            <Button variant="outline" size="icon" onClick={refetch} disabled={loading}>
+            <Button variant="outline" size="icon" onClick={refetch} disabled={loading} aria-label="Refresh accounts">
               <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
             </Button>
           </div>
-        </div>
+        </header>
+
+        {/* KPI strip — soft stat cards + the ONE orange focal tile (net profit) */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+        >
+          <m.div variants={staggerItem}>
+            <KpiCard
+              title="Total sales"
+              value={totalSales}
+              format={formatCurrency}
+              icon={TrendingUp}
+              tone="success"
+              trendLabel={`${totalOrders.toLocaleString('en-US')} orders`}
+              loading={loading}
+            />
+          </m.div>
+          <m.div variants={staggerItem}>
+            <KpiCard
+              title="Total expenses"
+              value={totalExpenses}
+              format={formatCurrency}
+              icon={Receipt}
+              tone="destructive"
+              loading={loading}
+            />
+          </m.div>
+          <m.div variants={staggerItem}>
+            <KpiCard
+              title="Outstanding"
+              value={unpaidAmount}
+              format={formatCurrency}
+              icon={Clock}
+              tone="warning"
+              trendLabel={`${unpaidCount.toLocaleString('en-US')} unpaid`}
+              loading={loading}
+            />
+          </m.div>
+          <FinanceHeroTile
+            label="Net profit"
+            value={netProfit}
+            caption={`${netMargin}% net margin in this range`}
+            trendLabel={netProfit >= 0 ? 'Profit' : 'Loss'}
+            trendUp={netProfit >= 0}
+            icon={ShoppingBag}
+            loading={loading}
+          />
+        </m.div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
           <ScrollArea className="w-full">
@@ -202,7 +269,7 @@ export default function Accounts() {
             />
           </TabsContent>
         </Tabs>
-      </div>
+      </m.div>
     </DashboardLayout>
   );
 }

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
@@ -15,8 +15,12 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { TrendingUp, TrendingDown, Wallet, Plus, Trash2, Loader2, Receipt } from 'lucide-react';
+import { TrendingUp, TrendingDown, Plus, Trash2, Loader2, Receipt, ListChecks } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { FinanceHeroTile } from '@/components/accounting/FinanceHeroTile';
+import { formatCurrency } from '@/lib/currency';
+import { m, pageEnter, staggerContainer, staggerItem } from '@/lib/motion';
 
 const TAKA = '৳'; // ৳
 
@@ -74,19 +78,28 @@ export default function Accounting() {
     }
   };
 
+  const income = summary?.income ?? 0;
+  const expensesTotal = summary?.expenses ?? 0;
+  const net = summary?.net ?? 0;
+
   return (
     <DashboardLayout>
-      <div className="space-y-6 p-4 md:p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold flex items-center gap-2">
-              <Receipt className="h-6 w-6" /> Accounting
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-5 sm:px-6 lg:px-8"
+      >
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+              <Receipt className="h-6 w-6 text-primary" aria-hidden /> Accounting
             </h1>
-            <p className="text-sm text-muted-foreground">Track expenses and this month&apos;s profit/loss.</p>
+            <p className="text-sm text-muted-foreground">Track expenses and this month&apos;s profit and loss.</p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" /> Add Expense</Button>
+              <Button variant="secondary"><Plus className="h-4 w-4 mr-2" /> Add Expense</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -143,30 +156,57 @@ export default function Accounting() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
+        </header>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2"><TrendingUp className="h-4 w-4 text-green-500" /> Income (this month)</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-bold text-green-600">{money(summary?.income || 0)}</div></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2"><TrendingDown className="h-4 w-4 text-red-500" /> Expenses (this month)</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-bold text-red-600">{money(summary?.expenses || 0)}</div></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Wallet className="h-4 w-4" /> Net profit</CardTitle></CardHeader>
-            <CardContent><div className={`text-2xl font-bold ${(summary?.net || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>{money(summary?.net || 0)}</div></CardContent>
-          </Card>
-        </div>
+        {/* KPI strip — soft stat cards + the ONE orange focal tile (net profit) */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-3"
+        >
+          <m.div variants={staggerItem}>
+            <KpiCard
+              title="Income (this month)"
+              value={income}
+              format={formatCurrency}
+              icon={TrendingUp}
+              tone="success"
+              loading={loading}
+            />
+          </m.div>
+          <m.div variants={staggerItem}>
+            <KpiCard
+              title="Expenses (this month)"
+              value={expensesTotal}
+              format={formatCurrency}
+              icon={TrendingDown}
+              tone="destructive"
+              loading={loading}
+            />
+          </m.div>
+          <FinanceHeroTile
+            label="Net profit"
+            value={net}
+            caption="This month, income minus expenses"
+            trendLabel={net >= 0 ? 'Profit' : 'Loss'}
+            trendUp={net >= 0}
+            loading={loading}
+          />
+        </m.div>
 
         <Card>
           <CardHeader><CardTitle className="text-base">Expenses</CardTitle></CardHeader>
-          <CardContent>
+          <CardContent className="p-0 sm:p-0">
             {loading ? (
-              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+              <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
             ) : expenses.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">No expenses yet. Add your first one.</p>
+              <EmptyState
+                icon={ListChecks}
+                title="No expenses yet"
+                description="Record your first expense to start tracking spend and profitability."
+                action={{ label: 'Add Expense', onClick: () => setOpen(true), icon: Plus }}
+              />
             ) : (
               <Table>
                 <TableHeader>
@@ -175,18 +215,18 @@ export default function Accounting() {
                     <TableHead>Description</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
-                    <TableHead></TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {expenses.map((e: Expense) => (
-                    <TableRow key={e.id}>
-                      <TableCell className="whitespace-nowrap">{e.expense_date}</TableCell>
-                      <TableCell>{e.description}{e.vendor_name ? <span className="text-muted-foreground"> · {e.vendor_name}</span> : null}</TableCell>
+                    <TableRow key={e.id} className="hover:bg-muted-soft">
+                      <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{e.expense_date}</TableCell>
+                      <TableCell className="font-medium">{e.description}{e.vendor_name ? <span className="font-normal text-muted-foreground"> · {e.vendor_name}</span> : null}</TableCell>
                       <TableCell>{categoryName(e.category_id)}</TableCell>
-                      <TableCell className="text-right font-medium">{money(e.amount)}</TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">{money(e.amount)}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => deleteExpense.mutate(e.id)}>
+                        <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Delete expense" onClick={() => deleteExpense.mutate(e.id)}>
                           <Trash2 className="h-4 w-4 text-muted-foreground" />
                         </Button>
                       </TableCell>
@@ -197,7 +237,7 @@ export default function Accounting() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </m.div>
     </DashboardLayout>
   );
 }

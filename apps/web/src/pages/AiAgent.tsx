@@ -17,8 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AiAgentOverview } from '@/components/ai-agent/AiAgentOverview';
+import { m, pageEnter } from '@/lib/motion';
 import {
-  Bot,
   Brain,
   Settings2,
   BookOpen,
@@ -26,9 +27,6 @@ import {
   Trash2,
   Edit2,
   Save,
-  Sparkles,
-  MessageSquare,
-  Zap,
   AlertTriangle,
   Lock,
   UserRound,
@@ -89,14 +87,15 @@ export default function AiAgent() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="p-6 space-y-6">
+        <div className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6">
           <Skeleton className="h-8 w-48" />
-          <div className="grid gap-6 md:grid-cols-3">
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
+          <div className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4">
+            <Skeleton className="col-span-2 h-[140px] rounded-card lg:col-span-1" />
+            <Skeleton className="h-[140px] rounded-card" />
+            <Skeleton className="h-[140px] rounded-card" />
+            <Skeleton className="h-[140px] rounded-card" />
           </div>
-          <Skeleton className="h-96" />
+          <Skeleton className="h-96 rounded-card" />
         </div>
       </DashboardLayout>
     );
@@ -105,13 +104,13 @@ export default function AiAgent() {
   if (!canUseAI) {
     return (
       <DashboardLayout>
-        <div className="p-6">
-          <div className="max-w-2xl mx-auto text-center py-16">
-            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
+        <div className="mx-auto w-full max-w-[1440px] p-4 md:p-6">
+          <div className="mx-auto max-w-2xl py-16 text-center">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-muted-soft">
               <Lock className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h1 className="text-2xl font-bold mb-2">AI Agent Not Available</h1>
-            <p className="text-muted-foreground mb-6">
+            <h1 className="mb-2 text-2xl font-bold tracking-tight text-foreground">AI Agent Not Available</h1>
+            <p className="mb-6 text-muted-foreground">
               Upgrade your plan to unlock AI-powered automated responses for your WhatsApp conversations.
             </p>
             <Button asChild>
@@ -125,111 +124,49 @@ export default function AiAgent() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Bot className="h-6 w-6 text-primary" />
-              AI Agent
-            </h1>
-            <p className="text-muted-foreground">
-              Configure your AI assistant for automated customer responses
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={config?.is_enabled}
-                onCheckedChange={handleToggleEnabled}
-                disabled={saving}
-              />
-              <Label>{config?.is_enabled ? 'Enabled' : 'Disabled'}</Label>
-            </div>
-            <Badge variant={config?.is_enabled ? 'default' : 'secondary'}>
-              {config?.is_enabled ? (
-                <>
-                  <Sparkles className="h-3 w-3 mr-1" />
-                  Active
-                </>
-              ) : (
-                'Inactive'
-              )}
-            </Badge>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <MessageSquare className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">AI Responses Today</p>
-                  <p className="text-2xl font-bold">0</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-lg bg-success/10 flex items-center justify-center">
-                  <Zap className="h-6 w-6 text-success" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Avg Response Time</p>
-                  <p className="text-2xl font-bold">~2s</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-lg bg-info/10 flex items-center justify-center">
-                  <BookOpen className="h-6 w-6 text-info" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Knowledge Items</p>
-                  <p className="text-2xl font-bold">{knowledgeBase.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
+        <AiAgentOverview
+          isEnabled={!!config?.is_enabled}
+          saving={saving}
+          knowledgeCount={knowledgeBase.length}
+          onToggle={handleToggleEnabled}
+        />
 
         {/* Main Configuration */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 h-auto lg:w-[760px]">
-            <TabsTrigger value="soul" className="flex items-center gap-2">
-              <Sparkle className="h-4 w-4" />
-              Soul
-            </TabsTrigger>
-            <TabsTrigger value="hermes" className="flex items-center gap-2">
-              <Headset className="h-4 w-4" />
-              Hermes
-            </TabsTrigger>
-            <TabsTrigger value="prompt" className="flex items-center gap-2">
-              <Brain className="h-4 w-4" />
-              Prompts
-            </TabsTrigger>
-            <TabsTrigger value="knowledge" className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              Knowledge
-            </TabsTrigger>
-            <TabsTrigger value="handoff" className="flex items-center gap-2">
-              <ArrowRightLeft className="h-4 w-4" />
-              Handoff
-            </TabsTrigger>
-            <TabsTrigger value="behavior" className="flex items-center gap-2">
-              <Settings2 className="h-4 w-4" />
-              Behavior
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <div className="-mx-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0">
+            <TabsList className="w-max">
+              <TabsTrigger value="soul" className="h-11 gap-2 sm:h-9">
+                <Sparkle className="h-4 w-4" />
+                Soul
+              </TabsTrigger>
+              <TabsTrigger value="hermes" className="h-11 gap-2 sm:h-9">
+                <Headset className="h-4 w-4" />
+                Hermes
+              </TabsTrigger>
+              <TabsTrigger value="prompt" className="h-11 gap-2 sm:h-9">
+                <Brain className="h-4 w-4" />
+                Prompts
+              </TabsTrigger>
+              <TabsTrigger value="knowledge" className="h-11 gap-2 sm:h-9">
+                <BookOpen className="h-4 w-4" />
+                Knowledge
+              </TabsTrigger>
+              <TabsTrigger value="handoff" className="h-11 gap-2 sm:h-9">
+                <ArrowRightLeft className="h-4 w-4" />
+                Handoff
+              </TabsTrigger>
+              <TabsTrigger value="behavior" className="h-11 gap-2 sm:h-9">
+                <Settings2 className="h-4 w-4" />
+                Behavior
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Agent Soul Tab */}
           <TabsContent value="soul" className="mt-4">
@@ -403,7 +340,7 @@ export default function AiAgent() {
                     {knowledgeBase.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-start justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                        className="flex items-start justify-between rounded-card border border-border p-4 transition-colors hover:bg-muted-soft"
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
@@ -653,7 +590,7 @@ export default function AiAgent() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center justify-between rounded-card border border-border p-4">
                   <div className="space-y-0.5">
                     <Label className="text-base">Automatic Handoff</Label>
                     <p className="text-sm text-muted-foreground">
@@ -723,14 +660,14 @@ export default function AiAgent() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center justify-between rounded-card border border-border p-4">
                   <div className="space-y-0.5">
                     <Label className="text-base">In-App Notifications</Label>
                     <p className="text-sm text-muted-foreground">
                       Show handoff badge on conversations in the inbox
                     </p>
                   </div>
-                  <Badge variant="outline" className="border-success text-success">
+                  <Badge variant="success-soft">
                     Always On
                   </Badge>
                 </div>
@@ -757,7 +694,7 @@ export default function AiAgent() {
             </div>
           </TabsContent>
         </Tabs>
-      </div>
+      </m.div>
     </DashboardLayout>
   );
 }
