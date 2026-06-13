@@ -15,9 +15,11 @@ export function geminiClient(apiKey: string, model: string, dims: number): Embed
     dims,
     async embed(texts: string[]): Promise<number[][]> {
       if (texts.length === 0) return [];
-      const res = await fetch(`${BASE}/${modelPath}:batchEmbedContents?key=${apiKey}`, {
+      // Key goes in a header, not the query string, so it can't leak via
+      // request logs / proxy access logs / error URLs.
+      const res = await fetch(`${BASE}/${modelPath}:batchEmbedContents`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify({
           requests: texts.map((t) => ({
             model: modelPath,
