@@ -63,22 +63,30 @@ import {
   Key,
   Lock,
   ClipboardList,
+  Radio,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { CreateTeamMemberDialog } from '@/components/team/CreateTeamMemberDialog';
 import { ResetPasswordDialog } from '@/components/team/ResetPasswordDialog';
 import { PermissionManager } from '@/components/team/PermissionManager';
 import { TenantAuditLogViewer } from '@/components/team/TenantAuditLogViewer';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { m, pageEnter, staggerContainer, staggerItem } from '@/lib/motion';
+import type { BadgeProps } from '@/components/ui/badge';
 
-const roleConfig = {
-  owner: { label: 'Owner', icon: Crown, className: 'bg-warning/10 text-warning border-warning/20' },
-  manager: { label: 'Manager', icon: Shield, className: 'bg-primary/10 text-primary border-primary/20' },
-  agent: { label: 'Agent', icon: User, className: 'bg-muted text-muted-foreground' },
+// Calm status-soft role pills — no orange focal on a roster/management page.
+const roleConfig: Record<
+  'owner' | 'manager' | 'agent',
+  { label: string; icon: typeof Crown; variant: BadgeProps['variant'] }
+> = {
+  owner: { label: 'Owner', icon: Crown, variant: 'warning-soft' },
+  manager: { label: 'Manager', icon: Shield, variant: 'info-soft' },
+  agent: { label: 'Agent', icon: User, variant: 'neutral-soft' },
 };
 
 export default function Team() {
   const { members, invitations, loading, canManageTeam, inviteMember, cancelInvitation, removeMember, refetch } = useTeam();
-  const { getMemberPresence } = useTeamPresence();
+  const { getMemberPresence, activeCount } = useTeamPresence();
   const { isOwner } = useTenant();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -144,14 +152,23 @@ export default function Team() {
     }
   };
 
+  // Roster summary derived from existing data (no extra fetches).
+  const adminCount = members.filter((mbr) => mbr.role === 'owner' || mbr.role === 'manager').length;
+  const pendingCount = invitations.length;
+
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 py-5 space-y-6"
+      >
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Team</h1>
-            <p className="text-muted-foreground">
+        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Team</h1>
+            <p className="text-sm text-muted-foreground">
               Manage your team members, invitations, and permissions
             </p>
           </div>
@@ -205,7 +222,28 @@ export default function Team() {
               </div>
             )}
           </div>
-        </div>
+        </header>
+
+        {/* KPI summary row — calm soft tiles, no orange focal (roster page) */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+        >
+          <m.div variants={staggerItem}>
+            <KpiCard title="Members" value={members.length} icon={Users} tone="info" loading={loading} />
+          </m.div>
+          <m.div variants={staggerItem}>
+            <KpiCard title="Active now" value={activeCount} icon={Radio} tone="success" loading={loading} />
+          </m.div>
+          <m.div variants={staggerItem}>
+            <KpiCard title="Admins" value={adminCount} icon={Shield} tone="primary" loading={loading} />
+          </m.div>
+          <m.div variants={staggerItem}>
+            <KpiCard title="Pending invites" value={pendingCount} icon={Mail} tone="warning" loading={loading} />
+          </m.div>
+        </m.div>
 
         {/* Limit Reached Warning */}
         {agentLimits.isAtLimit && !loading && members.length > 0 && (
@@ -247,10 +285,10 @@ export default function Team() {
 
           {/* Members Tab */}
           <TabsContent value="members" className="mt-6">
-            <Card data-tour="team-list" className="border-border/50">
+            <Card data-tour="team-list">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Users className="h-5 w-5 text-muted-foreground" />
                   Team Members
                 </CardTitle>
                 <CardDescription>
@@ -271,7 +309,7 @@ export default function Team() {
                     ))}
                   </div>
                 ) : (
-                  <div className="divide-y divide-border">
+                  <div className="space-y-1">
                     {members.map((member) => {
                       const role = roleConfig[member.role];
                       const RoleIcon = role.icon;
@@ -280,42 +318,45 @@ export default function Team() {
                       const presence = getMemberPresence(member.user_id);
 
                       return (
-                        <div key={member.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
-                          <div className="flex items-center gap-3">
-                            <div className="relative">
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between gap-3 rounded-control px-3 py-3 -mx-3 transition-colors hover:bg-muted-soft"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="relative shrink-0">
                               <Avatar className="h-10 w-10">
                                 <AvatarImage src={member.profile?.avatar_url || ''} />
-                                <AvatarFallback className="bg-primary/10 text-primary">
+                                <AvatarFallback className="bg-accent text-primary font-semibold">
                                   {(member.profile?.full_name || member.profile?.email || 'U')
                                     .charAt(0)
                                     .toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
-                              <PresenceIndicator 
-                                status={presence?.status || 'offline'} 
+                              <PresenceIndicator
+                                status={presence?.status || 'offline'}
                                 size="md"
                                 className="absolute -bottom-0.5 -right-0.5"
                               />
                             </div>
-                            <div>
+                            <div className="min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="font-medium">
+                                <span className="font-medium text-foreground truncate">
                                   {member.profile?.full_name || 'Unknown User'}
                                 </span>
                                 {isCurrentUser && (
-                                  <Badge variant="outline" className="text-xs">You</Badge>
+                                  <Badge variant="neutral-soft" className="text-xs">You</Badge>
                                 )}
                               </div>
-                              <p className="text-sm text-muted-foreground">
-                                {presence?.status === 'online' && presence?.current_page 
+                              <p className="text-sm text-muted-foreground truncate">
+                                {presence?.status === 'online' && presence?.current_page
                                   ? `${presence.last_seen_text} • ${presence.current_page}`
                                   : presence?.last_seen_text || member.profile?.email
                                 }
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <Badge className={role.className}>
+                          <div className="flex shrink-0 items-center gap-3">
+                            <Badge variant={role.variant}>
                               <RoleIcon className="h-3 w-3 mr-1" />
                               {role.label}
                             </Badge>
@@ -363,11 +404,13 @@ export default function Team() {
           {/* Invitations Tab */}
           <TabsContent value="invitations" className="mt-6">
             {invitations.length === 0 ? (
-              <Card className="border-border/50">
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  <Mail className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium">No Pending Invitations</h3>
-                  <p className="text-muted-foreground text-sm mt-1">
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-control bg-accent text-primary">
+                    <Mail className="h-6 w-6" aria-hidden />
+                  </span>
+                  <h3 className="mt-4 text-base font-medium text-foreground">No pending invitations</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
                     Invite team members to join your workspace
                   </p>
                   {canManageTeam && (
@@ -382,10 +425,10 @@ export default function Team() {
                 </CardContent>
               </Card>
             ) : (
-              <Card className="border-border/50">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Mail className="h-5 w-5" />
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Mail className="h-5 w-5 text-muted-foreground" />
                     Pending Invitations
                   </CardTitle>
                   <CardDescription>
@@ -393,27 +436,30 @@ export default function Team() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="divide-y divide-border">
+                  <div className="space-y-1">
                     {invitations.map((invitation) => {
                       const role = roleConfig[invitation.role];
                       const RoleIcon = role.icon;
 
                       return (
-                        <div key={invitation.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                        <div
+                          key={invitation.id}
+                          className="flex items-center justify-between gap-3 rounded-control px-3 py-3 -mx-3 transition-colors hover:bg-muted-soft"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted-soft">
                               <Mail className="h-5 w-5 text-muted-foreground" />
                             </div>
-                            <div>
-                              <span className="font-medium">{invitation.email}</span>
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <div className="min-w-0">
+                              <span className="font-medium text-foreground truncate block">{invitation.email}</span>
+                              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                                 <Clock className="h-3 w-3" />
                                 Expires {formatDistanceToNow(new Date(invitation.expires_at), { addSuffix: true })}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <Badge className={role.className}>
+                          <div className="flex shrink-0 items-center gap-3">
+                            <Badge variant={role.variant}>
                               <RoleIcon className="h-3 w-3 mr-1" />
                               {role.label}
                             </Badge>
@@ -450,7 +496,7 @@ export default function Team() {
             </TabsContent>
           )}
         </Tabs>
-      </div>
+      </m.div>
 
       {/* Invite Dialog */}
       <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>

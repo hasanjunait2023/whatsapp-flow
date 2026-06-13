@@ -2,7 +2,7 @@
   "mission": "MISSION 3: Full design overhaul of admin + tenant panels (59 pages) — premium fintech-SaaS aesthetic (Finexy reference), NEW color system, Framer Motion, glassy/3D accents, mobile-optimized app-like, full-day work comfort, zero-lag.",
   "phase": "BUILD",
   "awaiting_gate": null,
-  "awaiting_gate_note": "Reference: Finexy dashboard (light/cream canvas, white rounded cards ~22px radius, warm orange #F0552B + near-black accent, icon sidebar, pill top-nav, bento stat cards, bar charts, status-pill tables, soft shadows). Founder wants: best new color system, Framer Motion + best UI, glass+3D in sections, comfort for full-day staff/manager use, mobile app-like, NO ms waste, may pull 21st.dev. Dispatched designer + researcher -> GATE 1.",
+  "awaiting_gate_note": "Batches 1+2+3 SHIPPED + live-verified (200) 2026-06-14: shell + tenant Dashboard/Orders/Contacts/Products/Billing/Settings/Inbox + admin Dashboard/Tenants/Subscriptions/Payments. NOTE: box OOM-rebooted under concurrent builds; deploy now strictly SERIAL. Next batch 4: tenant Analytics/Team/Instances + admin Users/Plans/Leads. Then remaining pages, then HARDEN gauntlet + GATE 2. Data gaps flagged: split WA/FB unread, real avg-response-time, payment-method breakdown.",
   "scope": { "tenant_pages": 34, "admin_pages": 25, "approach": "design system+tokens+shell+primitives FIRST, then flagship Dashboard, then LOOP pages in batches" },
   "gates_passed": ["M1 plan 2026-06-11", "M2 landing shipped", "Postgres migration shipped 2026-06-13"],
   "founder_actions_pending": ["WAHA Plus $19/mo", "SMTP key", "GATE 1 design-direction approval"]

@@ -2,8 +2,7 @@ import { useState } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { useAdminPlans, PlanInput } from '@/hooks/useAdminPlans';
 import { useBusinessTypes } from '@/hooks/useBusinessTypes';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
@@ -14,14 +13,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, RefreshCw, Bot, Settings2, Warehouse, ShoppingBag, Briefcase, Settings, Wand2, ArrowRightLeft } from 'lucide-react';
+import { Plus, RefreshCw, Bot, Settings2, Warehouse, ShoppingBag, Briefcase, Settings, Wand2, ArrowRightLeft, Layers, CheckCircle, Bot as BotIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import FeatureToggles, { FeatureFlags } from '@/components/admin/FeatureToggles';
-import { PlanTierCard } from '@/components/admin/PlanTierCard';
+import { AdminPlanCard } from '@/components/admin/plans/AdminPlanCard';
+import { PlansHighlightTile } from '@/components/admin/plans/PlansHighlightTile';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
 import { BusinessTypeSettings } from '@/components/admin/BusinessTypeSettings';
 import { FeatureTemplateBuilder } from '@/components/admin/FeatureTemplateBuilder';
 import { useFeatureTemplates, TierLevel } from '@/hooks/useFeatureTemplates';
 import { PlanMigrationDialog } from '@/components/admin/PlanMigrationDialog';
+import { m, pageEnter, staggerContainer, staggerItem } from '@/lib/motion';
 
 interface ExtendedPlanInput extends PlanInput {
   features?: FeatureFlags;
@@ -167,6 +169,14 @@ export default function AdminPlans() {
   const currentFeatures = currentBusinessType
     ? businessFeatures.filter(f => f.business_type_id === currentBusinessType.id)
     : [];
+
+  // KPI metrics for the current business type tab — presentation only, derived from loaded plans.
+  const planMetrics = {
+    total: filteredPlans.length,
+    active: filteredPlans.filter((p) => p.is_active).length,
+    aiPlans: filteredPlans.filter((p) => p.ai_enabled).length,
+    subscribers: filteredPlans.reduce((sum, p) => sum + (p.subscriber_count || 0), 0),
+  };
 
   const handleApplyTemplate = async () => {
     if (!formData.business_type_id || !formData.tier) return;
@@ -337,18 +347,23 @@ export default function AdminPlans() {
 
   return (
     <AdminLayout>
-      <div className="p-4 md:p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-foreground">Subscription Plans</h1>
-            <p className="text-muted-foreground text-sm">Manage plans by business type</p>
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Subscription Plans</h1>
+            <p className="text-sm text-muted-foreground">Manage plans by business type</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => setMigrationDialogOpen(true)}>
+          <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+            <Button variant="outline" size="sm" onClick={() => setMigrationDialogOpen(true)} className="min-h-[44px] sm:min-h-0">
               <ArrowRightLeft className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Migrate Plans</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={() => { refetch(); refetchTypes(); }}>
+            <Button variant="outline" size="sm" onClick={() => { refetch(); refetchTypes(); }} className="min-h-[44px] sm:min-h-0">
               <RefreshCw className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
@@ -372,7 +387,46 @@ export default function AdminPlans() {
               </Dialog>
             )}
           </div>
-        </div>
+        </header>
+
+        {/* KPI strip — 3 stat cards + the ONE orange subscribers tile */}
+        {activeTab !== 'settings' && (
+          <m.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+          >
+            <KpiCard
+              title="Plans"
+              value={planMetrics.total}
+              icon={Layers}
+              tone="info"
+              loading={isLoading}
+            />
+            <KpiCard
+              title="Active"
+              value={planMetrics.active}
+              icon={CheckCircle}
+              tone="success"
+              loading={isLoading}
+            />
+            <KpiCard
+              title="AI-enabled"
+              value={planMetrics.aiPlans}
+              icon={BotIcon}
+              tone="primary"
+              loading={isLoading}
+            />
+            <m.div variants={staggerItem}>
+              <PlansHighlightTile
+                subscribers={planMetrics.subscribers}
+                livePlans={planMetrics.active}
+                loading={isLoading}
+              />
+            </m.div>
+          </m.div>
+        )}
 
         {/* Business Type Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -404,21 +458,26 @@ export default function AdminPlans() {
                   ))}
                 </div>
               ) : filteredPlans.length === 0 ? (
-                <Card>
+                <Card className="rounded-card shadow-elevation-1">
                   <CardContent className="py-12 text-center">
                     <p className="text-muted-foreground">No plans configured for {type.name}</p>
-                    <Button className="mt-4" onClick={() => { resetForm(); setCreateDialogOpen(true); }}>
+                    <Button className="mt-4 min-h-[44px]" onClick={() => { resetForm(); setCreateDialogOpen(true); }}>
                       <Plus className="h-4 w-4 mr-2" />
                       Create First Plan
                     </Button>
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-3">
+                <m.div
+                  variants={staggerContainer}
+                  initial="hidden"
+                  animate="show"
+                  className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6"
+                >
                   {filteredPlans
                     .sort((a, b) => (a.tier_order || 0) - (b.tier_order || 0))
                     .map((plan) => (
-                      <PlanTierCard
+                      <AdminPlanCard
                         key={plan.id}
                         plan={plan}
                         features={currentFeatures}
@@ -427,7 +486,7 @@ export default function AdminPlans() {
                         onToggleActive={(isActive) => handleToggleActive(plan.id, isActive)}
                       />
                     ))}
-                </div>
+                </m.div>
               )}
             </TabsContent>
           ))}
@@ -466,7 +525,7 @@ export default function AdminPlans() {
           onOpenChange={setMigrationDialogOpen}
           onMigrationComplete={refetch}
         />
-      </div>
+      </m.div>
     </AdminLayout>
   );
 }

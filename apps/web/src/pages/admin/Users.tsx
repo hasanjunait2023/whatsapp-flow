@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
 import { useAdminCustomers, type AdminCustomer } from '@/hooks/useAdminCustomers';
@@ -28,9 +28,48 @@ import { AdminRequestDialog } from '@/components/admin/AdminRequestDialog';
 import { ResponsivePageHeader } from '@/components/admin/ResponsivePageHeader';
 import { MobileDataCard } from '@/components/admin/MobileDataCard';
 import { CustomerDetailSheet } from '@/components/admin/CustomerDetailSheet';
-import { RefreshCw, Search, Users, MoreHorizontal, Shield, Eye, MessageSquare, Phone, CheckCircle2, XCircle } from 'lucide-react';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { m, pageEnter, staggerContainer, useCountUp } from '@/lib/motion';
+import { RefreshCw, Search, Users, MoreHorizontal, Shield, Eye, MessageSquare, Phone, CheckCircle2, XCircle, Building2, UserCheck, Wallet } from 'lucide-react';
 import { format } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
+
+/**
+ * The single full-orange surface on the Users page (DESIGN.md §2.2): the focal KPI for the
+ * customers view. Total revenue collected from WhatsApp customers is the page's most
+ * important number — orange stays rare, every other stat uses a soft KpiCard.
+ */
+function PaidHighlightTile({ amount, activeCount }: { amount: number; activeCount: number }) {
+  const display = useCountUp(amount);
+
+  return (
+    <div className="relative flex h-full min-h-[140px] flex-col overflow-hidden rounded-card bg-primary p-5 text-primary-foreground shadow-elevation-2">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/10"
+      />
+      <div className="relative z-10 flex h-full flex-col">
+        <div className="flex items-center justify-between">
+          <span className="inline-flex items-center gap-2 text-sm font-medium text-primary-foreground/85">
+            <Wallet className="h-4 w-4" aria-hidden />
+            Total collected
+          </span>
+          <span className="inline-flex items-center gap-0.5 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tabular-nums">
+            {activeCount.toLocaleString('en-US')} active
+          </span>
+        </div>
+
+        <p className="mt-2 tabular-nums text-3xl font-bold leading-none tracking-tight md:text-4xl">
+          ৳{Math.round(display).toLocaleString('en-US')}
+        </p>
+
+        <span className="mt-auto inline-flex w-fit items-center text-xs font-medium text-primary-foreground/80">
+          Across all WhatsApp customers
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminUsers() {
   const { users, loading, refetch } = useAdminUsers();
@@ -49,12 +88,35 @@ export default function AdminUsers() {
     user.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredCustomers = customers.filter(customer => 
+  const filteredCustomers = customers.filter(customer =>
     customer.email?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
     customer.full_name?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
     customer.phone_number?.includes(customerSearchQuery) ||
     customer.tenant_name.toLowerCase().includes(customerSearchQuery.toLowerCase())
   );
+
+  // Admin / customer summary metrics (derived from the full lists — presentation only).
+  const userStats = useMemo(() => {
+    const total = users.length;
+    let withWorkspaces = 0;
+    let memberships = 0;
+    for (const u of users) {
+      if (u.tenant_count > 0) withWorkspaces += 1;
+      memberships += u.tenant_count;
+    }
+    return { total, withWorkspaces, memberships };
+  }, [users]);
+
+  const customerStats = useMemo(() => {
+    const total = customers.length;
+    let active = 0;
+    let paid = 0;
+    for (const c of customers) {
+      if (c.is_activated) active += 1;
+      paid += c.total_paid || 0;
+    }
+    return { total, active, inactive: total - active, paid };
+  }, [customers]);
 
   const UserCard = ({ user }: { user: typeof users[0] }) => (
     <MobileDataCard
@@ -79,18 +141,18 @@ export default function AdminUsers() {
           key: 'role',
           label: 'Role',
           render: () => user.is_admin ? (
-            <Badge className="bg-destructive/10 text-destructive border-destructive/20">
-              <Shield className="h-3 w-3 mr-1" />
+            <Badge variant="destructive-soft" className="gap-1.5">
+              <Shield className="h-3 w-3" />
               Admin
             </Badge>
           ) : (
-            <Badge variant="outline">User</Badge>
+            <Badge variant="neutral-soft">User</Badge>
           ),
         },
         {
           key: 'workspaces',
           label: 'Workspaces',
-          render: () => <span>{user.tenant_count}</span>,
+          render: () => <span className="tabular-nums">{user.tenant_count}</span>,
         },
         {
           key: 'joined',
@@ -148,19 +210,19 @@ export default function AdminUsers() {
         {
           key: 'plan',
           label: 'Plan',
-          render: () => <Badge variant="outline">{customer.plan_name || 'No Plan'}</Badge>,
+          render: () => <Badge variant="neutral-soft">{customer.plan_name || 'No Plan'}</Badge>,
         },
         {
           key: 'status',
           label: 'Status',
           render: () => customer.is_activated ? (
-            <Badge className="bg-success/10 text-success border-success/20">
-              <CheckCircle2 className="h-3 w-3 mr-1" />
+            <Badge variant="success-soft" className="gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden />
               Active
             </Badge>
           ) : (
-            <Badge variant="secondary">
-              <XCircle className="h-3 w-3 mr-1" />
+            <Badge variant="neutral-soft" className="gap-1.5">
+              <XCircle className="h-3 w-3" />
               Inactive
             </Badge>
           ),
@@ -192,7 +254,12 @@ export default function AdminUsers() {
 
   return (
     <AdminLayout>
-      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
         <ResponsivePageHeader
           title="Users"
           description="Manage admins and WhatsApp customers"
@@ -221,7 +288,19 @@ export default function AdminUsers() {
           </TabsList>
 
           {/* Admin Users Tab */}
-          <TabsContent value="admins">
+          <TabsContent value="admins" className="space-y-6">
+            {/* KPI strip — calm management metrics, no orange surface on the admin table */}
+            <m.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-3"
+            >
+              <KpiCard title="Admin users" value={userStats.total} icon={Shield} tone="destructive" loading={loading} />
+              <KpiCard title="With workspaces" value={userStats.withWorkspaces} icon={UserCheck} tone="success" loading={loading} />
+              <KpiCard title="Total memberships" value={userStats.memberships} icon={Building2} tone="info" loading={loading} />
+            </m.div>
+
             <Card>
               <CardHeader className="pb-3">
                 <div className="relative">
@@ -273,28 +352,28 @@ export default function AdminUsers() {
                             <div className="flex items-center gap-3">
                               <Avatar className="h-9 w-9">
                                 <AvatarImage src={user.avatar_url || ''} />
-                                <AvatarFallback>
+                                <AvatarFallback className="bg-muted-soft text-xs font-semibold text-muted-foreground">
                                   {user.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
                                 </AvatarFallback>
                               </Avatar>
-                              <div>
-                                <p className="font-medium">{user.full_name || 'Unknown'}</p>
-                                <p className="text-sm text-muted-foreground">{user.email}</p>
+                              <div className="min-w-0">
+                                <p className="truncate font-medium">{user.full_name || 'Unknown'}</p>
+                                <p className="truncate text-sm text-muted-foreground">{user.email}</p>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
                             {user.is_admin ? (
-                              <Badge className="bg-destructive/10 text-destructive border-destructive/20">
-                                <Shield className="h-3 w-3 mr-1" />
+                              <Badge variant="destructive-soft" className="gap-1.5">
+                                <Shield className="h-3 w-3" />
                                 Admin
                               </Badge>
                             ) : (
-                              <Badge variant="outline">User</Badge>
+                              <Badge variant="neutral-soft">User</Badge>
                             )}
                           </TableCell>
-                          <TableCell>{user.tenant_count}</TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="tabular-nums">{user.tenant_count}</TableCell>
+                          <TableCell className="text-muted-foreground tabular-nums">
                             {format(new Date(user.created_at), 'MMM d, yyyy')}
                           </TableCell>
                           <TableCell>
@@ -322,7 +401,24 @@ export default function AdminUsers() {
           </TabsContent>
 
           {/* WhatsApp Customers Tab */}
-          <TabsContent value="customers">
+          <TabsContent value="customers" className="space-y-6">
+            {/* KPI strip — soft stats + the ONE orange highlight (total collected) */}
+            <m.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+            >
+              <KpiCard title="Total customers" value={customerStats.total} icon={Users} tone="primary" loading={customersLoading} />
+              <KpiCard title="Active" value={customerStats.active} icon={CheckCircle2} tone="success" loading={customersLoading} />
+              <KpiCard title="Inactive" value={customerStats.inactive} icon={XCircle} tone="warning" loading={customersLoading} />
+              {customersLoading ? (
+                <KpiCard title="Total collected" value={0} icon={Wallet} tone="primary" loading />
+              ) : (
+                <PaidHighlightTile amount={customerStats.paid} activeCount={customerStats.active} />
+              )}
+            </m.div>
+
             <Card>
               <CardHeader className="pb-3">
                 <div className="relative">
@@ -376,19 +472,19 @@ export default function AdminUsers() {
                             <div className="flex items-center gap-3">
                               <Avatar className="h-9 w-9">
                                 <AvatarImage src={customer.avatar_url || ''} />
-                                <AvatarFallback>
+                                <AvatarFallback className="bg-muted-soft text-xs font-semibold text-muted-foreground">
                                   {customer.full_name?.charAt(0) || customer.email?.charAt(0) || 'C'}
                                 </AvatarFallback>
                               </Avatar>
-                              <div>
-                                <p className="font-medium">{customer.full_name || 'Unknown'}</p>
-                                <p className="text-sm text-muted-foreground">{customer.tenant_name}</p>
+                              <div className="min-w-0">
+                                <p className="truncate font-medium">{customer.full_name || 'Unknown'}</p>
+                                <p className="truncate text-sm text-muted-foreground">{customer.tenant_name}</p>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
                             {customer.phone_number ? (
-                              <span className="flex items-center gap-1.5">
+                              <span className="flex items-center gap-1.5 tabular-nums">
                                 <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                                 {customer.phone_number}
                               </span>
@@ -397,25 +493,25 @@ export default function AdminUsers() {
                             )}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline">{customer.plan_name || 'No Plan'}</Badge>
+                            <Badge variant="neutral-soft">{customer.plan_name || 'No Plan'}</Badge>
                           </TableCell>
                           <TableCell>
                             {customer.is_activated ? (
-                              <Badge className="bg-success/10 text-success border-success/20">
-                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                              <Badge variant="success-soft" className="gap-1.5">
+                                <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden />
                                 Active
                               </Badge>
                             ) : (
-                              <Badge variant="secondary">
-                                <XCircle className="h-3 w-3 mr-1" />
+                              <Badge variant="neutral-soft" className="gap-1.5">
+                                <XCircle className="h-3 w-3" />
                                 Inactive
                               </Badge>
                             )}
                           </TableCell>
-                          <TableCell className="font-medium">
+                          <TableCell className="font-medium tabular-nums">
                             ৳{customer.total_paid.toLocaleString()}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="text-muted-foreground tabular-nums">
                             {format(new Date(customer.created_at), 'MMM d, yyyy')}
                           </TableCell>
                           <TableCell onClick={(e) => e.stopPropagation()}>
@@ -477,12 +573,12 @@ export default function AdminUsers() {
                 <div>
                   <h4 className="font-medium mb-2 text-sm">System Role</h4>
                   {selectedUser.is_admin ? (
-                    <Badge className="bg-destructive/10 text-destructive border-destructive/20">
-                      <Shield className="h-3 w-3 mr-1" />
+                    <Badge variant="destructive-soft" className="gap-1.5">
+                      <Shield className="h-3 w-3" />
                       System Admin
                     </Badge>
                   ) : (
-                    <Badge variant="outline">Regular User</Badge>
+                    <Badge variant="neutral-soft">Regular User</Badge>
                   )}
                 </div>
 
@@ -493,9 +589,9 @@ export default function AdminUsers() {
                   ) : (
                     <div className="space-y-2 max-h-40 overflow-y-auto">
                       {selectedUser.tenants.map((t) => (
-                        <div key={t.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                        <div key={t.id} className="flex items-center justify-between p-2 rounded-lg bg-muted-soft">
                           <span className="font-medium text-sm truncate">{t.name}</span>
-                          <Badge variant="outline" className="capitalize shrink-0">{t.role}</Badge>
+                          <Badge variant="neutral-soft" className="capitalize shrink-0">{t.role}</Badge>
                         </div>
                       ))}
                     </div>
@@ -523,7 +619,7 @@ export default function AdminUsers() {
             userName={requestDialogUser.full_name}
           />
         )}
-      </div>
+      </m.div>
     </AdminLayout>
   );
 }

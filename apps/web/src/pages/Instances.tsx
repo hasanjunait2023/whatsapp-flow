@@ -11,7 +11,48 @@ import { useToast } from '@/hooks/use-toast';
 import AddInstanceDialog from '@/components/instances/AddInstanceDialog';
 import InstanceCard from '@/components/instances/InstanceCard';
 import { LimitReachedCard, UsageBadge } from '@/components/billing/LimitReachedCard';
-import { Plus, Smartphone, AlertCircle } from 'lucide-react';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { m, pageEnter, staggerContainer, staggerItem, useCountUp } from '@/lib/motion';
+import { Plus, Smartphone, AlertCircle, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+
+/**
+ * The single full-orange surface on the Instances page (DESIGN.md §2.2): the focal KPI.
+ * Connected sessions are the metric that matters most here — orange stays rare, every other
+ * stat uses a soft KpiCard.
+ */
+function ConnectedHighlightTile({ connected, total }: { connected: number; total: number }) {
+  const display = useCountUp(connected);
+
+  return (
+    <m.div variants={staggerItem} whileHover={{ y: -2 }} transition={{ duration: 0.15 }} className="h-full">
+      <div className="relative flex h-full min-h-[140px] flex-col overflow-hidden rounded-card bg-primary p-5 text-primary-foreground shadow-elevation-2">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/10"
+        />
+        <div className="relative z-10 flex h-full flex-col">
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-2 text-sm font-medium text-primary-foreground/85">
+              <Wifi className="h-4 w-4" aria-hidden />
+              Connected now
+            </span>
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tabular-nums">
+              {total.toLocaleString('en-US')} total
+            </span>
+          </div>
+
+          <p className="mt-2 tabular-nums text-3xl font-bold leading-none tracking-tight md:text-4xl">
+            {display.toLocaleString('en-US')}
+          </p>
+
+          <span className="mt-auto inline-flex w-fit items-center text-xs font-medium text-primary-foreground/80">
+            Live WhatsApp sessions
+          </span>
+        </div>
+      </div>
+    </m.div>
+  );
+}
 
 export default function Instances() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -23,6 +64,14 @@ export default function Instances() {
   const canAddInstance = instanceLimits.canAdd;
 
   const canManageInstances = isOwner || isManager;
+
+  // Session metrics derived from the loaded list (presentation only).
+  const stats = {
+    total: instances.length,
+    connected: instances.filter((i) => i.status === 'active').length,
+    disconnected: instances.filter((i) => i.status === 'disconnected').length,
+    banned: instances.filter((i) => i.status === 'banned').length,
+  };
 
   const handleSetDefault = async (id: string) => {
     try {
@@ -58,12 +107,17 @@ export default function Instances() {
 
   return (
     <DashboardLayout>
-      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 py-5 space-y-6"
+      >
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">WhatsApp Connections</h1>
-            <p className="text-muted-foreground">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">WhatsApp Connections</h1>
+            <p className="text-sm text-muted-foreground">
               Manage your connected WhatsApp accounts
             </p>
           </div>
@@ -77,9 +131,10 @@ export default function Instances() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span>
-                    <Button 
+                    <Button
                       onClick={() => setAddDialogOpen(true)}
                       disabled={!canAddInstance}
+                      className="min-h-[44px]"
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Add Instance
@@ -94,18 +149,31 @@ export default function Instances() {
               </Tooltip>
             )}
           </div>
-        </div>
+        </header>
+
+        {/* KPI strip — soft session stats + the ONE orange highlight (connected sessions) */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+        >
+          <KpiCard title="Total instances" value={stats.total} icon={Smartphone} tone="primary" loading={loading} />
+          <KpiCard title="Disconnected" value={stats.disconnected} icon={WifiOff} tone="warning" loading={loading} />
+          <KpiCard title="Banned" value={stats.banned} icon={AlertTriangle} tone="destructive" loading={loading} />
+          <ConnectedHighlightTile connected={stats.connected} total={stats.total} />
+        </m.div>
 
         {/* Info Card */}
-        <Card className="border-info/20 bg-info/5">
+        <Card className="rounded-card border-info/20 bg-info-soft shadow-elevation-1">
           <CardContent className="flex items-start gap-3 py-4">
-            <AlertCircle className="h-5 w-5 text-info mt-0.5" />
+            <AlertCircle className="h-5 w-5 text-info mt-0.5 shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">
                 WhatsApp Integration
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Connect your WhatsApp instances to start managing conversations. You'll need 
+                Connect your WhatsApp instances to start managing conversations. You'll need
                 your API credentials to get started.
               </p>
             </div>
@@ -124,20 +192,21 @@ export default function Instances() {
 
         {/* Loading State */}
         {loading && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <Card key={i} className="border-border/50">
+              <Card key={i} className="rounded-card shadow-elevation-1">
                 <CardHeader className="pb-2">
                   <div className="flex items-start gap-3">
-                    <Skeleton className="h-10 w-10 rounded-lg" />
+                    <Skeleton className="h-11 w-11 rounded-xl" />
                     <div className="space-y-2">
                       <Skeleton className="h-4 w-32" />
                       <Skeleton className="h-3 w-24" />
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-6 w-24" />
+                <CardContent className="space-y-3">
+                  <Skeleton className="h-6 w-24 rounded-full" />
+                  <Skeleton className="h-8 w-full rounded" />
                 </CardContent>
               </Card>
             ))}
@@ -146,7 +215,7 @@ export default function Instances() {
 
         {/* Empty State */}
         {!loading && instances.length === 0 && (
-          <Card className="border-dashed border-2">
+          <Card className="rounded-card border-2 border-dashed shadow-elevation-1">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="h-16 w-16 rounded-2xl bg-whatsapp/10 flex items-center justify-center mb-4">
                 <Smartphone className="h-8 w-8 text-whatsapp" />
@@ -156,7 +225,7 @@ export default function Instances() {
                 Connect your first WhatsApp account to start managing conversations.
               </CardDescription>
               {canManageInstances && (
-                <Button onClick={() => setAddDialogOpen(true)}>
+                <Button onClick={() => setAddDialogOpen(true)} className="min-h-[44px]">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Your First WhatsApp
                 </Button>
@@ -167,7 +236,12 @@ export default function Instances() {
 
         {/* Instances Grid */}
         {!loading && instances.length > 0 && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <m.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="grid gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3"
+          >
             {instances.map((instance) => (
               <InstanceCard
                 key={instance.id}
@@ -177,9 +251,9 @@ export default function Instances() {
                 onRefresh={refetch}
               />
             ))}
-          </div>
+          </m.div>
         )}
-      </div>
+      </m.div>
 
       <AddInstanceDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} />
     </DashboardLayout>

@@ -1,29 +1,26 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Search, MessageCircle, Mail, Trash2, StickyNote, RefreshCw, Download, Eye, Phone } from 'lucide-react';
+import { Search, MessageCircle, Mail, Trash2, RefreshCw, Download, Eye, Users, Flame, PhoneCall } from 'lucide-react';
 import AdminLayout from '@/components/layout/AdminLayout';
-import { PageHeader } from '@/components/ui/page-header';
-import { StatCard } from '@/components/ui/stat-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAdminLeads, MarketingLead } from '@/hooks/useAdminLeads';
 import { exportToCSV } from '@/lib/csv-export';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileDataCard } from '@/components/admin/MobileDataCard';
 import { LeadDetailsDialog } from '@/components/admin/LeadDetailsDialog';
-const statusColors: Record<string, string> = {
-  warm: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
-  hot: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-  contacted: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  converted: 'bg-green-500/10 text-green-600 border-green-500/20',
-  lost: 'bg-red-500/10 text-red-600 border-red-500/20',
-};
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { LeadsHighlightTile } from '@/components/admin/leads/LeadsHighlightTile';
+import { LeadStatusBadge, LeadAvatar } from '@/components/admin/leads/leadStatus';
+import { m, pageEnter, staggerContainer, staggerItem } from '@/lib/motion';
 
 export default function AdminLeads() {
   const { leads, isLoading, stats, refetch, updateLeadStatus, updateLeadNotes, deleteLead } = useAdminLeads();
@@ -46,6 +43,9 @@ export default function AdminLeads() {
     
     return matchesSearch && matchesStatus;
   });
+
+  // Conversion rate — presentation only, derived from existing stats.
+  const conversionRate = stats.total > 0 ? Math.round((stats.converted / stats.total) * 100) : 0;
 
   const handleWhatsApp = (number: string) => {
     const formatted = number.replace(/\D/g, '');
@@ -94,16 +94,19 @@ export default function AdminLeads() {
       key={lead.id}
       data={lead}
       header={
-        <div className="space-y-1">
-          <p className="font-medium">{lead.full_name}</p>
-          <p className="text-xs text-muted-foreground">{lead.business_name}</p>
+        <div className="flex items-center gap-3">
+          <LeadAvatar name={lead.full_name} />
+          <div className="space-y-0.5">
+            <p className="font-medium text-foreground">{lead.full_name}</p>
+            <p className="text-xs text-muted-foreground">{lead.business_name}</p>
+          </div>
         </div>
       }
       fields={[
         {
           key: 'phone',
           label: 'Phone',
-          render: (data) => <span className="text-xs">{data.whatsapp_number}</span>,
+          render: (data) => <span className="text-xs tabular-nums">{data.whatsapp_number}</span>,
         },
         {
           key: 'email',
@@ -118,10 +121,8 @@ export default function AdminLeads() {
               value={data.status}
               onValueChange={(value) => updateLeadStatus(data.id, value as MarketingLead['status'])}
             >
-              <SelectTrigger className="h-7 w-[100px]">
-                <Badge variant="outline" className={`${statusColors[data.status]} text-xs`}>
-                  {data.status}
-                </Badge>
+              <SelectTrigger className="h-9 w-auto gap-2 border-0 bg-transparent px-1 shadow-none focus:ring-0">
+                <LeadStatusBadge status={data.status} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="warm">Warm</SelectItem>
@@ -151,7 +152,7 @@ export default function AdminLeads() {
               className="h-8 w-8"
               onClick={() => handleWhatsApp(lead.whatsapp_number)}
             >
-              <MessageCircle className="h-4 w-4 text-green-600" />
+              <MessageCircle className="h-4 w-4 text-whatsapp" />
             </Button>
             <Button
               variant="ghost"
@@ -159,7 +160,7 @@ export default function AdminLeads() {
               className="h-8 w-8"
               onClick={() => handleEmail(lead.email)}
             >
-              <Mail className="h-4 w-4 text-blue-600" />
+              <Mail className="h-4 w-4 text-info" />
             </Button>
           </div>
           <AlertDialog>
@@ -190,24 +191,58 @@ export default function AdminLeads() {
 
   return (
     <AdminLayout>
-      <div className="p-4 md:p-6 space-y-6">
-        <PageHeader
-          title="Marketing Leads"
-          description="Manage demo requests and potential customers"
-        />
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
+        <header className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Marketing Leads</h1>
+          <p className="text-sm text-muted-foreground">Manage demo requests and potential customers</p>
+        </header>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 md:gap-4">
-          <StatCard title="Total Leads" value={stats.total} />
-          <StatCard title="Warm" value={stats.warm} className="border-l-4 border-l-yellow-500" />
-          <StatCard title="Hot" value={stats.hot} className="border-l-4 border-l-orange-500" />
-          <StatCard title="Contacted" value={stats.contacted} className="border-l-4 border-l-blue-500" />
-          <StatCard title="Converted" value={stats.converted} className="border-l-4 border-l-green-500" />
-          <StatCard title="Lost" value={stats.lost} className="border-l-4 border-l-red-500" />
-        </div>
+        {/* KPI strip — 3 stat cards + the ONE orange conversion tile */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+        >
+          <KpiCard
+            title="Total leads"
+            value={stats.total}
+            icon={Users}
+            tone="info"
+            loading={isLoading}
+          />
+          <KpiCard
+            title="Hot"
+            value={stats.hot}
+            icon={Flame}
+            tone="warning"
+            trendLabel={`${stats.warm} warm`}
+            loading={isLoading}
+          />
+          <KpiCard
+            title="Contacted"
+            value={stats.contacted}
+            icon={PhoneCall}
+            tone="primary"
+            trendLabel={`${stats.lost} lost`}
+            loading={isLoading}
+          />
+          <m.div variants={staggerItem}>
+            <LeadsHighlightTile
+              conversionRate={conversionRate}
+              converted={stats.converted}
+              loading={isLoading}
+            />
+          </m.div>
+        </m.div>
 
         {/* Filters */}
-        <Card>
+        <Card className="rounded-card shadow-elevation-1">
           <CardHeader className="pb-3">
             <div className="flex flex-col gap-4">
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
@@ -234,11 +269,11 @@ export default function AdminLeads() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" size="icon" onClick={refetch}>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" size="icon" onClick={refetch} className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0" aria-label="Refresh leads">
                   <RefreshCw className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" onClick={handleExport} className="gap-2">
+                <Button variant="outline" onClick={handleExport} className="min-h-[44px] gap-2 sm:min-h-0">
                   <Download className="h-4 w-4" />
                   <span className="hidden sm:inline">Export</span>
                 </Button>
@@ -250,134 +285,136 @@ export default function AdminLeads() {
               // Mobile: Card-based list
               <div className="space-y-3">
                 {isLoading ? (
-                  <p className="text-center py-8 text-muted-foreground">Loading...</p>
+                  [...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-card" />)
                 ) : filteredLeads.length === 0 ? (
-                  <p className="text-center py-8 text-muted-foreground">No leads found</p>
+                  <EmptyState
+                    icon={Users}
+                    title="No leads found"
+                    description="No leads match your current search or filter."
+                    className="py-12"
+                  />
                 ) : (
                   filteredLeads.map(renderLeadCard)
                 )}
               </div>
-            ) : (
-              // Desktop: Table
-              <div className="rounded-md border">
-                <table className="w-full">
-                  <thead className="border-b">
-                    <tr>
-                      <th className="text-left p-4 font-medium">Name</th>
-                      <th className="text-left p-4 font-medium">Phone</th>
-                      <th className="text-left p-4 font-medium">Business</th>
-                      <th className="text-left p-4 font-medium">Contact</th>
-                      <th className="text-left p-4 font-medium">Status</th>
-                      <th className="text-left p-4 font-medium">Date</th>
-                      <th className="text-right p-4 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {isLoading ? (
-                      <tr>
-                        <td colSpan={7} className="text-center py-8 text-muted-foreground">
-                          Loading...
-                        </td>
-                      </tr>
-                    ) : filteredLeads.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="text-center py-8 text-muted-foreground">
-                          No leads found
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredLeads.map((lead) => (
-                        <tr key={lead.id} className="border-b">
-                          <td className="p-4">
-                            <div>
-                              <p className="font-medium">{lead.full_name}</p>
-                              <p className="text-xs text-muted-foreground">{lead.email}</p>
-                            </div>
-                          </td>
-                          <td className="p-4 text-sm">{lead.whatsapp_number}</td>
-                          <td className="p-4">{lead.business_name}</td>
-                          <td className="p-4">
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => handleWhatsApp(lead.whatsapp_number)}
-                              >
-                                <MessageCircle className="h-4 w-4 text-green-600" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => handleEmail(lead.email)}
-                              >
-                                <Mail className="h-4 w-4 text-blue-600" />
-                              </Button>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <Select
-                              value={lead.status}
-                              onValueChange={(value) => updateLeadStatus(lead.id, value as MarketingLead['status'])}
-                            >
-                              <SelectTrigger className="w-[120px] h-8">
-                                <Badge variant="outline" className={statusColors[lead.status]}>
-                                  {lead.status}
-                                </Badge>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="warm">Warm</SelectItem>
-                                <SelectItem value="hot">Hot</SelectItem>
-                                <SelectItem value="contacted">Contacted</SelectItem>
-                                <SelectItem value="converted">Converted</SelectItem>
-                                <SelectItem value="lost">Lost</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </td>
-                          <td className="p-4 text-muted-foreground text-sm">
-                            {format(new Date(lead.created_at), 'dd MMM yyyy')}
-                          </td>
-                          <td className="p-4 text-right">
-                            <div className="flex justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => openDetailsDialog(lead)}
-                                title="View Details"
-                              >
-                                <Eye className="h-4 w-4 text-primary" />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      This will permanently delete {lead.full_name}'s lead data.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => deleteLead(lead.id)}>
-                                      Delete
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+            ) : isLoading ? (
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
+            ) : filteredLeads.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title="No leads found"
+                description="No leads match your current search or filter."
+                className="py-12"
+              />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Lead</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Business</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredLeads.map((lead) => (
+                    <TableRow key={lead.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <LeadAvatar name={lead.full_name} />
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground">{lead.full_name}</p>
+                            <p className="truncate text-xs text-muted-foreground">{lead.email}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm tabular-nums">{lead.whatsapp_number}</TableCell>
+                      <TableCell className="text-sm">{lead.business_name}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleWhatsApp(lead.whatsapp_number)}
+                            aria-label={`WhatsApp ${lead.full_name}`}
+                          >
+                            <MessageCircle className="h-4 w-4 text-whatsapp" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleEmail(lead.email)}
+                            aria-label={`Email ${lead.full_name}`}
+                          >
+                            <Mail className="h-4 w-4 text-info" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={lead.status}
+                          onValueChange={(value) => updateLeadStatus(lead.id, value as MarketingLead['status'])}
+                        >
+                          <SelectTrigger className="h-9 w-auto gap-2 border-0 bg-transparent px-1 shadow-none focus:ring-0">
+                            <LeadStatusBadge status={lead.status} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="warm">Warm</SelectItem>
+                            <SelectItem value="hot">Hot</SelectItem>
+                            <SelectItem value="contacted">Contacted</SelectItem>
+                            <SelectItem value="converted">Converted</SelectItem>
+                            <SelectItem value="lost">Lost</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground tabular-nums">
+                        {format(new Date(lead.created_at), 'dd MMM yyyy')}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => openDetailsDialog(lead)}
+                            aria-label={`View details for ${lead.full_name}`}
+                          >
+                            <Eye className="h-4 w-4 text-primary" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" aria-label={`Delete ${lead.full_name}`}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete {lead.full_name}'s lead data.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteLead(lead.id)}>
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
@@ -409,7 +446,7 @@ export default function AdminLeads() {
           onWhatsApp={handleWhatsApp}
           onEmail={handleEmail}
         />
-      </div>
+      </m.div>
     </AdminLayout>
   );
 }

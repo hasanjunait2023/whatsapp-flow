@@ -39,6 +39,8 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import { m, staggerItem } from '@/lib/motion';
 import ConnectQRDialog from './ConnectQRDialog';
 import ChangeNumberDialog from './ChangeNumberDialog';
 
@@ -49,24 +51,29 @@ interface InstanceCardProps {
   onRefresh: () => void;
 }
 
-const statusConfig = {
+type BadgeVariant = 'success-soft' | 'neutral-soft' | 'destructive-soft';
+
+const statusConfig: Record<
+  WhatsAppInstance['status'],
+  { label: string; icon: typeof Wifi; variant: BadgeVariant; dot: string }
+> = {
   active: {
     label: 'Connected',
     icon: Wifi,
-    variant: 'default' as const,
-    className: 'bg-success/10 text-success border-success/20',
+    variant: 'success-soft',
+    dot: 'bg-success',
   },
   disconnected: {
     label: 'Disconnected',
     icon: WifiOff,
-    variant: 'secondary' as const,
-    className: 'bg-muted text-muted-foreground',
+    variant: 'neutral-soft',
+    dot: 'bg-muted-foreground',
   },
   banned: {
     label: 'Banned',
     icon: AlertTriangle,
-    variant: 'destructive' as const,
-    className: 'bg-destructive/10 text-destructive border-destructive/20',
+    variant: 'destructive-soft',
+    dot: 'bg-destructive',
   },
 };
 
@@ -78,6 +85,7 @@ export default function InstanceCard({ instance, onSetDefault, onDelete, onRefre
   const { toast } = useToast();
   const status = statusConfig[instance.status];
   const StatusIcon = status.icon;
+  const isConnected = instance.status === 'active';
 
   const webhookUrl = `${window.location.origin}/api/waha/webhook/${instance.id}`;
 
@@ -106,18 +114,26 @@ export default function InstanceCard({ instance, onSetDefault, onDelete, onRefre
 
   return (
     <>
-      <Card className="border-border/50 hover:border-border transition-colors">
+      <m.div variants={staggerItem} whileHover={{ y: -2 }} transition={{ duration: 0.15 }} className="h-full">
+      <Card
+        className={cn(
+          'h-full rounded-card shadow-elevation-1 transition-shadow hover:shadow-elevation-2',
+          // Connected instances carry a faint channel-coloured ring/wash (the only place the
+          // whatsapp token surfaces on this page) so a live session reads at a glance.
+          isConnected && 'border-whatsapp/30 ring-1 ring-whatsapp/10',
+        )}
+      >
         <CardHeader className="flex flex-row items-start justify-between pb-2">
           <div className="flex items-start gap-3">
-            <div className="h-10 w-10 rounded-lg bg-whatsapp/10 flex items-center justify-center">
+            <div className="h-11 w-11 rounded-xl bg-whatsapp/10 flex items-center justify-center">
               <Smartphone className="h-5 w-5 text-whatsapp" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <CardTitle className="text-base">{instance.name}</CardTitle>
                 {instance.is_default && (
-                  <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
-                    <Star className="h-3 w-3 mr-1 fill-current" />
+                  <Badge variant="neutral-soft" className="gap-1 text-xs text-primary">
+                    <Star className="h-3 w-3 fill-current" />
                     Default
                   </Badge>
                 )}
@@ -179,8 +195,9 @@ export default function InstanceCard({ instance, onSetDefault, onDelete, onRefre
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between">
-            <Badge className={status.className}>
-              <StatusIcon className="h-3 w-3 mr-1" />
+            <Badge variant={status.variant} className="gap-1.5">
+              <span className={cn('h-1.5 w-1.5 rounded-full', status.dot)} aria-hidden />
+              <StatusIcon className="h-3 w-3" />
               {status.label}
             </Badge>
             {instance.status !== 'active' && (
@@ -229,6 +246,7 @@ export default function InstanceCard({ instance, onSetDefault, onDelete, onRefre
           </div>
         </CardContent>
       </Card>
+      </m.div>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
