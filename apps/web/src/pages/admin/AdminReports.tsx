@@ -10,169 +10,179 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { BarChart3, Ticket, ListTodo, CheckCircle2, Clock, AlertCircle, Loader2, User } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { BarChart3, Ticket, ListTodo, AlertCircle, Clock } from 'lucide-react';
 import { useAdminReports } from '@/hooks/useAdminReports';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { ResolvedHighlightTile } from '@/components/admin/reports/ResolvedHighlightTile';
+import { m, pageEnter, staggerContainer, staggerItem } from '@/lib/motion';
 import { format } from 'date-fns';
+
+const breakdownConfig = {
+  total: { label: 'Total', color: 'hsl(var(--chart-2))' },
+  done: { label: 'Resolved / Done', color: 'hsl(var(--chart-1))' },
+};
+
+const getInitials = (name: string) =>
+  name
+    .split(' ')
+    .map((w) => w[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || '?';
 
 export default function AdminReports() {
   const { stats, activityLogs, loading } = useAdminReports();
 
+  const taskRate = stats.totalTasks > 0 ? Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0;
+  const ticketRate = stats.totalTickets > 0 ? Math.round((stats.resolvedTickets / stats.totalTickets) * 100) : 0;
+
+  const breakdownData = [
+    { name: 'Tasks', total: stats.totalTasks, done: stats.completedTasks },
+    { name: 'Tickets', total: stats.totalTickets, done: stats.resolvedTickets },
+  ];
+
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Reports</h1>
-          <p className="text-muted-foreground">
-            Admin activity reports and performance metrics
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
+        {/* Header */}
+        <header className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Reports</h1>
+          <p className="text-sm text-muted-foreground">
+            Admin activity reports &amp; performance metrics across the platform
           </p>
-        </div>
+        </header>
 
-        {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
-              <Ticket className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{loading ? '-' : stats.totalTickets}</div>
-              <p className="text-xs text-muted-foreground">
-                All support tickets
-              </p>
-            </CardContent>
-          </Card>
+        {/* KPI strip — 3 stat cards + the ONE orange resolved-tickets tile */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+        >
+          <KpiCard
+            title="Total tickets"
+            value={stats.totalTickets}
+            icon={Ticket}
+            tone="info"
+            loading={loading}
+          />
+          <KpiCard
+            title="Open tickets"
+            value={stats.openTickets}
+            icon={AlertCircle}
+            tone="warning"
+            loading={loading}
+          />
+          <KpiCard
+            title="Pending tasks"
+            value={stats.pendingTasks}
+            icon={Clock}
+            tone="primary"
+            loading={loading}
+          />
+          <m.div variants={staggerItem}>
+            <ResolvedHighlightTile
+              resolved={stats.resolvedTickets}
+              total={stats.totalTickets}
+              loading={loading}
+            />
+          </m.div>
+        </m.div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
-              <AlertCircle className="h-4 w-4 text-yellow-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-500">{loading ? '-' : stats.openTickets}</div>
-              <p className="text-xs text-muted-foreground">
-                Awaiting resolution
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Resolved Tickets</CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-500">{loading ? '-' : stats.resolvedTickets}</div>
-              <p className="text-xs text-muted-foreground">
-                Successfully closed
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
-              <Clock className="h-4 w-4 text-orange-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-500">{loading ? '-' : stats.pendingTasks}</div>
-              <p className="text-xs text-muted-foreground">
-                Tasks in progress
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Task Summary */}
-          <Card>
+        {/* Bento body */}
+        <div className="grid grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-12">
+          {/* Breakdown chart */}
+          <Card className="lg:col-span-7">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ListTodo className="h-5 w-5" />
-                Task Summary
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                Resolution Breakdown
               </CardTitle>
-              <CardDescription>Overview of admin tasks</CardDescription>
+              <CardDescription>Total vs resolved across tasks and tickets</CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
+                <Skeleton className="h-[280px] w-full rounded-card" />
               ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Total Tasks</span>
-                    <span className="font-bold text-xl">{stats.totalTasks}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Completed</span>
-                    <span className="font-bold text-xl text-green-500">{stats.completedTasks}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Pending</span>
-                    <span className="font-bold text-xl text-yellow-500">{stats.pendingTasks}</span>
-                  </div>
-                  {stats.totalTasks > 0 && (
-                    <div className="pt-4">
-                      <div className="flex justify-between text-sm mb-2">
-                        <span>Completion Rate</span>
-                        <span>{Math.round((stats.completedTasks / stats.totalTasks) * 100)}%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div
-                          className="bg-green-500 h-2 rounded-full transition-all"
-                          style={{ width: `${(stats.completedTasks / stats.totalTasks) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <ChartContainer config={breakdownConfig} className="h-[280px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={breakdownData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} allowDecimals={false} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <ChartLegend content={<ChartLegendContent />} />
+                      <Bar dataKey="total" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="done" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
               )}
             </CardContent>
           </Card>
 
-          {/* Ticket Summary */}
-          <Card>
+          {/* Rate summaries */}
+          <Card className="lg:col-span-5">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Ticket className="h-5 w-5" />
-                Ticket Summary
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <ListTodo className="h-5 w-5 text-primary" />
+                Completion &amp; Resolution
               </CardTitle>
-              <CardDescription>Overview of support tickets</CardDescription>
+              <CardDescription>How much of the queue is cleared</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
               {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <div className="space-y-6">
+                  <Skeleton className="h-16 w-full rounded-card" />
+                  <Skeleton className="h-16 w-full rounded-card" />
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Total Tickets</span>
-                    <span className="font-bold text-xl">{stats.totalTickets}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Open</span>
-                    <span className="font-bold text-xl text-yellow-500">{stats.openTickets}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Resolved</span>
-                    <span className="font-bold text-xl text-green-500">{stats.resolvedTickets}</span>
-                  </div>
-                  {stats.totalTickets > 0 && (
-                    <div className="pt-4">
-                      <div className="flex justify-between text-sm mb-2">
-                        <span>Resolution Rate</span>
-                        <span>{Math.round((stats.resolvedTickets / stats.totalTickets) * 100)}%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div
-                          className="bg-green-500 h-2 rounded-full transition-all"
-                          style={{ width: `${(stats.resolvedTickets / stats.totalTickets) * 100}%` }}
-                        />
-                      </div>
+                <>
+                  {/* Tasks */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-foreground">Task completion</span>
+                      <span className="text-sm font-semibold tabular-nums text-foreground">{taskRate}%</span>
                     </div>
-                  )}
-                </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-2 rounded-full bg-primary transition-all"
+                        style={{ width: `${taskRate}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      {stats.completedTasks} of {stats.totalTasks} tasks done · {stats.pendingTasks} pending
+                    </p>
+                  </div>
+
+                  {/* Tickets */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-foreground">Ticket resolution</span>
+                      <span className="text-sm font-semibold tabular-nums text-foreground">{ticketRate}%</span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-2 rounded-full bg-success transition-all"
+                        style={{ width: `${ticketRate}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      {stats.resolvedTickets} of {stats.totalTickets} tickets resolved · {stats.openTickets} open
+                    </p>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -180,71 +190,72 @@ export default function AdminReports() {
 
         {/* Activity Log */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+              <BarChart3 className="h-5 w-5 text-primary" />
               Recent Admin Activity
             </CardTitle>
             <CardDescription>Latest actions performed by admins</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[400px]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Admin</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Entity</TableHead>
-                    <TableHead>Time</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
+            {loading ? (
+              <div className="space-y-3 p-6">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : activityLogs.length === 0 ? (
+              <EmptyState
+                icon={BarChart3}
+                title="No activity yet"
+                description="Admin actions across the platform will appear here as they happen."
+                className="py-12"
+              />
+            ) : (
+              <ScrollArea className="h-[400px]">
+                <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-card">
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8">
-                        <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-                      </TableCell>
+                      <TableHead>Admin</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Entity</TableHead>
+                      <TableHead className="text-right">Time</TableHead>
                     </TableRow>
-                  ) : activityLogs.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                        No activity logs found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    activityLogs.map((log) => (
-                      <TableRow key={log.id}>
+                  </TableHeader>
+                  <TableBody>
+                    {activityLogs.map((log) => (
+                      <TableRow key={log.id} className="hover:bg-muted-soft">
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                              <User className="h-4 w-4" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm">{log.admin_name || 'Unknown'}</p>
-                              <p className="text-xs text-muted-foreground">{log.admin_email}</p>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9">
+                              <AvatarFallback className="bg-muted-soft text-xs font-semibold text-muted-foreground">
+                                {getInitials(log.admin_name || 'Unknown')}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{log.admin_name || 'Unknown'}</p>
+                              <p className="truncate text-xs text-muted-foreground">{log.admin_email}</p>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{log.action}</Badge>
+                          <Badge variant="neutral-soft">{log.action}</Badge>
                         </TableCell>
                         <TableCell>
                           <span className="text-sm text-muted-foreground">{log.entity_type}</span>
                         </TableCell>
-                        <TableCell>
-                          <span className="text-sm text-muted-foreground">
-                            {format(new Date(log.created_at), 'MMM d, HH:mm')}
-                          </span>
+                        <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
+                          {format(new Date(log.created_at), 'MMM d, HH:mm')}
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            )}
           </CardContent>
         </Card>
-      </div>
+      </m.div>
     </AdminLayout>
   );
 }

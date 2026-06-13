@@ -248,9 +248,9 @@ export default function AdminInbox() {
     switch (status) {
       case 'connected':
       case 'active':
-        return 'bg-green-500';
-      case 'connecting': return 'bg-yellow-500';
-      default: return 'bg-red-500';
+        return 'bg-success';
+      case 'connecting': return 'bg-warning';
+      default: return 'bg-destructive';
     }
   };
 
@@ -258,9 +258,9 @@ export default function AdminInbox() {
     <AdminLayout>
       <div className="flex flex-col h-[calc(100vh-0px)]">
         {/* Admin Inbox Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-card">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold">Admin Inbox</h1>
+            <h1 className="text-lg font-semibold tracking-tight text-foreground">Admin Inbox</h1>
             {instance && (
               <Badge variant="outline" className="flex items-center gap-1.5">
                 <span className={cn("h-2 w-2 rounded-full", getStatusColor(instance.status))} />
@@ -275,7 +275,7 @@ export default function AdminInbox() {
         </div>
 
         {/* Tab Switcher */}
-        <div className="px-4 py-2 border-b bg-card">
+        <div className="px-4 py-2 border-b border-border bg-card">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as InboxTab)}>
             <TabsList className="grid w-full max-w-[300px] grid-cols-2">
               <TabsTrigger value="chats" className="gap-2">
@@ -306,9 +306,9 @@ export default function AdminInbox() {
             <>
               {/* Contact List */}
               {showContactList && !showDetailsOnMobile && (
-                <div className="w-full md:w-[360px] md:shrink-0 border-r">
+                <div className="w-full md:w-[360px] md:shrink-0 border-r border-border bg-card">
                   {/* Search Box */}
-                  <div className="p-3 border-b">
+                  <div className="p-3 border-b border-border">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -325,14 +325,14 @@ export default function AdminInbox() {
                     {showNewChatOption && (
                       <button
                         onClick={handleStartNewChat}
-                        className="w-full p-3 text-left border-b bg-primary/5 hover:bg-primary/10 transition-colors"
+                        className="w-full p-3 text-left border-b border-border bg-accent/40 hover:bg-accent transition-colors"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                          <div className="h-11 w-11 rounded-card bg-accent flex items-center justify-center flex-shrink-0">
                             <MessageSquarePlus className="h-5 w-5 text-primary" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-primary">Start new chat</p>
+                            <p className="font-medium text-foreground">Start new chat</p>
                             <p className="text-sm text-muted-foreground truncate">
                               Send message to {searchQuery.replace(/\D/g, '')}
                             </p>
@@ -343,33 +343,35 @@ export default function AdminInbox() {
 
                     {filteredContacts.length === 0 && !showNewChatOption ? (
                       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                        <MessageCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                        <h3 className="font-medium mb-1">No contacts yet</h3>
+                        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-card bg-accent">
+                          <MessageCircle className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                        <h3 className="font-medium text-foreground mb-1">No contacts yet</h3>
                         <p className="text-sm text-muted-foreground">
                           {searchQuery ? 'No matching contacts' : 'Contacts from ads will appear here'}
                         </p>
                       </div>
                     ) : (
-                      <div className="divide-y">
+                      <div className="divide-y divide-border">
                         {filteredContacts.map((contact) => (
                           <button
                             key={contact.id}
                             onClick={() => handleSelectContact(contact)}
                             className={cn(
-                              "w-full p-3 text-left hover:bg-muted/50 transition-colors",
+                              "w-full min-h-[44px] p-3 text-left transition-colors hover:bg-muted/60",
                               !isAdminNewChatContact(currentContact) && currentContact?.id === contact.id && "bg-muted"
                             )}
                           >
                             <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <div className="h-11 w-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                                 {contact.profile_pic_url ? (
-                                  <img 
-                                    src={contact.profile_pic_url} 
-                                    alt={contact.name || ''} 
-                                    className="h-10 w-10 rounded-full object-cover"
+                                  <img
+                                    src={contact.profile_pic_url}
+                                    alt={contact.name || ''}
+                                    className="h-11 w-11 rounded-full object-cover"
                                   />
                                 ) : (
-                                  <span className="text-sm font-medium text-primary">
+                                  <span className="text-sm font-medium text-foreground">
                                     {(contact.name || contact.phone_number || '?')[0].toUpperCase()}
                                   </span>
                                 )}
@@ -377,16 +379,16 @@ export default function AdminInbox() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                    <p className="font-medium truncate">
+                                    <p className="font-medium text-foreground truncate">
                                       {contact.name || contact.phone_number}
                                     </p>
-                                    <CustomerStatusBadge 
-                                      status={tenantStatusMap[contact.phone_number]} 
-                                      size="sm" 
+                                    <CustomerStatusBadge
+                                      status={tenantStatusMap[contact.phone_number]}
+                                      size="sm"
                                     />
                                   </div>
                                   {contact.unread_count > 0 && (
-                                    <span className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center shrink-0">
+                                    <span className="h-5 min-w-5 px-1.5 rounded-full bg-secondary text-secondary-foreground text-xs tabular-nums flex items-center justify-center shrink-0">
                                       {contact.unread_count}
                                     </span>
                                   )}
@@ -501,11 +503,11 @@ export default function AdminInbox() {
 
               {/* Empty state for chats */}
               {!isMobile && !currentContact && (
-                <div className="flex-1 h-full flex flex-col items-center justify-center bg-muted/30">
-                  <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                <div className="flex-1 h-full flex flex-col items-center justify-center bg-muted/30 px-6">
+                  <div className="h-20 w-20 rounded-card bg-accent flex items-center justify-center mb-6">
                     <MessageCircle className="h-10 w-10 text-primary" />
                   </div>
-                  <h2 className="text-xl font-semibold mb-2">
+                  <h2 className="text-xl font-semibold tracking-tight text-foreground mb-2">
                     Admin Inbox
                   </h2>
                   <p className="text-muted-foreground text-center max-w-sm">
@@ -590,11 +592,11 @@ export default function AdminInbox() {
 
               {/* Empty state for groups */}
               {!isMobile && !selectedGroup && (
-                <div className="flex-1 h-full flex flex-col items-center justify-center bg-muted/30">
-                  <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                <div className="flex-1 h-full flex flex-col items-center justify-center bg-muted/30 px-6">
+                  <div className="h-20 w-20 rounded-card bg-accent flex items-center justify-center mb-6">
                     <Users className="h-10 w-10 text-primary" />
                   </div>
-                  <h2 className="text-xl font-semibold mb-2">
+                  <h2 className="text-xl font-semibold tracking-tight text-foreground mb-2">
                     Group Inbox
                   </h2>
                   <p className="text-muted-foreground text-center max-w-sm">

@@ -1,12 +1,11 @@
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select,
   SelectContent,
@@ -33,26 +32,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Users, Plus, Loader2, ListTodo, KanbanSquare, Trash2, Calendar, CheckCircle2, Circle, Clock } from 'lucide-react';
+import { Users, Plus, Loader2, ListTodo, KanbanSquare, Trash2, Calendar, CheckCircle2, Circle, Clock, ListChecks } from 'lucide-react';
 import { useAdminTasks, AdminTask } from '@/hooks/useAdminTasks';
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileDataCard } from '@/components/admin/MobileDataCard';
-
-const priorityColors: Record<string, string> = {
-  low: 'bg-gray-500',
-  medium: 'bg-yellow-500',
-  high: 'bg-orange-500',
-  urgent: 'bg-red-500',
-};
-
-const statusIcons: Record<string, React.ReactNode> = {
-  todo: <Circle className="h-4 w-4 text-muted-foreground" />,
-  in_progress: <Clock className="h-4 w-4 text-yellow-500" />,
-  done: <CheckCircle2 className="h-4 w-4 text-green-500" />,
-};
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { m, pageEnter, staggerContainer, staggerItem, useCountUp } from '@/lib/motion';
+import { priorityMeta, statusMeta } from '@/components/admin/team/teamTokens';
+import { TeamMemberCard } from '@/components/admin/team/TeamMemberCard';
 
 export default function AdminTeam() {
   const { tasks, loading, createTask, updateTaskStatus, deleteTask } = useAdminTasks();
@@ -105,6 +95,8 @@ export default function AdminTeam() {
   const todoTasks = tasks.filter(t => t.status === 'todo');
   const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
   const doneTasks = tasks.filter(t => t.status === 'done');
+  const activeTasks = todoTasks.length + inProgressTasks.length;
+  const activeTasksDisplay = useCountUp(activeTasks);
 
   const getAdminStats = (adminId: string) => {
     const adminTasks = tasks.filter(t => t.assigned_to === adminId);
@@ -132,12 +124,15 @@ export default function AdminTeam() {
         {
           key: 'priority',
           label: 'Priority',
-          render: (data) => (
-            <Badge variant="outline" className="flex items-center gap-1 w-fit">
-              <span className={`h-1.5 w-1.5 rounded-full ${priorityColors[data.priority]}`} />
-              {data.priority}
-            </Badge>
-          ),
+          render: (data) => {
+            const p = priorityMeta(data.priority);
+            return (
+              <Badge variant={p.variant} className="flex w-fit items-center gap-1.5">
+                <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} aria-hidden />
+                {p.label}
+              </Badge>
+            );
+          },
         },
         {
           key: 'due_date',
@@ -160,17 +155,22 @@ export default function AdminTeam() {
 
   return (
     <AdminLayout>
-      <div className="p-4 md:p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Admin Team</h1>
-            <p className="text-muted-foreground text-sm">
-              Manage admin team members and tasks
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Admin Team</h1>
+            <p className="text-sm text-muted-foreground">
+              Platform staff roster — manage admin members and their task load
             </p>
           </div>
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto">
+              <Button className="min-h-[44px] w-full sm:min-h-0 sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 New Task
               </Button>
@@ -260,7 +260,51 @@ export default function AdminTeam() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
+        </header>
+
+        {/* KPI summary row — staff + task load. ONE orange focal tile (Active tasks). */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+        >
+          <m.div variants={staggerItem}>
+            <KpiCard title="Team members" value={admins.length} icon={Users} tone="info" loading={loading} />
+          </m.div>
+
+          {/* The single orange focal tile — work in flight. */}
+          <m.div variants={staggerItem} whileHover={{ y: -2 }} transition={{ duration: 0.15 }} className="h-full">
+            <div className="relative flex h-full min-h-[132px] flex-col justify-between overflow-hidden rounded-card bg-primary p-5 text-primary-foreground shadow-elevation-accent">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/10"
+              />
+              <div className="relative z-10 flex items-start justify-between gap-3">
+                <p className="text-sm font-medium text-primary-foreground/85">Active tasks</p>
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20">
+                  <ListChecks className="h-5 w-5" aria-hidden />
+                </span>
+              </div>
+              <p className="relative z-10 tabular-nums text-2xl font-bold leading-none tracking-tight md:text-3xl">
+                {activeTasksDisplay.toLocaleString('en-US')}
+              </p>
+              <div className="relative z-10 flex items-center gap-2">
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tabular-nums">
+                  {inProgressTasks.length}
+                </span>
+                <span className="text-xs text-primary-foreground/80">in progress</span>
+              </div>
+            </div>
+          </m.div>
+
+          <m.div variants={staggerItem}>
+            <KpiCard title="Completed" value={doneTasks.length} icon={CheckCircle2} tone="success" loading={loading} />
+          </m.div>
+          <m.div variants={staggerItem}>
+            <KpiCard title="To do" value={todoTasks.length} icon={Circle} tone="warning" loading={loading} />
+          </m.div>
+        </m.div>
 
         <Tabs defaultValue="tasks" className="space-y-4">
           <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 pb-2">
@@ -296,7 +340,7 @@ export default function AdminTeam() {
                     <CardTitle className="text-lg flex items-center gap-2">
                       <Circle className="h-4 w-4 text-muted-foreground" />
                       To Do
-                      <Badge variant="secondary" className="ml-auto">{todoTasks.length}</Badge>
+                      <Badge variant="neutral-soft" className="ml-auto tabular-nums">{todoTasks.length}</Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
@@ -318,9 +362,9 @@ export default function AdminTeam() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-yellow-500" />
+                      <Clock className="h-4 w-4 text-info" />
                       In Progress
-                      <Badge variant="secondary" className="ml-auto">{inProgressTasks.length}</Badge>
+                      <Badge variant="info-soft" className="ml-auto tabular-nums">{inProgressTasks.length}</Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
@@ -342,9 +386,9 @@ export default function AdminTeam() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                       Done
-                      <Badge variant="secondary" className="ml-auto">{doneTasks.length}</Badge>
+                      <Badge variant="success-soft" className="ml-auto tabular-nums">{doneTasks.length}</Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
@@ -384,15 +428,15 @@ export default function AdminTeam() {
                 ) : (
                   // Desktop: Table
                   <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="border-b">
-                        <tr>
-                          <th className="text-left p-4 font-medium">Status</th>
-                          <th className="text-left p-4 font-medium">Title</th>
-                          <th className="text-left p-4 font-medium">Priority</th>
-                          <th className="text-left p-4 font-medium">Assigned To</th>
-                          <th className="text-left p-4 font-medium">Due Date</th>
-                          <th className="text-left p-4 font-medium">Created</th>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="p-4 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
+                          <th className="p-4 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Title</th>
+                          <th className="p-4 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Priority</th>
+                          <th className="p-4 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Assigned To</th>
+                          <th className="p-4 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Due Date</th>
+                          <th className="p-4 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Created</th>
                           <th className="p-4"></th>
                         </tr>
                       </thead>
@@ -410,21 +454,29 @@ export default function AdminTeam() {
                             </td>
                           </tr>
                         ) : (
-                          tasks.map((task) => (
-                            <tr key={task.id} className="border-b">
-                              <td className="p-4">{statusIcons[task.status]}</td>
-                              <td className="p-4 font-medium">{task.title}</td>
+                          tasks.map((task) => {
+                            const status = statusMeta(task.status);
+                            const priority = priorityMeta(task.priority);
+                            return (
+                            <tr key={task.id} className="border-b transition-colors hover:bg-muted-soft">
                               <td className="p-4">
-                                <Badge variant="outline" className="flex items-center gap-1 w-fit">
-                                  <span className={`h-1.5 w-1.5 rounded-full ${priorityColors[task.priority]}`} />
-                                  {task.priority}
+                                <Badge variant={status.variant} className="gap-1.5">
+                                  <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} aria-hidden />
+                                  {status.label}
                                 </Badge>
                               </td>
-                              <td className="p-4">{task.assignee_name || '-'}</td>
+                              <td className="p-4 font-medium text-foreground">{task.title}</td>
                               <td className="p-4">
+                                <Badge variant={priority.variant} className="flex w-fit items-center gap-1.5">
+                                  <span className={`h-1.5 w-1.5 rounded-full ${priority.dot}`} aria-hidden />
+                                  {priority.label}
+                                </Badge>
+                              </td>
+                              <td className="p-4 text-muted-foreground">{task.assignee_name || '-'}</td>
+                              <td className="p-4 tabular-nums text-muted-foreground">
                                 {task.due_date ? format(new Date(task.due_date), 'MMM d, yyyy') : '-'}
                               </td>
-                              <td className="p-4">{format(new Date(task.created_at), 'MMM d, yyyy')}</td>
+                              <td className="p-4 tabular-nums text-muted-foreground">{format(new Date(task.created_at), 'MMM d, yyyy')}</td>
                               <td className="p-4">
                                 <Button
                                   variant="ghost"
@@ -436,7 +488,8 @@ export default function AdminTeam() {
                                 </Button>
                               </td>
                             </tr>
-                          ))
+                            );
+                          })
                         )}
                       </tbody>
                     </table>
@@ -447,55 +500,32 @@ export default function AdminTeam() {
           </TabsContent>
 
           <TabsContent value="team">
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {admins.map((admin) => {
-                const stats = getAdminStats(admin.id);
-                return (
-                  <Card key={admin.id}>
-                    <CardHeader>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-12 w-12">
-                          <AvatarFallback>
-                            {admin.full_name?.charAt(0).toUpperCase() || 'A'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <CardTitle className="text-lg truncate">{admin.full_name || 'Unknown'}</CardTitle>
-                          <CardDescription className="truncate">{admin.email}</CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-3 gap-4 text-center">
-                        <div>
-                          <p className="text-2xl font-bold">{stats.total}</p>
-                          <p className="text-xs text-muted-foreground">Total Tasks</p>
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold text-green-500">{stats.completed}</p>
-                          <p className="text-xs text-muted-foreground">Completed</p>
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold text-yellow-500">{stats.pending}</p>
-                          <p className="text-xs text-muted-foreground">Pending</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-              {admins.length === 0 && (
-                <Card className="col-span-full">
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <Users className="h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">No admin team members found</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            {admins.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-control bg-accent text-primary">
+                    <Users className="h-6 w-6" aria-hidden />
+                  </span>
+                  <p className="mt-4 text-sm text-muted-foreground">No admin team members found</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <m.div
+                variants={staggerContainer}
+                initial="hidden"
+                animate="show"
+                className="grid grid-cols-1 gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3"
+              >
+                {admins.map((admin) => (
+                  <m.div key={admin.id} variants={staggerItem}>
+                    <TeamMemberCard member={admin} stats={getAdminStats(admin.id)} />
+                  </m.div>
+                ))}
+              </m.div>
+            )}
           </TabsContent>
         </Tabs>
-      </div>
+      </m.div>
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteTaskId} onOpenChange={() => setDeleteTaskId(null)}>
@@ -535,8 +565,9 @@ function TaskCard({
   onStatusChange: (taskId: string, status: 'todo' | 'in_progress' | 'done') => void;
   onDelete: () => void;
 }) {
+  const priority = priorityMeta(task.priority);
   return (
-    <Card className="p-3">
+    <Card className="p-3 transition-shadow hover:shadow-elevation-2">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm line-clamp-2">{task.title}</p>
@@ -554,9 +585,9 @@ function TaskCard({
         </Button>
       </div>
       <div className="flex items-center justify-between mt-2">
-        <Badge variant="outline" className="text-xs flex items-center gap-1">
-          <span className={`h-1.5 w-1.5 rounded-full ${priorityColors[task.priority]}`} />
-          {task.priority}
+        <Badge variant={priority.variant} className="flex items-center gap-1.5 text-xs">
+          <span className={`h-1.5 w-1.5 rounded-full ${priority.dot}`} aria-hidden />
+          {priority.label}
         </Badge>
         <Select
           value={task.status}

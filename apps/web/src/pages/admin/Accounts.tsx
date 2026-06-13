@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import AdminLayout from '@/components/layout/AdminLayout';
-import { PageHeader } from '@/components/ui/page-header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { CalendarIcon, RefreshCw } from 'lucide-react';
+import { CalendarIcon, RefreshCw, DollarSign, Receipt, Clock } from 'lucide-react';
 import { useAccounts } from '@/hooks/useAccounts';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { NetIncomeHighlightTile } from '@/components/admin/accounts/NetIncomeHighlightTile';
+import { formatCurrency } from '@/lib/currency';
+import { m, pageEnter, staggerContainer, staggerItem } from '@/lib/motion';
 import { AccountsDashboard } from '@/components/admin/accounts/AccountsDashboard';
 import { ExpensesList } from '@/components/admin/accounts/ExpensesList';
 import { IncomeStatement } from '@/components/admin/accounts/IncomeStatement';
@@ -20,7 +23,7 @@ import { RecurringExpensesList } from '@/components/admin/accounts/RecurringExpe
 export default function AdminAccounts() {
   const [startDate, setStartDate] = useState<Date>(subMonths(startOfMonth(new Date()), 11));
   const [endDate, setEndDate] = useState<Date>(endOfMonth(new Date()));
-  
+
   const {
     loading,
     expenses,
@@ -41,19 +44,33 @@ export default function AdminAccounts() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <PageHeader
-            title="Accounts"
-            description="Financial overview, expenses, and reports"
-          />
-          <div className="flex items-center gap-2">
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
+        {/* Header */}
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Accounts</h1>
+            <p className="text-sm text-muted-foreground">
+              Financial overview, expenses &amp; reports across the platform
+            </p>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
             {/* Date Range Picker */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-[240px] justify-start text-left font-normal">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(startDate, 'MMM d, yyyy')} - {format(endDate, 'MMM d, yyyy')}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="min-h-[44px] justify-start text-left font-normal sm:min-h-0 sm:w-[240px]"
+                >
+                  <CalendarIcon className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline tabular-nums">
+                    {format(startDate, 'MMM d, yyyy')} - {format(endDate, 'MMM d, yyyy')}
+                  </span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
@@ -111,14 +128,61 @@ export default function AdminAccounts() {
               </PopoverContent>
             </Popover>
 
-            <Button variant="outline" size="icon" onClick={refetch} disabled={loading}>
-              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refetch}
+              disabled={loading}
+              className="min-h-[44px] sm:min-h-0"
+            >
+              <RefreshCw className={cn('h-4 w-4 sm:mr-2', loading && 'animate-spin')} />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
           </div>
-        </div>
+        </header>
+
+        {/* KPI strip — 3 stat cards + the ONE orange net-income tile */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+        >
+          <KpiCard
+            title="Total revenue"
+            value={accountsData?.totalRevenue ?? 0}
+            format={formatCurrency}
+            icon={DollarSign}
+            tone="success"
+            loading={loading || !accountsData}
+          />
+          <KpiCard
+            title="Total expenses"
+            value={accountsData?.totalExpenses ?? 0}
+            format={formatCurrency}
+            icon={Receipt}
+            tone="destructive"
+            loading={loading || !accountsData}
+          />
+          <KpiCard
+            title="Pending"
+            value={accountsData?.pendingPayments ?? 0}
+            format={formatCurrency}
+            icon={Clock}
+            tone="warning"
+            loading={loading || !accountsData}
+          />
+          <m.div variants={staggerItem}>
+            <NetIncomeHighlightTile
+              netIncome={accountsData?.netIncome ?? 0}
+              profitMargin={accountsData?.profitMargin ?? 0}
+              loading={loading || !accountsData}
+            />
+          </m.div>
+        </m.div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList>
+          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 overflow-x-auto">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="expenses">Expenses</TabsTrigger>
             <TabsTrigger value="recurring">Recurring</TabsTrigger>
@@ -129,9 +193,9 @@ export default function AdminAccounts() {
           </TabsList>
 
           <TabsContent value="dashboard">
-            <AccountsDashboard 
-              data={accountsData} 
-              loading={loading} 
+            <AccountsDashboard
+              data={accountsData}
+              loading={loading}
             />
           </TabsContent>
 
@@ -192,7 +256,7 @@ export default function AdminAccounts() {
             />
           </TabsContent>
         </Tabs>
-      </div>
+      </m.div>
     </AdminLayout>
   );
 }

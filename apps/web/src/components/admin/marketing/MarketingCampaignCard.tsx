@@ -59,11 +59,16 @@ const TYPE_LABELS: Record<string, { label: string; icon: typeof Target; color: s
   },
 };
 
-const STATUS_BADGES: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  draft: { label: 'ড্রাফট', variant: 'outline' },
-  active: { label: 'অ্যাক্টিভ', variant: 'default' },
-  paused: { label: 'পজড', variant: 'secondary' },
-  completed: { label: 'সম্পন্ন', variant: 'outline' },
+// Status-soft campaign-state pills (leading dot): active=success, scheduled/draft=info,
+// paused=warning, ended/completed=neutral.
+const STATUS_BADGES: Record<
+  string,
+  { label: string; variant: 'success-soft' | 'info-soft' | 'warning-soft' | 'neutral-soft'; dot: string }
+> = {
+  draft: { label: 'ড্রাফট', variant: 'info-soft', dot: 'bg-info' },
+  active: { label: 'অ্যাক্টিভ', variant: 'success-soft', dot: 'bg-success' },
+  paused: { label: 'পজড', variant: 'warning-soft', dot: 'bg-warning' },
+  completed: { label: 'সম্পন্ন', variant: 'neutral-soft', dot: 'bg-muted-foreground' },
 };
 
 export default function MarketingCampaignCard({ campaign, onRefresh }: MarketingCampaignCardProps) {
@@ -115,7 +120,10 @@ export default function MarketingCampaignCard({ campaign, onRefresh }: Marketing
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-medium">{campaign.name_bn || campaign.name}</h3>
-                <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
+                <Badge variant={statusConfig.variant} className="gap-1.5">
+                  <span className={`h-1.5 w-1.5 rounded-full ${statusConfig.dot}`} aria-hidden />
+                  {statusConfig.label}
+                </Badge>
               </div>
               <p className="text-sm text-muted-foreground mt-1">{typeConfig.label}</p>
               
