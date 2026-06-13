@@ -54,6 +54,42 @@
   },
   "actions": {
     "collapse": "Collapse",
-    "expand": "Expand"
+    "expand": "Expand",
+    "search": "Search",
+    "more": "More"
+  },
+  "sections": {
+    "inbox": "Inbox",
+    "sales": "Sales",
+    "finance": "Finance",
+    "team": "Team"
+  },
+  "admin": {
+    "overview": "Overview",
+    "inbox": "Inbox",
+    "communication": "Communication",
+    "tenants": "Tenants",
+    "users": "Users",
+    "billing": "Billing",
+    "payments": "Payments",
+    "subscriptions": "Subscriptions",
+    "plans": "Plans",
+    "externalSales": "External Sales",
+    "accounts": "Accounts",
+    "operations": "Operations",
+    "instances": "WhatsApp",
+    "waInstances": "Instances",
+    "waFunctions": "WA Functions",
+    "support": "Support",
+    "serviceBoards": "Service Boards",
+    "marketing": "Marketing",
+    "leads": "Leads",
+    "campaigns": "Campaigns",
+    "settings": "Settings",
+    "adminManagement": "Admin Management",
+    "auditLogs": "Audit Logs",
+    "teamChat": "Team Chat",
+    "team": "Team",
+    "reports": "Reports"
   }
 }
