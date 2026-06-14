@@ -233,7 +233,8 @@ async function checkStatus(body: Record<string, unknown>, ctx: FnContext): Promi
     if (changed) {
       if (newStatus === "active") {
         await dbRun(
-          "UPDATE whatsapp_instances SET status = 'active', qr_code = NULL, qr_expires_at = NULL, connection_error = NULL, last_connected_at = ?, last_status_at = ? WHERE id = ?",
+          "UPDATE whatsapp_instances SET status = 'active', qr_code = NULL, qr_expires_at = NULL, connection_error = NULL, last_connected_at = ?, last_status_at = ?, warmup_started_at = COALESCE(warmup_started_at, ?) WHERE id = ?",
+          new Date().toISOString(),
           new Date().toISOString(),
           new Date().toISOString(),
           loaded.id,

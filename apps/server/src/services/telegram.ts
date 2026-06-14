@@ -17,6 +17,17 @@ export class TelegramNotConfiguredError extends Error {
   }
 }
 
+/**
+ * Escapes the special characters of Telegram's legacy "Markdown" parse mode so
+ * that AI/caller-supplied text (post summaries, artifact types) cannot break out
+ * of the message and inject formatting or unbalanced entities. The legacy mode
+ * treats `_ * ` [` as control chars; we backslash-escape each. Use this on every
+ * dynamic string interpolated into a parse_mode:"Markdown" message.
+ */
+export function escapeTelegramMarkdown(text: string): string {
+  return text.replace(/[_*`[]/g, (ch) => `\\${ch}`);
+}
+
 async function botApi(method: string, payload: Record<string, unknown>): Promise<unknown> {
   if (!TELEGRAM_BOT_TOKEN) throw new TelegramNotConfiguredError();
   const res = await fetch(`${API_BASE}/bot${TELEGRAM_BOT_TOKEN}/${method}`, {
@@ -37,6 +48,60 @@ export async function sendTelegramMessage(chatId: string, markdown: string): Pro
     text: markdown,
     parse_mode: "Markdown",
     disable_web_page_preview: true,
+  });
+}
+
+/**
+ * Sends an approval card with inline Approve/Reject buttons. The callback_data
+ * encodes the approval id (`apv:<uuid>` / `rej:<uuid>`, ≤ 64 bytes), which the
+ * webhook decodes on a button tap. Returns the message id so the caller can
+ * later edit the card into a decision confirmation.
+ */
+export async function sendTelegramApprovalCard(
+  chatId: string,
+  markdown: string,
+  approvalId: string,
+): Promise<{ message_id: number }> {
+  const result = (await botApi("sendMessage", {
+    chat_id: chatId,
+    text: markdown,
+    parse_mode: "Markdown",
+    disable_web_page_preview: true,
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: "✅ Approve", callback_data: `apv:${approvalId}` },
+          { text: "❌ Reject", callback_data: `rej:${approvalId}` },
+        ],
+      ],
+    },
+  })) as { message_id: number };
+  return { message_id: result.message_id };
+}
+
+/** Replaces the text of an existing message (used to confirm a decision). */
+export async function editTelegramMessage(
+  chatId: string,
+  messageId: number | string,
+  markdown: string,
+): Promise<void> {
+  await botApi("editMessageText", {
+    chat_id: chatId,
+    message_id: messageId,
+    text: markdown,
+    parse_mode: "Markdown",
+    disable_web_page_preview: true,
+  });
+}
+
+/** Acknowledges a button tap so Telegram stops showing the loading spinner. */
+export async function answerCallbackQuery(
+  callbackQueryId: string,
+  text?: string,
+): Promise<void> {
+  await botApi("answerCallbackQuery", {
+    callback_query_id: callbackQueryId,
+    ...(text ? { text } : {}),
   });
 }
 

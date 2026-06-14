@@ -56,14 +56,22 @@ export class OutboundRateLimiter {
    * @param key      sending instance id (one bucket per WhatsApp number)
    * @param reactive true for replies to an active inbound conversation
    */
-  check(key: string, reactive: boolean, now: number = Date.now()): RateLimitDecision {
+  check(
+    key: string,
+    reactive: boolean,
+    now: number = Date.now(),
+    dailyCapOverride?: number,
+  ): RateLimitDecision {
     if (reactive) {
       // Reactive replies bypass the proactive caps entirely.
       return { allowed: true, remaining: this.cap, counted: false };
     }
+    // A warm-up ramp passes a lower per-number daily cap; never exceed the global.
+    const dailyCap =
+      dailyCapOverride != null ? Math.min(dailyCapOverride, this.dailyCap) : this.dailyCap;
     const recent = this.prune(key, now);
     const inDay = recent.filter((t) => t > now - DAY_MS).length;
-    if (inDay >= this.dailyCap) {
+    if (inDay >= dailyCap) {
       return { allowed: false, remaining: 0, counted: false, reason: "daily" };
     }
     const inHour = recent.filter((t) => t > now - this.windowMs).length;

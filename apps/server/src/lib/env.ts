@@ -119,6 +119,24 @@ export const TELEGRAM_BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME ?? "";
 /** Validates X-Telegram-Bot-Api-Secret-Token on the webhook route. */
 export const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET ?? "";
 
+/**
+ * Emits a one-line startup warning when the Telegram webhook secret token is
+ * unset (mirrors warnIfWebhookUnverified for WAHA). Without it the webhook
+ * route fails closed in production (rejects every request), so the bot is inert
+ * — a loud warning makes that misconfiguration visible at boot. The hard-fail
+ * in production lives in index.ts alongside the WAHA HMAC check.
+ */
+export function warnIfTelegramWebhookUnverified(): void {
+  if (!TELEGRAM_WEBHOOK_SECRET) {
+    process.emitWarning(
+      "Telegram webhook secret is DISABLED (TELEGRAM_WEBHOOK_SECRET unset). " +
+        "Acceptable for local dev/test only — production MUST set the secret or the " +
+        "webhook route rejects every Telegram update (the bot will be inert).",
+      { code: "TELEGRAM_WEBHOOK_UNVERIFIED" },
+    );
+  }
+}
+
 // --- Ops alerting (platform-level, not per-tenant) ---------------------------
 
 /**
@@ -126,6 +144,29 @@ export const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET ?? ""
  * pressure). Empty disables sending — alerts then only hit the structured log.
  */
 export const OPS_TELEGRAM_CHAT_ID = process.env.OPS_TELEGRAM_CHAT_ID ?? "";
+
+// --- Growth approval gate (autonomous growth system) -------------------------
+
+/**
+ * Telegram chat id that receives growth approval cards (publish/spend/contact).
+ * Falls back to the ops chat so a single founder chat works out of the box.
+ */
+export const GROWTH_TELEGRAM_CHAT_ID =
+  process.env.GROWTH_TELEGRAM_CHAT_ID ?? OPS_TELEGRAM_CHAT_ID;
+
+/**
+ * Optional allowlist: only this Telegram user id may approve/reject growth
+ * actions via inline buttons. Empty = any tap on the linked chat is honored.
+ */
+export const FOUNDER_TG_USER_ID = process.env.FOUNDER_TG_USER_ID ?? "";
+
+// --- Postiz (social scheduling backend) --------------------------------------
+
+/** Base URL of the Postiz instance; the public API lives at <url>/public/v1. */
+export const POSTIZ_URL = process.env.POSTIZ_URL ?? "http://127.0.0.1:3000";
+
+/** Postiz public-API key, sent verbatim in the Authorization header. */
+export const POSTIZ_API_KEY = process.env.POSTIZ_API_KEY ?? "";
 
 /** Resource-pressure alert thresholds (fractions 0..1). Box is RAM-tight. */
 export const ALERT_MEM_THRESHOLD = Number(process.env.ALERT_MEM_THRESHOLD ?? "0.85");

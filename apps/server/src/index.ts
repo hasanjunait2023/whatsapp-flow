@@ -33,6 +33,7 @@ import { startScheduler, stopScheduler } from "./jobs/scheduler.js";
 import { registerSoulJobs } from "./services/soul/index.js";
 import { registerHermesPipeline } from "./services/hermes/pipeline.js";
 import { registerCeoJobs } from "./services/ceo/index.js";
+import { registerGrowthJobs } from "./services/growth/index.js";
 import { registerOptOutHandler } from "./services/opt-out.js";
 import { registerBulkSend } from "./services/bulk-send.js";
 import { seedPlansIfEmpty } from "./services/billing/seed-plans.js";
@@ -41,8 +42,10 @@ import {
   IS_PRODUCTION,
   WEB_DIST_DIR,
   warnIfWebhookUnverified,
+  warnIfTelegramWebhookUnverified,
   getMasterKey,
   WAHA_WEBHOOK_HMAC_ENFORCED,
+  TELEGRAM_WEBHOOK_SECRET,
 } from "./lib/env.js";
 
 // Fail fast at startup (production only) if the secret-encryption key is missing
@@ -58,6 +61,15 @@ if (IS_PRODUCTION) {
     throw new Error(
       "WAHA webhook HMAC is not enforced in production. Set WAHA_WEBHOOK_HMAC_SECRET " +
         "(or WAHA_WEBHOOK_REQUIRE_HMAC=true) before starting.",
+    );
+  }
+  // The Telegram webhook is the transport gate for the growth approval buttons.
+  // With no secret token the route fails closed (rejects every update), so refuse
+  // to boot rather than silently run an inert, unauthenticated webhook surface.
+  if (!TELEGRAM_WEBHOOK_SECRET) {
+    throw new Error(
+      "TELEGRAM_WEBHOOK_SECRET is not set in production. Set it (and register it via " +
+        "setWebhook secret_token) before starting, or the Telegram webhook rejects every update.",
     );
   }
 }
@@ -301,6 +313,7 @@ injectWebSocket(server);
 registerSoulJobs();
 registerHermesPipeline();
 registerCeoJobs();
+registerGrowthJobs();
 registerOptOutHandler();
 registerBulkSend();
 
@@ -321,6 +334,7 @@ const resourceTimer = setInterval(() => void checkResourcePressure(), 60_000);
 resourceTimer.unref();
 
 warnIfWebhookUnverified();
+warnIfTelegramWebhookUnverified();
 void warnIfFbPagesUnverified();
 
 let shuttingDown = false;

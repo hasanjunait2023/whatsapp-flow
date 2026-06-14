@@ -170,6 +170,10 @@ export const whatsappInstances = pgTable(
     status: text("status").default("disconnected").notNull(),
     tenant_id: text("tenant_id").notNull(),
     updated_at: text("updated_at").default(nowIso).notNull(),
+    // When the number first reached WORKING — anchors the warm-up ramp. New
+    // numbers blasting on day 1 get banned; the daily proactive cap scales up
+    // with warm-up age (see lib/warmup.ts).
+    warmup_started_at: text("warmup_started_at"),
     wasender_session_id: text("wasender_session_id"),
     webhook_secret: text("webhook_secret").default("").notNull(),
   },

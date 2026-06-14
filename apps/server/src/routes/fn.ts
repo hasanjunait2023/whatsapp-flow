@@ -17,6 +17,7 @@ import { TEAM_HANDLERS } from "./team-fns.js";
 import { MISC_HANDLERS } from "./misc-fns.js";
 import { DEFERRED_HANDLERS } from "./deferred-fns.js";
 import { ADMIN_HANDLERS } from "./admin-fns.js";
+import { GROWTH_HANDLERS } from "./growth-fns.js";
 import { WELCOME_HANDLERS } from "./welcome-fns.js";
 import { EXPORT_HANDLERS } from "./export-fns.js";
 import { uploadChatMediaJson, uploadChatMediaMultipart } from "./upload-fns.js";
@@ -51,6 +52,7 @@ const HANDLERS: Record<string, FnHandler> = {
   ...MISC_HANDLERS,
   ...DEFERRED_HANDLERS,
   ...ADMIN_HANDLERS,
+  ...GROWTH_HANDLERS,
   ...WELCOME_HANDLERS,
   ...EXPORT_HANDLERS,
   "send-message": sendMessage,

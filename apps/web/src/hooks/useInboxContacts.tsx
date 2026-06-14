@@ -19,6 +19,7 @@ export interface ThreadContact {
   assigned_to: string | null;
   is_archived: boolean;
   is_blocked: boolean;
+  opted_out: boolean;
   needs_handoff: boolean;
   handoff_reason: string | null;
   label_ids: string[];

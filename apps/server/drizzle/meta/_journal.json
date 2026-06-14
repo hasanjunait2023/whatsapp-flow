@@ -22,6 +22,20 @@
       "when": 1781432919714,
       "tag": "0002_contacts_opt_out",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781435963548,
+      "tag": "0003_growth_approval_gate",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781436500000,
+      "tag": "0004_instances_warmup",
+      "breakpoints": true
     }
   ]
 }

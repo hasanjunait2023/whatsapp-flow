@@ -632,6 +632,7 @@ export default function ChatView({ contact, onMarkAsRead, onResolveHandoff, onRe
         replyingTo={replyingTo}
         onCancelReply={handleCancelReply}
         onOpenProductPicker={() => setProductPickerOpen(true)}
+        isOptedOut={contact.opted_out}
       />
 
       {/* Product Picker Dialog */}

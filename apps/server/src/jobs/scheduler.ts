@@ -6,6 +6,8 @@ import { runSubscriptionReminders } from "./reminders.js";
 import { runWhatsappFollowups } from "./followups.js";
 import { processGroupAddQueue } from "../services/groups/queue-processor.js";
 import { generateDueRecurringExpenses } from "../services/accounting/recurring.js";
+import { expireStaleApprovals } from "../services/growth/approvals.js";
+import { enqueueCompanyCeoReport } from "../services/growth/index.js";
 
 /**
  * Minimal interval-based job scheduler. The plan suggested node-cron, but the
@@ -19,6 +21,7 @@ const JOB_QUEUE_INTERVAL_MS = 5 * 1000;
 const CEO_SCHEDULE_INTERVAL_MS = 60 * 1000;
 const FOLLOWUP_INTERVAL_MS = 2 * 60 * 1000;
 const GROUP_QUEUE_INTERVAL_MS = 60 * 1000;
+const APPROVAL_EXPIRY_INTERVAL_MS = 60 * 60 * 1000;
 const DAILY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 const timers: NodeJS.Timeout[] = [];
@@ -65,9 +68,22 @@ export function startScheduler(): void {
   groupQueue.unref();
   timers.push(groupQueue);
 
+  // Growth approval gate: expire stale awaiting_approval rows past their TTL so
+  // an unanswered action doesn't linger executable forever.
+  const approvalExpiry = setInterval(() => {
+    void expireStaleApprovals().catch(() => {
+      // Best-effort sweep; errors are non-fatal and retry next hour.
+    });
+  }, APPROVAL_EXPIRY_INTERVAL_MS);
+  approvalExpiry.unref();
+  timers.push(approvalExpiry);
+
   const dailySweeps = setInterval(() => {
     void runMediaCleanup().catch(() => {
       // Best-effort retention; errors are non-fatal and retry next day.
+    });
+    void enqueueCompanyCeoReport().catch(() => {
+      // Dedupe-keyed by date; safe to call every interval. Swallow tick errors.
     });
     void runWebhookCleanup().catch(() => {
       // Best-effort retention; errors are non-fatal and retry next day.

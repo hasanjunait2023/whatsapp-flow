@@ -5,6 +5,7 @@ import { sendMessage } from "./messaging.js";
 import { enqueueJob } from "../jobs/queue.js";
 import { BULK_SEND_JOB, type BulkSendPayload } from "../services/bulk-send.js";
 import { proactiveSendDelayMs } from "../lib/pacing.js";
+import { computeNumberHealth } from "../services/number-health.js";
 import type { FnContext, FnResult } from "./waha/session.js";
 
 /**
@@ -198,6 +199,18 @@ export async function sendBulkReminder(raw: Record<string, unknown>, ctx: FnCont
   return ok({ success: true, queued: ids.length, total: ids.length });
 }
 
+// --- number-health (per-number ban-risk metrics) -----------------------------
+export async function numberHealth(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
+  if (!ctx.tenantId) return ok({ error: "No active tenant" });
+  const instanceId = (raw.instance_id as string | undefined) ?? null;
+  const instances = await computeNumberHealth(ctx.tenantId, instanceId);
+  const optedOut = (await dbGet(
+    "SELECT COUNT(*)::int AS n FROM contacts WHERE tenant_id = ? AND opted_out = true",
+    ctx.tenantId,
+  )) as { n: number };
+  return ok({ instances, opted_out_count: optedOut?.n ?? 0 });
+}
+
 // --- create-admin-user (admin-only) ------------------------------------------
 interface CreateAdminBody {
   user_id?: string;
@@ -339,6 +352,7 @@ export const MISC_HANDLERS = {
   "whatsapp-refresh-profile": whatsappRefreshProfile,
   "setup-byok-instance": setupByokInstance,
   "send-bulk-reminder": sendBulkReminder,
+  "number-health": numberHealth,
   "create-admin-user": createAdminUser,
   "generate-invoice": generateInvoice,
   "merge-invoices": mergeInvoices,

@@ -9,6 +9,7 @@ import {
   sleep,
 } from "../lib/retry.js";
 import { outboundRateLimiter } from "../lib/rate-limiter.js";
+import { warmupState } from "../lib/warmup.js";
 import type { FnContext, FnResult } from "./waha/session.js";
 
 /**
@@ -37,6 +38,7 @@ interface ContactRow {
 interface InstanceRow {
   id: string;
   status: string;
+  warmup_started_at: string | null;
 }
 
 async function currentUsage(tenantId: string): Promise<number> {
@@ -93,7 +95,7 @@ async function resolveInstance(
 ): Promise<ResolveInstanceResult> {
   if (preferredId) {
     const row = (await dbGet(
-      "SELECT id, status FROM whatsapp_instances WHERE id = ? AND tenant_id = ? LIMIT 1",
+      "SELECT id, status, warmup_started_at FROM whatsapp_instances WHERE id = ? AND tenant_id = ? LIMIT 1",
       preferredId,
       tenantId,
     )) as InstanceRow | undefined;
@@ -112,7 +114,7 @@ async function resolveInstance(
   }
 
   const fallback = (await dbGet(
-    `SELECT id, status FROM whatsapp_instances
+    `SELECT id, status, warmup_started_at FROM whatsapp_instances
        WHERE tenant_id = ? AND status = 'active' AND (is_deleted IS NOT TRUE)
        ORDER BY is_default DESC LIMIT 1`,
     tenantId,
@@ -271,7 +273,10 @@ export async function sendMessage(rawBody: Record<string, unknown>, ctx: FnConte
     };
   }
 
-  const decision = outboundRateLimiter.check(instance.id, reactive);
+  // Warm-up ramp: a freshly-linked number gets a low daily proactive cap that
+  // scales up over ~3 weeks. Reactive replies are unaffected (bypass in check()).
+  const warmup = warmupState(instance.warmup_started_at);
+  const decision = outboundRateLimiter.check(instance.id, reactive, Date.now(), warmup.dailyCap);
   if (!decision.allowed) {
     const isDaily = decision.reason === "daily";
     return {

@@ -44,6 +44,7 @@ export default function NewChatView({ newContact, onContactCreated, onBack }: Ne
         unread_count: 0,
         is_archived: false,
         is_blocked: false,
+        opted_out: false,
         needs_handoff: false,
         handoff_reason: null,
         handoff_at: null,

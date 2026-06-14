@@ -129,8 +129,10 @@ async function handleSessionStatus(
       "last_status_at = ?",
       "qr_code = NULL",
       "qr_expires_at = NULL",
+      // Anchor the warm-up ramp on the first time the number goes live.
+      "warmup_started_at = COALESCE(warmup_started_at, ?)",
     );
-    params.push(status, now, now);
+    params.push(status, now, now, now);
     if (payload.me?.id) {
       updates.push("phone_number = ?");
       params.push(payload.me.id.replace(/@.*$/, ""));

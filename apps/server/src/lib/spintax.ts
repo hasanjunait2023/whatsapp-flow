@@ -9,20 +9,20 @@
 
 /** Resolves {a|b|c} groups, picking one option each. Supports nesting. */
 export function renderSpintax(template: string, rand: () => number = Math.random): string {
-  // Repeatedly resolve the innermost {…|…} group until none remain. Innermost
-  // first (no nested braces inside) so nesting works.
-  const group = /\{([^{}]*)\}/;
+  // Only match innermost groups that contain a pipe — that's what makes them a
+  // spin group. Merge fields like {first_name} have no pipe and are left intact
+  // for personalize(). Innermost-first (no braces inside) so nesting resolves.
+  const group = /\{([^{}]*\|[^{}]*)\}/;
   let out = template;
   let guard = 0;
   while (group.test(out) && guard < 1000) {
     out = out.replace(group, (_m, body: string) => {
-      if (!body.includes("|")) return `{${body}}__KEEP__`; // not a spin group (e.g. {first_name})
       const options = body.split("|");
       return options[Math.floor(rand() * options.length)] ?? "";
     });
     guard += 1;
   }
-  return out.replace(/\{([^{}]*)\}__KEEP__/g, "{$1}");
+  return out;
 }
 
 export interface PersonalizeFields {

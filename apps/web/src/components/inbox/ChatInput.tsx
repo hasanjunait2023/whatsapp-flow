@@ -20,6 +20,7 @@ import {
   MapPin,
   Package,
   Music,
+  ShieldOff,
 } from 'lucide-react';
 
 const EmojiPicker = lazy(() => import('./EmojiPicker'));
@@ -57,9 +58,10 @@ interface ChatInputProps {
   replyingTo?: Message | null;
   onCancelReply?: () => void;
   onOpenProductPicker?: () => void;
+  isOptedOut?: boolean;
 }
 
-export default function ChatInput({ onSendMessage, disabled, sending, replyingTo, onCancelReply, onOpenProductPicker }: ChatInputProps) {
+export default function ChatInput({ onSendMessage, disabled, sending, replyingTo, onCancelReply, onOpenProductPicker, isOptedOut }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [quickReplyOpen, setQuickReplyOpen] = useState(false);
   const [quickReplySearch, setQuickReplySearch] = useState('');
@@ -339,6 +341,16 @@ export default function ChatInput({ onSendMessage, disabled, sending, replyingTo
 
   return (
     <div className="border-t border-border bg-card relative">
+      {/* Opt-out warning — non-blocking: reactive replies in an active thread still send */}
+      {isOptedOut && (
+        <div className="flex items-start gap-2 border-b border-warning/20 bg-warning-soft/60 px-4 py-2.5 text-warning">
+          <ShieldOff className="h-4 w-4 shrink-0 mt-0.5" strokeWidth={2} />
+          <p className="text-xs leading-snug">
+            This contact opted out (replied STOP). New/proactive messages are blocked; replies in an active conversation still send.
+          </p>
+        </div>
+      )}
+
       {/* Reply preview */}
       {replyingTo && (
         <ReplyPreview message={replyingTo} onCancel={() => onCancelReply?.()} />

@@ -12,6 +12,7 @@ export interface Contact {
   name: string | null;
   profile_pic_url: string | null;
   is_blocked: boolean;
+  opted_out: boolean;
   is_archived: boolean;
   assigned_to: string | null;
   last_message_at: string | null;

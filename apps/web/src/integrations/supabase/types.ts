@@ -1137,6 +1137,7 @@ export type Database = {
           instance_id: string | null
           is_archived: boolean
           is_blocked: boolean
+          opted_out: boolean
           last_message_at: string | null
           name: string | null
           needs_handoff: boolean
@@ -1160,6 +1161,7 @@ export type Database = {
           instance_id?: string | null
           is_archived?: boolean
           is_blocked?: boolean
+          opted_out?: boolean
           last_message_at?: string | null
           name?: string | null
           needs_handoff?: boolean
@@ -1183,6 +1185,7 @@ export type Database = {
           instance_id?: string | null
           is_archived?: boolean
           is_blocked?: boolean
+          opted_out?: boolean
           last_message_at?: string | null
           name?: string | null
           needs_handoff?: boolean

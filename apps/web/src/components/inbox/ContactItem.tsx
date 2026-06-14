@@ -3,10 +3,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
-import { UserRound, PenLine, User, WifiOff } from 'lucide-react';
+import { UserRound, PenLine, User, WifiOff, Ban } from 'lucide-react';
 import { Label } from '@/hooks/useLabels';
 import CustomerStatusBadge from './CustomerStatusBadge';
 import { CustomerStatusLabel } from '@/lib/customer-status-config';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface ContactItemProps {
   contact: Contact;
@@ -81,6 +86,19 @@ export default function ContactItem({
               <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                 <WifiOff className="h-3 w-3" />
               </span>
+            )}
+            {contact.opted_out && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning-soft px-1.5 py-0 h-4 text-[10px] font-medium text-warning">
+                    <Ban className="h-2.5 w-2.5" strokeWidth={2} />
+                    Opted out
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Replied STOP. Proactive messages are blocked.
+                </TooltipContent>
+              </Tooltip>
             )}
             <CustomerStatusBadge status={customerStatus} size="sm" />
           </div>

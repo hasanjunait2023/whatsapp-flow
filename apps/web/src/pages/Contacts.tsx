@@ -78,12 +78,14 @@ import {
   Download,
   UserPlus,
   MessageCircle,
+  Megaphone,
 } from 'lucide-react';
 import { exportToCSV } from '@/lib/csv-export';
 import { format, isToday, isYesterday } from 'date-fns';
 import { toast } from 'sonner';
 import { m, pageEnter, staggerContainer, staggerItem, useCountUp } from '@/lib/motion';
 import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import BroadcastComposerDialog from '@/components/contacts/BroadcastComposerDialog';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   MessageCirclePlus,
@@ -157,6 +159,7 @@ export default function Contacts() {
   const [filterLabels, setFilterLabels] = useState<string[]>([]);
   const [showArchived, setShowArchived] = useState(false);
   const [showBlocked, setShowBlocked] = useState(false);
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
 
   // Contact detail sheet
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -454,6 +457,14 @@ export default function Contacts() {
                 <span className="text-sm font-medium tabular-nums text-foreground">
                   {selectedContacts.size} selected
                 </span>
+                <Button
+                  variant="success"
+                  size="sm"
+                  onClick={() => setBroadcastOpen(true)}
+                >
+                  <Megaphone className="h-4 w-4 mr-2" />
+                  Broadcast
+                </Button>
                 <Button variant="outline" size="sm" onClick={handleBulkArchive}>
                   <Archive className="h-4 w-4 mr-2" />
                   Archive
@@ -903,6 +914,14 @@ export default function Contacts() {
             )}
           </SheetContent>
         </Sheet>
+
+        {/* Broadcast Composer */}
+        <BroadcastComposerDialog
+          open={broadcastOpen}
+          onOpenChange={setBroadcastOpen}
+          contacts={filteredContacts.filter((c) => selectedContacts.has(c.id))}
+          onSent={() => setSelectedContacts(new Set())}
+        />
 
         {/* Create Label Dialog */}
         <Dialog open={labelDialogOpen} onOpenChange={setLabelDialogOpen}>

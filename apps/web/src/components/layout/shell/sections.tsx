@@ -18,6 +18,7 @@ import {
   MessagesSquare,
   Kanban,
   BarChart3,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 import type { ModuleKey } from './permissions';
@@ -95,6 +96,7 @@ export const TENANT_SECTIONS: Section[] = [
       { titleKey: 'main.groups', label: 'Groups', href: '/groups', perm: 'groups' },
       { titleKey: 'main.contacts', label: 'Contacts', href: '/contacts', perm: 'contacts' },
       { titleKey: 'main.waFunctions', label: 'Functions', href: '/whatsapp-functions', perm: 'inbox' },
+      { titleKey: 'main.numberHealth', label: 'Number Health', href: '/number-health', perm: 'inbox' },
     ],
   },
   {
@@ -157,6 +159,7 @@ export const TENANT_RAIL: RailItem[] = [
   { titleKey: 'tools.segmentation', label: 'Segmentation', href: '/segmentation', icon: <UsersRound className="h-5 w-5" /> },
   { titleKey: 'teamWork.serviceBoards', label: 'Service Boards', href: '/service/boards', icon: <Kanban className="h-5 w-5" />, perm: 'service_boards' },
   { titleKey: 'main.instances', label: 'Instances', href: '/instances', icon: <Package className="h-5 w-5" /> },
+  { titleKey: 'main.numberHealth', label: 'Number Health', href: '/number-health', icon: <ShieldCheck className="h-5 w-5" />, perm: 'inbox' },
   { titleKey: 'main.notifications', label: 'Notifications', href: '/notifications', icon: <MessagesSquare className="h-5 w-5" /> },
 ];
 

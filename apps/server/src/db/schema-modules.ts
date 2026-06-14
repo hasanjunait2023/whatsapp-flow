@@ -1352,6 +1352,83 @@ export const adminCustomerJourney = pgTable("admin_customer_journey", {
   title_bn: text("title_bn").notNull(),
 });
 
+// --- Growth approval gate (autonomous growth system) -----------------------
+// Every external growth action (publish/spend/contact-human) lands here as a
+// row awaiting one-tap founder approval on Telegram before any execution job
+// runs. This is the safety chokepoint — see services/growth/approvals.ts.
+export const growthApprovals = pgTable(
+  "growth_approvals",
+  {
+    id: uid(),
+    artifact_type: text("artifact_type").notNull(), // social_post|outreach_batch|ad|funnel_email|aftersales_touch
+    artifact_id: text("artifact_id"),
+    summary: text("summary").notNull(),
+    payload: jsonb("payload").notNull(),
+    status: text("status").default("awaiting_approval").notNull(), // awaiting_approval|approved|executing|executed|failed|rejected|expired
+    execute_job_kind: text("execute_job_kind").notNull(),
+    tg_chat_id: text("tg_chat_id"),
+    tg_message_id: text("tg_message_id"),
+    decided_by: text("decided_by"),
+    decided_at: text("decided_at"),
+    reject_reason: text("reject_reason"),
+    execute_job_id: text("execute_job_id"),
+    error: text("error"),
+    expires_at: text("expires_at"),
+    created_at: text("created_at").default(nowIso).notNull(),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+  },
+  (t) => ({
+    statusIdx: index("growth_approvals_status_idx").on(t.status),
+  }),
+);
+
+export const socialPosts = pgTable(
+  "social_posts",
+  {
+    id: uid(),
+    campaign_id: text("campaign_id"),
+    platform: text("platform").notNull(),
+    channel_ids: jsonb("channel_ids").notNull(),
+    title: text("title"),
+    body: text("body").notNull(),
+    media_urls: jsonb("media_urls"),
+    status: text("status").default("draft").notNull(), // draft|awaiting_approval|approved|scheduled|published|rejected|failed
+    approval_id: text("approval_id"),
+    postiz_post_id: text("postiz_post_id"),
+    planned_for: text("planned_for"),
+    scheduled_at: text("scheduled_at"),
+    published_at: text("published_at"),
+    ai_generated: boolean("ai_generated").default(true).notNull(),
+    created_at: text("created_at").default(nowIso).notNull(),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+  },
+  (t) => ({
+    statusIdx: index("social_posts_status_idx").on(t.status),
+  }),
+);
+
+export const contentPieces = pgTable(
+  "content_pieces",
+  {
+    id: uid(),
+    kind: text("kind").default("blog").notNull(),
+    slug: text("slug"),
+    title: text("title").notNull(),
+    body_md: text("body_md"),
+    target_keywords: jsonb("target_keywords"),
+    seo_score: integer("seo_score"),
+    audit_notes: jsonb("audit_notes"),
+    status: text("status").default("draft").notNull(), // draft|awaiting_approval|approved|published
+    approval_id: text("approval_id"),
+    published_at: text("published_at"),
+    created_at: text("created_at").default(nowIso).notNull(),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+  },
+  (t) => ({
+    statusIdx: index("content_pieces_status_idx").on(t.status),
+  }),
+);
+
 // --- WooCommerce (deferred-v1; settings page reads integration row) --------
 export const woocommerceIntegrations = pgTable(
   "woocommerce_integrations",
@@ -1623,6 +1700,9 @@ export const moduleSchema = {
   adminMarketingEnrollments,
   adminMarketingSends,
   adminCustomerJourney,
+  growthApprovals,
+  socialPosts,
+  contentPieces,
   woocommerceIntegrations,
   woocommerceSyncLogs,
   internalChatRooms,

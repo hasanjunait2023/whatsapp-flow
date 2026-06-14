@@ -57,6 +57,7 @@ const PaymentSuccess = lazy(() => import("./pages/billing/PaymentSuccess"));
 const PaymentCancelled = lazy(() => import("./pages/billing/PaymentCancelled"));
 const SetupWizard = lazy(() => import("./pages/SetupWizard"));
 const WhatsAppFunctions = lazy(() => import("./pages/WhatsAppFunctions"));
+const NumberHealth = lazy(() => import("./pages/NumberHealth"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const AdminTenants = lazy(() => import("./pages/admin/Tenants"));
@@ -254,6 +255,7 @@ const App = () => (
                             <Route path="/dashboard" element={<Dashboard />} />
                             <Route path="/instances" element={<Instances />} />
                             <Route path="/instances/onboarding" element={<InstanceOnboarding />} />
+                            <Route path="/number-health" element={<NumberHealth />} />
                             <Route path="/inbox" element={<Inbox />} />
                             <Route path="/fb-inbox" element={<FBInbox />} />
                             <Route path="/team" element={<Team />} />
