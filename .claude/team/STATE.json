@@ -1,26 +1,22 @@
 {
   "mission": "Autonomous growth company for What A App (Ecomex) — grow organically toward $100M; first goal 1,000 paying tenants profitably. Hormozi-driven, gated autonomy, hybrid architecture, BD-first.",
   "phase": "GATE2",
-  "active_milestone": "M1 Foundation",
+  "active_milestone": "M2 Content + SEO engine",
   "awaiting_gate": "GATE2",
   "chartered": "2026-06-14",
   "last_updated": "2026-06-14",
-  "gates_passed": ["GATE1 plan approved 2026-06-14 (now-the-most-important-synthetic-parrot.md)"],
-  "m1_deliverables": {
-    "strategy_offer_funnel_aftersales": "DONE docs/growth/STRATEGY.md",
-    "hormozi_bd_research": "DONE docs/growth/RESEARCH-hormozi-bd.md",
-    "brand_kit": "DONE docs/growth/brand/ (BRAND, TOKENS, VOICE, SOCIAL-TEMPLATES, LOGO)",
-    "skills": "DONE ~/.claude/skills/hormozi-growth + ai-search-seo",
-    "agent_company_def": "DONE docs/growth/AGENT-COMPANY.md",
-    "approval_gate_backend": "BUILT+HARDENED (not deployed). build/typecheck green, 12/12 tests. migration drizzle/0003_growth_approval_gate.sql (NOT pushed)"
-  },
-  "harden": "GATE2 ready: code-review FIX-FIRST -> all fixed; security CRITICAL authz now fail-closed + HIGH secret enforced; 3 MAJORs fixed; criticals/blockers=0. Re-verified build+typecheck+12 tests.",
-  "founder_actions_to_go_live": [
-    "Set FOUNDER_TG_USER_ID (your Telegram user id) + GROWTH_TELEGRAM_CHAT_ID (or reuse OPS_TELEGRAM_CHAT_ID)",
-    "Set TELEGRAM_WEBHOOK_SECRET in prod (now hard-required)",
-    "Set POSTIZ_URL + POSTIZ_API_KEY (from your Postiz instance settings)",
-    "Connect social channels inside Postiz (FB/IG/YouTube/TikTok/LinkedIn)",
-    "Confirm exact Postiz /public/v1 endpoint shapes against your instance before first real publish"
+  "gates_passed": [
+    "GATE1 plan 2026-06-14",
+    "M1 GATE2 ship 2026-06-14 (foundation backend; deploy pending founder env)",
+    "GATE1 M2 2026-06-14 (build drafts now)"
   ],
-  "notes": "GATE2 = ship the foundation backend (commit + deploy migration to prod postiz-postgres + deploy apps/server + founder env). Strategy/skills/brand/docs already done (no deploy). Next milestone M2 = content+SEO engine wired through this gate. Prior missions archived under archive/2026-06-14-pre-growth/."
+  "m1": "COMPLETE. Deploy pending founder env.",
+  "m2": "BUILT (drafts): CONTENT-M2.md (30-day calendar + 3 lead magnets) + calendar.json; SEO-GEO-PLAN.md (pillar+14 supporting+4 comparison pages, schema, GEO); content autopilot backend (seed-growth-content.ts + draftDueSocialPosts daily tick, gated, 18 tests). Publishing pending M1 deploy + Postiz connect.",
+  "blockers_founder_decisions": {
+    "SEO_ssr": "CRITICAL — apps/web is SPA with no SSR/pre-render; SEO/GEO pages invisible to AI+Google crawlers until fixed (vite-plugin-ssg OR static /blog site). Architecture decision needed.",
+    "M1_deploy_env": "Set TELEGRAM_WEBHOOK_SECRET (hard-required), FOUNDER_TG_USER_ID, GROWTH_TELEGRAM_CHAT_ID, POSTIZ_URL/KEY; apply migration 0003; deploy; connect Postiz channels; run /api/fn/growth-test-approval."
+  },
+  "next_after_gate2": "M3 Lead-gen+funnel (lead magnets -> /api/public/demo-lead -> marketingLeads -> nurture via admin-marketing tables). Or resolve SSR blocker to unlock SEO publishing.",
+  "concurrency_note": "Separate active dev stream commits to master (HEAD past 6921533). Coordinate releases; growth code intact.",
+  "notes": "Loop = autonomous, gate at milestones. Prior missions archived under archive/2026-06-14-pre-growth/."
 }

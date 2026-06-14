@@ -1,0 +1,363 @@
+[
+  {
+    "day": 1,
+    "pillar": "BD Seller Survival Guide",
+    "platform": [
+      "Facebook"
+    ],
+    "format": "Image Post",
+    "hook": "পেজ ব্যান হলে আপনার ৫০,০০০ কাস্টমার লিস্ট কোথায় যায়? কোথাও না — যদি সেটা আপনার নিজের সার্ভারে থাকে।",
+    "caption": "গত বছর একজন দোকানদার আমাকে বলেছিল — 'আমার ৮ বছরের পেজ, ৪৮,০০০ ফলোয়ার, সবকিছু মেটা বন্ধ করে দিয়েছে।' তার কাস্টমারদের সাথে যোগাযোগের কোনো উপায় ছিল না। এটাই ঘটে যখন আপনার সব ডেটা ফেসবুক সার্ভারে থাকে। একটা টিক মার্ক পড়ে যায়, আপনার পুরো ব্যবসা চলে যায়। কিন্তু যদি আপনার কাস্টমার লিস্ট, চ্যাট, অর্ডার — সবকিছু আপনার নিজের সার্ভারে থাকত? ফেজ তখন যা খুশি করতে পারত। আপনার ডেটা আপনার থাকত। **দোকান চালু সিস্টেম** এটাই করে। নিজের সার্ভারে চলে, মেটা বন্ধ করলেও আপনার ব্যবসা বন্ধ হয় না। পূরো চেকলিস্ট পাবেন কমেন্টে।",
+    "cta": "পেজ ব্যান থেকে সুরক্ষা পাবার উপায় — লিংক কমেন্টে 👇",
+    "media_direction": "Dark card (World B) with white Bangla headline \"আপনার ডেটা = আপনার হাতে\" + image of a customer list inside a phone/server (clean icon style, no people). Violet accent on the \"আপনার\" text."
+  },
+  {
+    "day": 2,
+    "pillar": "Order Operations",
+    "platform": [
+      "Instagram"
+    ],
+    "format": "Short-Form Video (15–30 sec)",
+    "hook": "কাস্টমার 'নিব' — আর ৩ সেকেন্ডে অর্ডার তৈরি, Pathao বুক, ভোক্তা ডেলিভারি পাচ্ছে। আপনি যা করছেন না।",
+    "caption": "ভিডিওতে কী দেখছেন: ১. কাস্টমার WhatsApp এ লিখল 'দাম কত, ডেলিভারি কোথায়' २. সিস্টেম অটো-রিপ্লাই দিল 'রেডি, Pathao বুক করি?' ३. দোকানদার পুশ বাটন দিল ४. অর্ডার তৈরি হল, Pathao বুক হল, রেডি স্লিপ বেরিয়ে গেল। এটাই। আপনি অবশ্যি করে কিছু করলেন না। যখন ঘুমাচ্ছিলেন তখনও কাজ হচ্ছিল।",
+    "cta": "চাইলে এক মাস ফ্রি try করে দেখুন — লিংক কমেন্টে",
+    "media_direction": "Real app screenshot animation (World A orange + cream) showing WhatsApp chat → order card appearing → Pathao popup. Add green checkmark ticks for each step. 15–20 sec looping."
+  },
+  {
+    "day": 3,
+    "pillar": "Behind the Store",
+    "platform": [
+      "Facebook"
+    ],
+    "format": "Carousel (3 images)",
+    "hook": "রহিম সাহেব প্রতিদিন রাত ২টায় জেগে থাকত অর্ডার মিস হবে ভয়ে। এখন ২টায় থাকে স্বপ্নে।",
+    "caption": "Image 1: রহিম সাহেব, শাহবাগ, ঢাকা। কাপড় বিক্রি করেন WhatsApp এ। Image 2: 'আগে রাতে ঘুমাতে পারতাম না। ২-৩টা বেলা জেগে চেক করতাম — কোনো মেসেজ আসলো কিনা মিস হয়ে গেলো কিনা। মাথা ধরে যেত।' Image 3: 'এখন নিশ্চিন্তে ঘোমাই। মেসেজ এলে সিস্টেম সবকিছু করে দেয়। সকালে উঠে দেখি ৫-৬টা অর্ডার বুক করা আছে, গ্রাহক অপেক্ষা করছে। এটা কী ব্যাপার!' Final Card: 'অর্ডার মিস হলে মাসিক ৳৫,০০০–১০,০০০ লস। একটা সিস্টেম দিয়ে যা সেইভ করা যায়।'",
+    "cta": "আপনার দোকানেও সম্ভব — স্টোরি লিংক এ যান",
+    "media_direction": "Image 1: Real photo of Rahim at packing table, phone in hand. Image 2: Dark card with moon emoji, Bangla quote in Noto Serif Bengali, orange pillar tag. Image 3: Same setting, happy expression, green checkmark overlay + order card on screen."
+  },
+  {
+    "day": 4,
+    "pillar": "AI in Bangla",
+    "platform": [
+      "Instagram"
+    ],
+    "format": "Image Post",
+    "hook": "কাস্টমার বাংলায় লিখল 'স্টক শেষ?' — AI বাংলায় দিল উত্তর, একদম দোকানদারের মতো। কাস্টমার বুঝতেই পারল না যে মেশিন রেপ্লাই করেছে।",
+    "caption": "AI Bangla এর একটা গুরুত্বপূর্ণ কাজ — কাস্টমারকে ফিলিং দেওয়া যে একজন মানুষ রেপ্লাই করছে। শুধু তথ্য দেওয়া নয়। দেখুন এই চ্যাটে: — 'দাম কত, বাচ্চাদের জন্য কতো সাইজে আছে, COD তো পাওয়া যাবে?' — সিস্টেম: 'হ্যাঁ ভাই, ৩-৪ সাইজ আছে, সব COD যায়। ছবি পাঠাই এক মিনিটে দেখ।' এটা শুধু একটা গাইডলাইন নয় — এটা আসল দোকানদারের টোন। কথা বলার ধরন। কাস্টমার চিন্তা করে 'ও, কেউ একজন বসে আছে ফোনে।' আর আপনি? ঘুমাচ্ছেন।",
+    "cta": "Bangla AI রেপ্লাই টেমপ্লেট ৫০টা পাবেন ফ্রি — লিংক কমেন্টে দিচ্ছি",
+    "media_direction": "Dark card (World B) with two chat bubbles: left side muted gray (customer, Bangla in Hind Siliguri), right side violet (AI reply, natural Bangla tone). Headline \"AI যা বাংলা বোঝে\" in Noto Serif Bengali above. Green checkmark or small \"answered instantly\" badge."
+  },
+  {
+    "day": 5,
+    "pillar": "BD Seller Survival Guide",
+    "platform": [
+      "YouTube"
+    ],
+    "format": "Short-Form Video (30–45 sec)",
+    "hook": "Meta Policy ভেঙে দিল? জরুরি ৫টি কাজ যা পরের ১ ঘণ্টায় করতে হবে। এটা না করলে আরও ৪৮ ঘণ্টা গড়ে ban থাকে।",
+    "caption": "পেজ suspend হলে প্যানিক করার দরকার নেই। কিন্তু এই ৫টা কাজ দেরি করলে দুর্ভোগ বাড়বে। १. অভিযোগ করুন — মেটা অ্যাপে 'Appeal' বাটন। প্রথম ২ ঘণ্টায় করলে রেসপন্স দ্রুত আসে। २. WhatsApp এ অর্ডার নিতে শুরু করুন — পেজ ছাড়াই আপনার কাস্টমার রিচ করুন। ३. ডেটা ব্যাকআপ নিন — আপনার চ্যাট হিস্ট্রি, কাস্টমার লিস্ট সেইভ করুন। ४. টেলিগ্রাম/WhatsApp চ্যানেল বানান — ফিউচার অর্ডারের জন্য. ५. আমাদের জাজে পড়ুন — ৪৮ ঘণ্টার মধ্যে পেজ ফেরত পেতে সাহায্য করব।",
+    "cta": "সম্পূর্ণ Ban Recovery Checklist পাবেন — প্রোফাইল লিংকে যান",
+    "media_direction": "Fast-paced cuts, each step highlighted with red text (World B background), simple icons for each action. Urgent but calm tone. Professional Bangla voiceover."
+  },
+  {
+    "day": 6,
+    "pillar": "Order Operations",
+    "platform": [
+      "Facebook"
+    ],
+    "format": "Carousel (4 images)",
+    "hook": "ভুয়া COD অর্ডারে প্রতি মাসে গড়ে ৳৩,२००  লস। এই ৩টা মেসেজ অটো পাঠিয়ে ৫০% কমানো যায়।",
+    "caption": "Image 1: 'ভুয়া COD থেকে ৳३,२००/মাস বাঁচান' Image 2: 'কাস্টমার অর্ডার করল, ডেলিভারি কল করল, আমি নিচ্ছি না। পুরো টাকা লস।' Image 3: 'অর্ডার কনফার্ম হলে তিনটা মেসেজ অটোমেটিক যায়: १) অর্ডার কনফার্ম হয়েছে, ৳१,५००, কাল ডেলিভারি २) পেমেন্ট রেডি? হ্যাঁ/না ३) অ্যাড্রেস কনফার্ম, এক্সপ্রেস ডেলিভারি সম্ভব কিনা?' Image 4: 'বিক্রেতারা বলেন — এই ३টা মেসেজে ४५-६०% fake orders আগেভাগে ধরা পড়ে।'",
+    "cta": "COD Confirmation Sequence activate করুন — १ মাস ফ্রি — লিংক কমেন্টে",
+    "media_direction": "Each card on clean World A (cream) background with Bangla headline in orange-on-white. Icons for each step. Tabular numbers in orange. Final card has green checkmark and 'Proven' badge."
+  },
+  {
+    "day": 7,
+    "pillar": "AI in Bangla",
+    "platform": [
+      "TikTok"
+    ],
+    "format": "Trend-Jacking Skit (15 sec)",
+    "hook": "পিতা মা অর্ডার ম্যানেজ করছে AI দিয়ে। ছেলে ভাবছে 'আবার একটা ফাংশন লিখছে।' বাস্তব।",
+    "caption": "Scene 1: Parent checking WhatsApp inbox, confused expression. Scene 2: Parent opens What A App, taps AI Reply button, amazed. Scene 3: Son walks in, assumes it's code. Parent says 'Na beta, eta system. Auto-reply korche.' Scene 4: Both laughing.",
+    "cta": "For Parents Who Run Shops 👇 Try for Free",
+    "media_direction": "Use trending audio (Bangla comedy/upbeat track), TikTok vertical 1080×1920. Safe text in central 1080×1250 band."
+  },
+  {
+    "day": 8,
+    "pillar": "Behind the Store",
+    "platform": [
+      "Instagram"
+    ],
+    "format": "Reel (30–45 sec)",
+    "hook": "আমি ছিলাম 'দোকানদার যে २४/७ লগইন থাকে'। এখন? অফলাইনও বিক্রয় হচ্ছে। এটাই টার্নিং পয়েন্ট ছিল।",
+    "caption": "Farhan নির্বাচন + ডেমো: প্রথম ३ বছর २० ঘণ্টা লগইন। পরে সিস্টেম setup। এখন অফলাইনে অর্ডার আসে।",
+    "cta": "Your Story Could Be Next | Try Free Setup 👇",
+    "media_direction": "Real footage (slightly pixelated for privacy) of Farhan, desk setup, order processing. Natural Bangla narration. Green 'Success' badge at end. Vertical 1080×1920."
+  },
+  {
+    "day": 9,
+    "pillar": "BD Seller Survival Guide",
+    "platform": [
+      "LinkedIn"
+    ],
+    "format": "Text Post",
+    "hook": "३ বছরে ४८,०००  followers এবং १० লক্ষ টাকার মাসিক বিক্রয়। পেজ ব্যান হলো। ७२ ঘণ্টায় কোনো কিছু না।",
+    "caption": "একটা stories শোনাই। আব্বা Facebook এ একটা lifestyle পেজ চালাত। ४८,००० followers। নিয়মিত १० লক্ষ টাকার অর্ডার আসত। সেপ্টেম্বরের এক শুক্রবার পেজ ban হয়ে গেল। তিন দিন কোনো যোগাযোগ ছিল না। এর পর যা হয়েছে: ३० দিন কোনো অর্ডার নেই, কাস্টমাররা ভুলে গেছে, ব্যবসা শূন্যে নামিয়ে আসা হয়েছে। **এটাই যে কারণে নিজের সার্ভারে থাকা গুরুত্বপূর্ণ।**",
+    "cta": "আপনার ডেটা সুরক্ষিত করতে চান? DM করুন।",
+    "media_direction": "Simple text post (LinkedIn native), no image. Professional tone, authentic storyteller voice."
+  },
+  {
+    "day": 10,
+    "pillar": "Order Operations",
+    "platform": [
+      "Instagram"
+    ],
+    "format": "Image Post",
+    "hook": "Nagad, bKash, USDT — কাস্টমার যেটা চায় সেটা দিয়ে পেমেন্ট করতে পারে। আপনি? কোথাও পেমেন্ট লিংক পাঠাতেও পারছিলেন না।",
+    "caption": "একটা মেসেজ যা গত সপ্তাহে একজন seller পাঠিয়েছিল: 'ভাই, আমি bKash দিয়ে নিতে পারি?' আগে? অটো-রিপ্লাই নেই বলে মেসেজ মিস হত। এখন? ०१ অর্ডার কনফার্ম হলে সিস্টেম দিচ্ছে তিনটা অপশন: — bKash (সবচেয়ে দ্রুত) — Nagad — USDT কাস্টমার যেটা চাইবে সেটা চয়ন করবে।",
+    "cta": "সব পেমেন্ট গেটওয়ে একসাথে কানেক্ট করুন — লিংক কমেন্টে",
+    "media_direction": "Clean World A (cream) with three payment tiles (bKash, Nagad, USDT). Orange accent. Bangla text in Hind Siliguri."
+  },
+  {
+    "day": 11,
+    "pillar": "AI in Bangla",
+    "platform": [
+      "Facebook"
+    ],
+    "format": "Carousel (3 images)",
+    "hook": "AI বাংলা শিখেছে। এখন বুঝে — 'নিব' = নিতে চাই, 'দামটা?' = মূল্য কত, 'পাঠাস' = ডেলিভারি করুন।",
+    "caption": "Image 1: 'AI যা Dhaka Bangla বোঝে' Image 2: Chat Example — Customer: 'দাম টা কত, কোয়ালিটি ভালো?' AI: 'ভাই ८५० টাকা, কটন १००%, হাতে পালিশ করা।' Image 3: Chat Example 2 — Customer: 'স্টক আছে?' AI: 'হ্যাঁ, আছে। কোন সাইজ চাও?'",
+    "cta": "বাংলা AI Chat Template সম্পূর্ণ ফ্রি PDF পাবেন — লিংক কমেন্টে",
+    "media_direction": "Chat bubble cards (WhatsApp-style) with customer message on left (muted gray), AI reply on right (violet/green). Bangla font: Hind Siliguri for bubbles, Noto Serif Bengali for titles."
+  },
+  {
+    "day": 12,
+    "pillar": "Behind the Store",
+    "platform": [
+      "TikTok"
+    ],
+    "format": "Interview Snippet (30 sec)",
+    "hook": "সাবেক জঞ্জাল বিক्রেतা এখন 'অটোমেশন বিশ্বাসী'। কীভাবে?",
+    "caption": "Before/After: Intro २: 'I was manually replying to ५० messages a day.' Snippet १: Frustrated seller typing. Snippet २: Relaxed seller checking system. Quote: 'প্রথম দিন ভেবেছিলাম এটা কাজ করবে না। এখন দেখি অর্ডার গুলো নিজেই তৈরি হচ্ছে।'",
+    "cta": "Try ७-Day Free Setup | Link in Bio",
+    "media_direction": "Quick cuts, trending Bangla audio. Text overlays bold. Safe zone १०८०×१२५०."
+  },
+  {
+    "day": 13,
+    "pillar": "BD Seller Survival Guide",
+    "platform": [
+      "Facebook"
+    ],
+    "format": "Video + Text Post",
+    "hook": "এই ३টা ভুল করলে Meta ban হওয়ার চান्স ९५% বাড়ে।",
+    "caption": "गत मासे आमरा देखेछि — सबचेয়ে बेशি ban यो कारणे होय: १) Direct sales links in every post २) Spammy hashtags३) Fake reviews + engagement pods। These तीनटा एड़ियो चलुन, पेज safe thakbe।",
+    "cta": "पूर्ण Meta Safety Checklist पाबेन (PDF) — लिङ्क कमेन्टे",
+    "media_direction": "Video showing violations (do/don't side-by-side), simple animation. Dark cards. 1–2 min video max."
+  },
+  {
+    "day": 14,
+    "pillar": "Order Operations",
+    "platform": [
+      "YouTube"
+    ],
+    "format": "Shorts (20–30 sec)",
+    "hook": "দেখুন কীভাবে একটা chat message থেকে ३० সেকেন্ডে অর্ডার স্লিপ নিয়ে আসলো।",
+    "caption": "Customer লিখল: 'Eid-এর জন্য কাপড় দরকার, red color, Large size।' System কী করেছে: extract করেছে, order card তৈরি করেছে, address ask করেছে, ready slip বের করেছে। সবকিছু ३० সেকেন্ডে।",
+    "cta": "This is Automation, Not Magic | Free Trial 👇",
+    "media_direction": "Real screen recording of chat-to-order process. Highlight extraction points. Fast-paced, clean transitions."
+  },
+  {
+    "day": 15,
+    "pillar": "AI in Bangla",
+    "platform": [
+      "Instagram"
+    ],
+    "format": "Text-in-Image Post",
+    "hook": "AI বলে 'ভাই, খুব ভালো পণ्य, अवश्यि कিনবेন' — কাস्टमার ভাবে এ दোকानदार भालोmanushо हे।",
+    "caption": "AI Bangla voice आपnoর دোকানدारকোਮানবिক करे तोले। पहिलो: Generic: 'Available in stock।' दुसरो: Bangla-AI: 'भाई, यो आइटेम खुब भालो, आपको पसन्द हुनेछ।' कास्टमर पार्थक्य बुज़े।",
+    "cta": "আপনার দোকানের জন्য Custom Bangla Templates — स्टोरी लिङ्कে",
+    "media_direction": "Split-screen: Generic vs. Bangla-warmth. Different colors (gray vs. warm orange). Typography emphasis on feeling words."
+  },
+  {
+    "day": 16,
+    "pillar": "Behind the Store",
+    "platform": [
+      "LinkedIn"
+    ],
+    "format": "Thought Leadership Post",
+    "hook": "Bangladesh ছোट দোকানদার যারা system নিতে চায় না, তাদের constraint কী? টাকা নয়, বিশ्वাস।",
+    "caption": "গত ছয় মাসে २००+ seller কে লাইভ ডেমো দিয়েছি। ८०% skeptical থাকে। কারণ: 'আগे কেউ আমাদের জন्य सिस्टem बانाinе नी।' यो भय आমরा बुズি। এবং এজন्যই প्রথম ७ दिन फ्री।",
+    "cta": "আমাদের গল्प पড़ुन — लिङ्क profile भ",
+    "media_direction": "Plain text, no image. Professional LinkedIn format. Authentic, vulnerable tone."
+  },
+  {
+    "day": 17,
+    "pillar": "BD Seller Survival Guide",
+    "platform": [
+      "Instagram"
+    ],
+    "format": "Infographic Post",
+    "hook": "पेज ব्यান होওয়ার ७টি warning sign। प्रথম ३टि दেখলেই action निन।",
+    "caption": "Infographic (vertical १०८०×१३५०): Title 'Meta Ban Warning Signs' + ७ cards: १) Reach drops २) Story view drop३) Message delay ४) Comment restriction ५) Link restrictions६) Like/share limits७) Shadow ban",
+    "cta": "Full Action Plan पाबेन — लिङ्क कमेन्टे",
+    "media_direction": "Dark World B background, each warning in distinct card with orange highlight. Simple icons. Bangla in Noto Serif Bengali, Hind Siliguri for descriptions."
+  },
+  {
+    "day": 18,
+    "pillar": "Order Operations",
+    "platform": [
+      "Facebook"
+    ],
+    "format": "Text + Image Post",
+    "hook": "Redx vs Pathao vs Steadfast — कोনटা आपको दोकानको लागि सेरो? हामीरु test गरेको छु।",
+    "caption": "Comparison: Redx (२ घण्टा pickup, ९४% reliable), Pathao (४-६ घण्टा, real-time tracking), Steadfast (२४ घण्टा, cheapest) | Smart move: सब तिनटा integrate गरो, system automatically छान्न हुन्छ।",
+    "cta": "आपको delivery integration setup गर्नुहोस् — लिङ्क कमेन्टे",
+    "media_direction": "Comparison table (३ columns), orange headers, World A cream background. Real icons from each partner. Keep JSON-safe for carousel export."
+  },
+  {
+    "day": 19,
+    "pillar": "AI in Bangla",
+    "platform": [
+      "YouTube"
+    ],
+    "format": "Tutorial (३–५ min)",
+    "hook": "बङ्गला AI reply templates यो convert गर्छ — ५०টा real messages यो बिक्रि बाढाय়।",
+    "caption": "Video outline: १. Price inquiry २. COD confirmation३. Out of stock४. Delivery delay५. Complaint। प्रतिटा scenario को लागि: original message, AI-suggested reply (EN), localized Bangla reply, conversion rate।",
+    "cta": "PDF पाबेन description मा। आपको दोकानमा use गर्नुहोस् ३० दिन फ्री।",
+    "media_direction": "Screen recording of AI interface + text overlays. Show conversion metrics. Professional Bangla voiceover."
+  },
+  {
+    "day": 20,
+    "pillar": "Behind the Store",
+    "platform": [
+      "Facebook"
+    ],
+    "format": "Story Series (5 images, 1 post)",
+    "hook": "सबैको कहानी एक नहोइन। तीन किसिमको दोकानदार, तीन किसिमको समस्या, तीन किसिमको समाधान।",
+    "caption": "Story १: Rehana, Gulshan, clothes, ५००+ daily inquiries, missing ३०%, result +४०% orders। Story २: Kamal, Sylhet, electronics, long sales cycle, ५०% reduction। Story३: Yasmin, Chittagong, handmade, material questions, २५% fewer returns। Closing: 'तीन भिन्न दोकान, एकै समाधान।'",
+    "cta": "आपको कहानी शेयर गर्नुहोस् — comment मा लेख्नुहोस्",
+    "media_direction": "१–२ photo per seller (workspace, happy), simple text overlay. १–२ min each. Warm, authentic tone."
+  },
+  {
+    "day": 21,
+    "pillar": "BD Seller Survival Guide",
+    "platform": [
+      "TikTok"
+    ],
+    "format": "Animated Explainer (२०–३० sec)",
+    "hook": "मेटा को TOS भेङ्क्सलो कि हुनेछ? Ban → Appeal → Recovery → Normal। सम्पूर्ण timeline ४८ घण्टामा।",
+    "caption": "Animation sequence: 'You Violate' → 'Page Suspended' → 'Appeal within २४h' → 'Provide Evidence' → 'Wait १२-२४h' → 'Restored or Rejected' → 'Pro Tip: Don't break rules'",
+    "cta": "Recovery Checklist Free | Bio Link 👆",
+    "media_direction": "Simple, flat animation. Bright colors (orange, green, red). १०८०×१९२० vertical. Safe text in center."
+  },
+  {
+    "day": 22,
+    "pillar": "Order Operations",
+    "platform": [
+      "Instagram"
+    ],
+    "format": "Carousel (2 images + video reference)",
+    "hook": "Bkash automatic settlement लागेको आपको एकाउन्टमा? Nagad किन hold गरिरहेको छ? यो payment gateway game हो।",
+    "caption": "Image १: 'Payment Settlement किन मिसको हुन्छ' | Image २: Timeline comparison: bKash (१८-१९ hours), Nagad (२-३ days), USDT (२ minutes) | Image३: 'सब gateway एकसाथ use गर्दा कि हुन्छ?'",
+    "cta": "सब gateway setup गर्नुहोस् — लिङ्क कमेन्टे",
+    "media_direction": "Timeline diagram for each. Icons for gateways. Orange highlights on fastest. World A cream background।"
+  },
+  {
+    "day": 23,
+    "pillar": "AI in Bangla",
+    "platform": [
+      "Facebook"
+    ],
+    "format": "Long-Form Text Post",
+    "hook": "AI बङ्गला सिकलो पनि एक कुरा आयत्त गर्न पारेन — seller को personality। अब पारेको छ।",
+    "caption": "AI Bangla एक जटिल भाषा सिकेको छ। कति seller एक casual, कति formal, कति funny छन्। यहीमै समस्या ছিল। Generic AI replies सब seller लाई same tone दिन्थे। Customer confused हुन्थे। अब? AI seller personality detect गर्छ। Casual रहेन casual रहन्छ, formal रहेन formal। नतीजा? Customer feel गर्छ 'same person replying'।",
+    "cta": "आपको personality signature चिन्न, ७-day free test setup गर्नुहोस्।",
+    "media_direction": "Plain text, no heavy graphics. Use quotes and line breaks. Authentic seller-to-seller voice."
+  },
+  {
+    "day": 24,
+    "pillar": "Behind the Store",
+    "platform": [
+      "Instagram"
+    ],
+    "format": "Story Highlight Teaser (१५ sec)",
+    "hook": "प्रथम order को पछि कास्टमर सन्तुष्ट। दुसरो order को अगाडि जो घटन्छ — यो retention game हो।",
+    "caption": "Video: Scene १: Customer happy unboxing। Scene २: 'Thank you' message (auto) in WhatsApp। Scene३: Feedback request। Scene४: Customer २-star review (auto coupon)। Scene५: Retention offer (next २०% off)। Close: 'Retention isn't luck, it's system।'",
+    "cta": "See Full Behind-the-Scenes Story | Highlight in Bio",
+    "media_direction": "Quick, upbeat cuts. Real screenshots + lifestyle photos. Vertical १०८०×१९२०. Green 'Success' badges for each step।"
+  },
+  {
+    "day": 25,
+    "pillar": "BD Seller Survival Guide",
+    "platform": [
+      "YouTube"
+    ],
+    "format": "Case Study (८–१० min)",
+    "hook": "शाहिदुल साहेब ३ बार पेज ban खेयेको। अब? कोनो ban नै छैन।",
+    "caption": "Video outline: Intro १ min + Ban १ (link spamming) १.५ min + Ban २ (fake engagement) १.५ min + Ban३ (competitor report) १.५ min + Ban४ (TOS violation) १.५ min + Recovery system २ min + Closing १ min। Interview-style + screen recordings.",
+    "cta": "Complete Ban Recovery Playbook — PDF in description।",
+    "media_direction": "Interview (Shahidur on-camera) + screen recordings. Real data/proof. Honest, non-sensationalized tone."
+  },
+  {
+    "day": 26,
+    "pillar": "Order Operations",
+    "platform": [
+      "Facebook"
+    ],
+    "format": "Live Stream Announcement (Static Image + Caption)",
+    "hook": "आगामीकाल Live Demo — दिखाऊ एक order १ मिनिटमा तयार, book, confirm सब।",
+    "caption": "आगामीकाल [Date] ७:०० PM Facebook Live मा join गर्नुहोस्। दिखाऊ: Real order → Auto order building → Payment link → Pathao booking → Ready slip। सबकुरा ६० seconds मा। Live chat मा सोधचाह गर्न पाइनेछ। Plus: First ५० commenters ५०% off।",
+    "cta": "दिनटा नोट गर्नुहोस्, reminder set गर्नुहोस्।",
+    "media_direction": "Simple graphics: clock (७ PM), 'Live Demo' badge, orange accent. Show ४–५ process screenshots in grid."
+  },
+  {
+    "day": 27,
+    "pillar": "AI in Bangla",
+    "platform": [
+      "TikTok"
+    ],
+    "format": "Trend Jacking (१५ sec)",
+    "hook": "POV: तपाई customer हुन। 'seller' बङ्लामा reply गरिरहेको AI हो। कुनै आइडिया नै छैन।",
+    "caption": "Scene १: Customer typing Bangla (emoji reaction) | Scene २: AI reading Bangla (brain icon) | Scene३: Customer amazed reply | Scene४: 'It was AI all along' reveal | Final: 'Can't tell the difference'",
+    "cta": "Experience AI That Speaks Bangla Like Your Local Shop Owner | Free Trial",
+    "media_direction": "Trend sound (upbeat Bangla audio). Quick cuts, reaction-based। Safe zone १०८०×१२५०। Vertical १०८०×१९२०।"
+  },
+  {
+    "day": 28,
+    "pillar": "Behind the Store",
+    "platform": [
+      "LinkedIn"
+    ],
+    "format": "Professional Case Study",
+    "hook": "६ staff सदस्य देखि २ मा नामिएको। कसरी? Automation।",
+    "caption": "Case study: Baseline (६ staff, ५० daily orders, ₳३.५L salary cost) → Solution (AI Bangla + auto booking + auto invoicing) → Result (२ staff, ६५ daily orders, ₳७०k salary cost, ₳२.८L monthly savings)। Year १ ROI: १२%। Staff reduction नै job elimination होइन, यो focusing humans मा हो।",
+    "cta": "Is labour cost killing your unit economics? Let's audit. DM to schedule।",
+    "media_direction": "Professional LinkedIn format, no image (or simple data viz). Clean layout, bold numbers."
+  },
+  {
+    "day": 29,
+    "pillar": "BD Seller Survival Guide",
+    "platform": [
+      "Facebook",
+      "Instagram"
+    ],
+    "format": "Dual-platform Infographic",
+    "hook": "Meta मा banned? महत्वपूर्ण नहोइन। महत्वपूर्ण — आपको कास्टमर data safe किन।",
+    "caption": "Infographic: 'Post-Ban Data Safety Checklist' | Section १: Immediate (first hour) — download data, screenshot records, backup। Section २: Recovery (first २४h) — appeal, notify customers, WhatsApp Business। Section३: Long-term (३० days) — own server, Telegram, email, multi-channel।",
+    "cta": "यो checklist प्रिन्ट गर्नुहोस्, राख्नुहोस्।",
+    "media_direction": "Vertical infographic (१०८०×१३५० Instagram, १२००×१६०० Facebook)। Three sections with colors (orange, yellow, green)। Checkbox design।"
+  },
+  {
+    "day": 30,
+    "pillar": "Order Operations",
+    "platform": [
+      "Multi-platform (All)"
+    ],
+    "format": "Celebration Post",
+    "hook": "३० दिनमा १२,०००+ sellers join गरे। तिनीहरुको order २८% बढेको। यो सिर्फ software नहोइन, यो movement हो।",
+    "caption": "३० days, १२,०००  sellers, १ mission। Numbers: ३४०,०००+ orders saved | ₳१२+ crore revenue recovered | ४५०,०००+ hours time saved | ३८% COD returns reduced | ४.७/५ rating। But सबभन्दा गर्व गरेको: 'I slept through the night for the first time in ३ years।' Next ३० days: Inventory sync, Analytics, Team management, Urdu।",
+    "cta": "Be Part of the १२,०००  | Start Free Today | Link in Comments & Bio",
+    "media_direction": "Celebration design — bright oranges, greens। Infographic (growth metrics)। Real seller testimonials। Uplifting tone। Multi-image carousel (५–६ cards per platform)।"
+  }
+]

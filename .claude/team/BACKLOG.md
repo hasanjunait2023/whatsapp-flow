@@ -4,24 +4,24 @@
 > Status: `todo` | `active` | `blocked` | `done`
 
 ## Active milestone
-- [ ] **M1: Foundation** — status: active
-  - Offer + positioning (Grand Slam Offer, Hormozi)
-  - Brand kit (visual + voice, Bangla+EN)
-  - Skills: `hormozi-growth`, `ai-search-seo`
-  - Agent-company role definitions
-  - Approval-gate plumbing (growth_approvals + Telegram ✅/❌ + company CEO report)
-  - Growth strategy doc ($100M model, organic Core Four, funnel map, after-sales journey)
+- [ ] **M2: Content + SEO engine** — status: GATE2 (buildable scope DONE)
+      DONE: 30-day calendar + 3 lead magnets (CONTENT-M2.md/calendar.json), SEO/GEO plan
+      (SEO-GEO-PLAN.md), content autopilot backend (seed + daily draft→approval tick, 18 tests).
+      BLOCKED for publish: M1 deploy (founder env) + SEO needs SPA pre-render decision.
 
 ## Queue (priority order)
-- [ ] **M2: Content + SEO engine** — Postiz adapter + social_posts + draftDailyContent;
-      SEO/GEO content clusters + content_pieces; 30-day editorial calendar (all gated)
+- [ ] **SSR/pre-render decision** (founder) — unblocks ALL SEO/GEO; vite-plugin-ssg or static /blog. apps/web architecture.
 - [ ] **M3: Lead-gen + funnel** — lead magnets; /api/public/demo-lead → marketingLeads;
       nurture via admin-marketing tables; value-first opt-in → trial
 - [ ] **M4: After-sales experience** — onboarding win-fast, milestones, NPS, referral loop, tier-up (Hermes)
 - [ ] **M5: (Gated) scale** — warm-only cold outreach; then paid/media buying behind explicit budget approval
 
 ## Done
-<!-- moved here on completion, with date -->
+- [x] **M1: Foundation** — DONE 2026-06-14. Strategy/offer/funnel/after-sales (STRATEGY.md),
+      Hormozi+BD research (RESEARCH-hormozi-bd.md), brand kit (brand/), skills
+      (hormozi-growth + ai-search-seo), agent-company def (AGENT-COMPANY.md), hardened
+      approval-gate backend (committed HEAD; migration 0003 additive; deploy via DEPLOY-M1.md).
+      GATE1+GATE2 passed. Deploy pending founder env (TELEGRAM_WEBHOOK_SECRET, FOUNDER_TG_USER_ID, POSTIZ_*).
 
 ## Follow-ups / tech debt (captured at RETRO)
 - Confirm exact Postiz `/public/v1/posts` payload shape against running VPS instance at build

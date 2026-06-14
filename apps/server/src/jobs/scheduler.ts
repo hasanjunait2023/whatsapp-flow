@@ -7,7 +7,7 @@ import { runWhatsappFollowups } from "./followups.js";
 import { processGroupAddQueue } from "../services/groups/queue-processor.js";
 import { generateDueRecurringExpenses } from "../services/accounting/recurring.js";
 import { expireStaleApprovals } from "../services/growth/approvals.js";
-import { enqueueCompanyCeoReport } from "../services/growth/index.js";
+import { enqueueCompanyCeoReport, runDailyContentDraft } from "../services/growth/index.js";
 
 /**
  * Minimal interval-based job scheduler. The plan suggested node-cron, but the
@@ -84,6 +84,10 @@ export function startScheduler(): void {
     });
     void enqueueCompanyCeoReport().catch(() => {
       // Dedupe-keyed by date; safe to call every interval. Swallow tick errors.
+    });
+    void runDailyContentDraft().catch(() => {
+      // Content autopilot: date-gated to once/day; only DRAFTS for approval,
+      // never publishes. Swallow tick errors and retry next day.
     });
     void runWebhookCleanup().catch(() => {
       // Best-effort retention; errors are non-fatal and retry next day.
