@@ -55,3 +55,10 @@ Founder GATE 2: "add mock data to make everything perfect and checked" + restore
 - Re-swept all 50 routes (26 tenant + 24 admin): ZERO crashes. Desktop + mobile screenshots confirm polished Finexy UI, populated data, app-like mobile (bottom tab bar).
 Commits: 330b74e (batch9) · 2d3c4e5 (table+gitignore) · 739460f (KPIs+seed) · 90a6379 (crash fixes).
 Phase -> SHIP. Local commits only (founder has not asked to push). Demo data + demo super-admin grant live in prod by founder request; remove before real-tenant launch if desired.
+
+## 2026-06-14 — WebSocket realtime (founder request)
+Founder asked to use WebSocket. Implemented WS as the PRIMARY realtime transport with SSE kept as automatic fallback (no realtime outage risk on the live product).
+- Server: @hono/node-ws upgrade endpoint GET /api/ws on the same port (no new port); subscribes to the existing realtimeBus with the same tenant filter as SSE; 25s app-level heartbeat. tenantMiddleware authenticates the upgrade via session cookie. SSE /api/realtime untouched. New dep @hono/node-ws (installed by the VPS build, --no-frozen-lockfile).
+- Web shim (integrations/supabase/shim/realtime.ts): WS-first (wss /api/ws) with reconnect+backoff; falls back to EventSource SSE after 3 failures; keeps a 60s background WS probe that promotes back to WS the moment it reconnects (no gap). RealtimeChannel API unchanged — zero changes to the 175 supabase-shim call sites / realtime hooks.
+- nginx (host, CF-proxied): added `$connection_upgrade` map + dedicated `location /api/ws` with Upgrade/Connection headers + 1h timeouts; backup + nginx -t + reload (repo deploy/nginx/app.conf mirrors it). Cloudflare passes WS through for proxied hostnames.
+- Verified LIVE: nginx access log shows `GET /api/ws 101` (Switching Protocols) for both a manual probe and the app's own connection via Cloudflare IPs; server sent `{type:"ready"}` (cookie auth OK); realtime-heavy pages (/dashboard /inbox /instances /admin) render with no crashes; SSE fallback present but unused. Commit e550aee.
