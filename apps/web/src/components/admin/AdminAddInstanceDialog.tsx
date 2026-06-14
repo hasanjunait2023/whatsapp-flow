@@ -192,7 +192,7 @@ export default function AdminAddInstanceDialog({
             )}
 
             <div className="flex gap-2 mt-4">
-              <Button variant="outline" onClick={refreshQR} size="sm">
+              <Button variant="outline" onClick={() => refreshQR()} size="sm">
                 Refresh QR
               </Button>
               <Button variant="ghost" onClick={handleClose} size="sm">

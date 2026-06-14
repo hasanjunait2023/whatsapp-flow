@@ -174,7 +174,7 @@ export default function AdminConnectQRDialog({
 
               {/* Refresh Button */}
               <Button
-                onClick={refreshQR}
+                onClick={() => refreshQR()}
                 disabled={isRefreshing}
                 className="mt-4"
                 variant="outline"
@@ -199,7 +199,7 @@ export default function AdminConnectQRDialog({
               <p className="text-sm text-muted-foreground mb-4 max-w-[250px]">
                 {error || 'Unable to generate QR code. Please try again.'}
               </p>
-              <Button onClick={refreshQR} disabled={isRefreshing}>
+              <Button onClick={() => refreshQR()} disabled={isRefreshing}>
                 {isRefreshing ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (

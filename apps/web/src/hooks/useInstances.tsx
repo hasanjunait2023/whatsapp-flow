@@ -63,7 +63,13 @@ export function useInstances() {
       return filteredData;
     },
     enabled: !!currentTenant && accessLoaded,
-    staleTime: 1000 * 60 * 5, // 5 minutes - instances don't change often
+    // Connection status (disconnected -> active) changes out-of-band when a user
+    // links WhatsApp via QR — the WAHA webhook flips the DB row. With no realtime
+    // push reaching this query, a long staleTime left the dashboard showing a
+    // stale "disconnected" after a successful scan. Poll so status converges.
+    staleTime: 1000 * 5,
+    refetchInterval: 1000 * 10,
+    refetchOnWindowFocus: true,
   });
 
   const createMutation = useMutation({
