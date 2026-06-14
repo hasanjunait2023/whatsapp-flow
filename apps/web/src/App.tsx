@@ -157,8 +157,6 @@ function GlobalErrorHandler({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Handle unhandled promise rejections
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      console.error('Unhandled promise rejection:', event.reason);
-
       const errorMessage = event.reason?.message || event.reason?.toString() || 'Unknown async error';
       reportError(errorMessage, { type: 'js', action: 'unhandled_rejection' });
 
@@ -168,8 +166,6 @@ function GlobalErrorHandler({ children }: { children: React.ReactNode }) {
 
     // Handle JavaScript runtime errors
     const handleGlobalError = (event: ErrorEvent) => {
-      console.error('Global error:', event.error);
-
       const errorMessage = event.error?.message || event.message || 'Unknown error';
       reportError(errorMessage, {
         type: 'js',

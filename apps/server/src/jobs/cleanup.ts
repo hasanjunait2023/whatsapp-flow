@@ -2,6 +2,7 @@ import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { dbAll, dbRun } from "../db/raw.js";
 import { MEDIA_DIR } from "../lib/env.js";
+import { logger } from "../lib/logger.js";
 
 /**
  * Retention sweeps ported from the Supabase cron edge functions:
@@ -16,6 +17,9 @@ import { MEDIA_DIR } from "../lib/env.js";
 const MEDIA_RETENTION_DAYS = 30;
 const WEBHOOK_RETENTION_DAYS = 3;
 const NOTIFICATION_RETENTION_DAYS = 30;
+const ERROR_LOG_RETENTION_DAYS = 30;
+// Hard ceiling so a burst of errors can't fill the disk between daily sweeps.
+const ERROR_LOG_MAX_ROWS = 100_000;
 const MEDIA_TYPES = ["image", "video", "audio", "voice", "ptt"];
 const BATCH_SIZE = 500;
 
@@ -110,4 +114,34 @@ export async function runWebhookCleanup(): Promise<WebhookCleanupResult> {
   ).changes;
 
   return { webhookEventsDeleted, notificationsDeleted };
+}
+
+export interface ErrorLogCleanupResult {
+  expiredDeleted: number;
+  overflowDeleted: number;
+}
+
+/**
+ * error-log retention: error_logs is a public, unauthenticated sink (frontend
+ * client-errors land here too) with no built-in pruning, so without this it
+ * grows without bound — a disk-fill DoS. Prunes rows past the retention window
+ * AND caps total rows so a burst can't outrun the daily window.
+ */
+export async function runErrorLogCleanup(): Promise<ErrorLogCleanupResult> {
+  const expiredDeleted = (
+    await dbRun("DELETE FROM error_logs WHERE created_at < ?", cutoffIso(ERROR_LOG_RETENTION_DAYS))
+  ).changes;
+
+  const overflowDeleted = (
+    await dbRun(
+      `DELETE FROM error_logs
+         WHERE id IN (
+           SELECT id FROM error_logs ORDER BY created_at DESC OFFSET ?
+         )`,
+      ERROR_LOG_MAX_ROWS,
+    )
+  ).changes;
+
+  logger.info("error_log_cleanup", { expiredDeleted, overflowDeleted });
+  return { expiredDeleted, overflowDeleted };
 }

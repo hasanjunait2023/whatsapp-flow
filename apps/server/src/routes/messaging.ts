@@ -31,6 +31,7 @@ interface ContactRow {
   instance_id: string | null;
   wa_id: string;
   phone_number: string;
+  opted_out: boolean;
 }
 
 interface InstanceRow {
@@ -212,7 +213,7 @@ export async function sendMessage(rawBody: Record<string, unknown>, ctx: FnConte
   }
 
   const contact = (await dbGet(
-    "SELECT id, tenant_id, instance_id, wa_id, phone_number FROM contacts WHERE id = ? LIMIT 1",
+    "SELECT id, tenant_id, instance_id, wa_id, phone_number, opted_out FROM contacts WHERE id = ? LIMIT 1",
     body.contact_id,
   )) as ContactRow | undefined;
   if (!contact) {
@@ -258,12 +259,27 @@ export async function sendMessage(rawBody: Record<string, unknown>, ctx: FnConte
 
   // Per-number rate limit: proactive sends capped, reactive replies bypass.
   const reactive = await isReactive(contact.id);
+
+  // Opt-out gate (ban-risk + legal): never send a proactive/campaign message to
+  // a contact who replied STOP. Reactive replies to an active conversation are
+  // allowed (they re-engaged us), and admins are not exempt — a ban hits the
+  // tenant's number regardless of who triggered the send.
+  if (!reactive && contact.opted_out) {
+    return {
+      data: { success: false, error: "Contact has opted out of messages", code: "OPTED_OUT" },
+      error: null,
+    };
+  }
+
   const decision = outboundRateLimiter.check(instance.id, reactive);
   if (!decision.allowed) {
+    const isDaily = decision.reason === "daily";
     return {
       data: {
         success: false,
-        error: "Hourly send limit reached for this number. Slow down to avoid a WhatsApp ban.",
+        error: isDaily
+          ? "Daily send limit reached for this number. Spread sends across days to avoid a WhatsApp ban."
+          : "Hourly send limit reached for this number. Slow down to avoid a WhatsApp ban.",
         code: "RATE_LIMITED",
       },
       error: null,

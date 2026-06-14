@@ -78,8 +78,15 @@ export async function enqueueJob(opts: EnqueueOptions): Promise<string> {
  * Run this at startup: any 'running' row older than the threshold is an orphan
  * from a previous process (the single in-process worker never runs two at once),
  * so re-queueing is safe and idempotent.
+ *
+ * The threshold is 15 min so it comfortably exceeds max job runtime plus the 5s
+ * shutdown grace. During a rolling deploy the OLD process can still be draining a
+ * long-running 'running' job while the NEW process boots; a tighter threshold
+ * would let the new process re-queue that job and double-execute non-idempotent
+ * work. 15 min ensures only genuinely orphaned rows (well past any live job) are
+ * reaped.
  */
-export async function reapStuckJobs(olderThanMs = 5 * 60 * 1000): Promise<number> {
+export async function reapStuckJobs(olderThanMs = 15 * 60 * 1000): Promise<number> {
   const cutoff = new Date(Date.now() - olderThanMs).toISOString();
   const res = await dbRun(
     `UPDATE job_queue SET status = 'queued', updated_at = ?

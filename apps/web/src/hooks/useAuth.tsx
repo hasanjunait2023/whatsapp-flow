@@ -36,13 +36,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const { data: { session: recovered } } = await supabase.auth.getSession();
           if (recovered) {
-            console.log(`[Auth] Session recovered on retry attempt ${attempt + 1}`);
             setSession(recovered);
             setUser(recovered.user);
             return true;
           }
-        } catch (err) {
-          console.warn(`[Auth] Retry attempt ${attempt + 1} failed:`, err);
+        } catch {
+          // Transient error (504/network) — keep retrying, never log out.
         }
       }
       return false;
@@ -76,28 +75,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Session is null but NOT a sign-out — likely a token refresh failure (504 timeout)
         // Only attempt recovery if we previously had a session
         if (hadSession) {
-          console.warn(`[Auth] Null session on event "${event}" — attempting recovery (had previous session)...`);
           const recovered = await retryGetSession();
           if (recovered) {
             hadSession = true;
           } else {
-            // Even after all retries failed, check localStorage for persisted session
-            // before giving up — the SDK may recover on its own
-            console.warn('[Auth] All retries failed — checking for persisted session...');
+            // All retries exhausted. Do one final getSession to distinguish a
+            // transient error (504/network — keep state, the next refresh may
+            // succeed) from a confirmed no-session (clear state so the UI
+            // matches the 401 choke-point redirect — no zombie logged-in state).
             try {
               const { data: { session: lastChance } } = await supabase.auth.getSession();
               if (lastChance) {
-                console.log('[Auth] Persisted session found — keeping user logged in');
                 setSession(lastChance);
                 setUser(lastChance.user);
                 hadSession = true;
               } else {
-                console.warn('[Auth] No persisted session — keeping current state (not logging out)');
-                // Do NOT clear session state here — let the user stay on the page
-                // They can manually refresh or the next token refresh cycle may succeed
+                // Confirmed no session (an actual null, not an error) — clear.
+                hadSession = false;
+                setSession(null);
+                setUser(null);
               }
             } catch {
-              console.warn('[Auth] Final session check failed — preserving current state');
+              // Transient failure on the final check — preserve current state.
             }
           }
         }

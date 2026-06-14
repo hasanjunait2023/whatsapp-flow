@@ -198,6 +198,11 @@ export const contacts = pgTable(
     last_message_at: text("last_message_at"),
     name: text("name"),
     needs_handoff: boolean("needs_handoff").default(false).notNull(),
+    // WhatsApp opt-out (ban-risk + legal): set when the contact replies STOP /
+    // UNSUBSCRIBE. Proactive/campaign sends are blocked for opted-out contacts;
+    // reactive replies are unaffected. Cleared if they reply START.
+    opted_out: boolean("opted_out").default(false).notNull(),
+    opted_out_at: text("opted_out_at"),
     phone_number: text("phone_number").notNull(),
     profile_pic_synced_at: text("profile_pic_synced_at"),
     profile_pic_url: text("profile_pic_url"),

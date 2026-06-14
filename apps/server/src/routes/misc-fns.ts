@@ -2,6 +2,9 @@ import { dbGet, dbAll, dbRun, dbTx } from "../db/raw.js";
 import { emitChange } from "../realtime/emitter.js";
 import { SESSION_HANDLERS } from "./waha/session.js";
 import { sendMessage } from "./messaging.js";
+import { enqueueJob } from "../jobs/queue.js";
+import { BULK_SEND_JOB, type BulkSendPayload } from "../services/bulk-send.js";
+import { proactiveSendDelayMs } from "../lib/pacing.js";
 import type { FnContext, FnResult } from "./waha/session.js";
 
 /**
@@ -168,19 +171,31 @@ export async function sendBulkReminder(raw: Record<string, unknown>, ctx: FnCont
   const body = raw as BulkReminderBody;
   const ids = body.contact_ids ?? [];
   if (ids.length === 0 || !body.content) return ok({ error: "contact_ids and content are required" });
+  if (!ctx.tenantId) return ok({ error: "No active tenant" });
 
-  let sent = 0;
-  let failed = 0;
+  // Drip, don't blast: enqueue one job per recipient with a staggered run_at so
+  // sends go out spaced by a randomized human-like delay (uniform-cadence blasts
+  // get WhatsApp numbers banned). Returns immediately — the scheduler delivers
+  // over time. Each job renders spintax + merge fields (unique per recipient),
+  // and the opt-out gate + per-number rate limit are enforced per send inside
+  // sendMessage. Tip: put {first_name} / {a|b} variants in `content`.
+  let offsetMs = 0;
   for (const contactId of ids) {
-    const res = await sendMessage(
-      { contact_id: contactId, content: body.content, content_type: "text", instance_id: body.instance_id },
-      ctx,
-    );
-    const data = res.data as { success?: boolean };
-    if (data?.success) sent++;
-    else failed++;
+    offsetMs += proactiveSendDelayMs();
+    await enqueueJob({
+      kind: BULK_SEND_JOB,
+      tenantId: ctx.tenantId,
+      runAt: new Date(Date.now() + offsetMs).toISOString(),
+      payload: {
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
+        contactId,
+        content: body.content,
+        instanceId: body.instance_id,
+      } satisfies BulkSendPayload,
+    });
   }
-  return ok({ success: true, sent, failed, total: ids.length });
+  return ok({ success: true, queued: ids.length, total: ids.length });
 }
 
 // --- create-admin-user (admin-only) ------------------------------------------

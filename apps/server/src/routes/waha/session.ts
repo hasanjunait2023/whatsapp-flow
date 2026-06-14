@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { dbGet, dbRun } from "../../db/raw.js";
 import { emitChange } from "../../realtime/emitter.js";
 import {
@@ -5,10 +6,7 @@ import {
   sessionNameForInstance,
   type WahaSessionStatus,
 } from "../../waha/client.js";
-import {
-  WAHA_WEBHOOK_BASE_URL,
-  WAHA_WEBHOOK_HMAC_SECRET,
-} from "../../lib/env.js";
+import { WAHA_WEBHOOK_BASE_URL } from "../../lib/env.js";
 
 /**
  * WAHA session lifecycle handlers, wired into POST /api/fn/:name under the SAME
@@ -37,12 +35,13 @@ interface InstanceRow {
   name: string | null;
   status: string;
   phone_number: string | null;
+  webhook_secret: string | null;
 }
 
 /** Loads an instance, enforcing tenant scope (admins bypass). */
 async function loadInstance(instanceId: string, ctx: FnContext): Promise<InstanceRow | { error: string }> {
   const row = (await dbGet(
-    "SELECT id, tenant_id, name, status, phone_number FROM whatsapp_instances WHERE id = ? LIMIT 1",
+    "SELECT id, tenant_id, name, status, phone_number, webhook_secret FROM whatsapp_instances WHERE id = ? LIMIT 1",
     instanceId,
   )) as InstanceRow | undefined;
   if (!row) return { error: "Instance not found" };
@@ -55,6 +54,25 @@ async function loadInstance(instanceId: string, ctx: FnContext): Promise<Instanc
 function webhookUrlFor(instanceId: string): string {
   const base = WAHA_WEBHOOK_BASE_URL.replace(/\/+$/, "");
   return `${base}/api/waha/webhook/${instanceId}`;
+}
+
+/**
+ * Returns the instance's per-instance webhook HMAC secret, generating and
+ * persisting one if absent. Defense-in-depth: each WAHA session signs with its
+ * own key rather than a single shared global, so a leaked key can't forge events
+ * for other instances. Mutates `instance.webhook_secret` so the caller can pass
+ * the fresh value to WAHA in the same flow.
+ */
+async function ensureWebhookSecret(instance: InstanceRow): Promise<string> {
+  if (instance.webhook_secret) return instance.webhook_secret;
+  const secret = randomBytes(32).toString("hex");
+  await dbRun(
+    "UPDATE whatsapp_instances SET webhook_secret = ? WHERE id = ?",
+    secret,
+    instance.id,
+  );
+  instance.webhook_secret = secret;
+  return secret;
 }
 
 /** Maps a WAHA session status to our whatsapp_instances.status enum. */
@@ -74,7 +92,7 @@ async function createSession(body: Record<string, unknown>, ctx: FnContext): Pro
 
   // Reuse an existing instance without a session, else create a new row.
   let instance = (await dbGet(
-    `SELECT id, tenant_id, name, status, phone_number FROM whatsapp_instances
+    `SELECT id, tenant_id, name, status, phone_number, webhook_secret FROM whatsapp_instances
        WHERE tenant_id = ? AND session_id IS NULL AND (is_deleted IS NOT TRUE)
        ORDER BY created_at DESC LIMIT 1`,
     tenantId,
@@ -123,7 +141,7 @@ async function createSession(body: Record<string, unknown>, ctx: FnContext): Pro
       `${tenant?.name ?? "Tenant"} WhatsApp`,
       phoneNumber,
     );
-    instance = { id, tenant_id: tenantId, name: null, status: "disconnected", phone_number: phoneNumber };
+    instance = { id, tenant_id: tenantId, name: null, status: "disconnected", phone_number: phoneNumber, webhook_secret: null };
   } else if (phoneNumber) {
     await dbRun(
       "UPDATE whatsapp_instances SET phone_number = ? WHERE id = ?",
@@ -134,11 +152,12 @@ async function createSession(body: Record<string, unknown>, ctx: FnContext): Pro
 
   const sessionName = sessionNameForInstance(instance.id);
   try {
+    const hmacSecret = await ensureWebhookSecret(instance);
     await wahaClient.createSession(
       sessionName,
       webhookUrlFor(instance.id),
       WEBHOOK_EVENTS,
-      WAHA_WEBHOOK_HMAC_SECRET || undefined,
+      hmacSecret,
     );
     await dbRun(
       "UPDATE whatsapp_instances SET session_id = ?, status = 'disconnected' WHERE id = ?",
@@ -280,11 +299,12 @@ async function updateWebhook(body: Record<string, unknown>, ctx: FnContext): Pro
 
   const sessionName = sessionNameForInstance(loaded.id);
   try {
+    const hmacSecret = await ensureWebhookSecret(loaded);
     await wahaClient.createSession(
       sessionName,
       webhookUrlFor(loaded.id),
       WEBHOOK_EVENTS,
-      WAHA_WEBHOOK_HMAC_SECRET || undefined,
+      hmacSecret,
     );
     return { data: { success: true, webhook_url: webhookUrlFor(loaded.id) }, error: null };
   } catch (error) {

@@ -15,6 +15,13 @@
       "when": 1781428004062,
       "tag": "0001_ops_error_logs_and_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781432919714,
+      "tag": "0002_contacts_opt_out",
+      "breakpoints": true
     }
   ]
 }

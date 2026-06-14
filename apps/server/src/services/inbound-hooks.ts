@@ -12,6 +12,8 @@ export interface InboundMessageEvent {
   instanceId: string;
   isNewContact: boolean;
   channel: "whatsapp" | "facebook";
+  /** Inbound message text/caption — used by the opt-out (STOP) handler. */
+  text?: string;
 }
 
 type InboundHook = (event: InboundMessageEvent) => void | Promise<void>;

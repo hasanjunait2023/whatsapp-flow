@@ -52,6 +52,12 @@ const channels = new Set<RealtimeChannel>();
 
 let recover: (() => void) | null = null;
 
+// The FIRST successful connect on a page load is not a gap — the queries are
+// already being fetched fresh. Only RE-connections (after a drop, wake, or
+// online event) need a recovery refetch. Gate recovery on this flag so the
+// initial connect doesn't trigger a redundant invalidate storm.
+let hasConnectedOnce = false;
+
 /** Registered by App so a (re)connect can invalidate active queries. */
 export function setRealtimeRecover(fn: (() => void) | null): void {
   recover = fn;
@@ -59,6 +65,11 @@ export function setRealtimeRecover(fn: (() => void) | null): void {
 
 function triggerRecovery(): void {
   if (!active) return;
+  // Skip the very first connect; only refetch on genuine reconnects.
+  if (!hasConnectedOnce) {
+    hasConnectedOnce = true;
+    return;
+  }
   try {
     recover?.();
   } catch {
@@ -302,6 +313,7 @@ function ensureSource(): void {
 function teardownIfIdle(): void {
   if (channels.size > 0) return;
   active = false;
+  hasConnectedOnce = false;
   detachRecoveryListeners();
   clearReconnect();
   stopProbe();

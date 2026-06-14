@@ -63,17 +63,20 @@ const ACK_STATUS: Record<number, "sent" | "delivered" | "read" | "failed"> = {
  * unsigned. Verification is skipped ONLY in the explicit pilot/Core case where
  * enforcement is off (no secret and not required).
  */
-function verifyHmac(raw: string, signature: string | undefined): boolean {
+function verifyHmac(raw: string, signature: string | undefined, secret: string | null): boolean {
   if (!WAHA_WEBHOOK_HMAC_ENFORCED) {
     return true; // pilot/Core: explicitly unverified
   }
-  if (!WAHA_WEBHOOK_HMAC_SECRET) {
+  // Prefer the instance's per-instance secret; fall back to the legacy/global
+  // key so sessions provisioned before per-instance secrets still verify.
+  const key = secret ?? WAHA_WEBHOOK_HMAC_SECRET;
+  if (!key) {
     return false; // required but misconfigured (no key) → reject all
   }
   if (!signature) {
     return false; // enforced but unsigned → reject
   }
-  const expected = createHmac("sha512", WAHA_WEBHOOK_HMAC_SECRET).update(raw).digest("hex");
+  const expected = createHmac("sha512", key).update(raw).digest("hex");
   const a = Buffer.from(expected);
   const b = Buffer.from(signature);
   return a.length === b.length && timingSafeEqual(a, b);
@@ -160,7 +163,7 @@ wahaWebhookRoute.post("/:instanceId", async (c) => {
   }
 
   const raw = await c.req.text();
-  if (!verifyHmac(raw, c.req.header("x-webhook-hmac"))) {
+  if (!verifyHmac(raw, c.req.header("x-webhook-hmac"), instance.webhook_secret)) {
     return c.json({ error: "Invalid signature" }, 401);
   }
 
@@ -224,6 +227,7 @@ wahaWebhookRoute.post("/:instanceId", async (c) => {
             instanceId: instance.id,
             isNewContact: result.isNewContact,
             channel: "whatsapp",
+            text: mapped.content,
           });
         }
       }

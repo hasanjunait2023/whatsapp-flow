@@ -1,7 +1,7 @@
 import { runWahaHealthCheck } from "./waha-health.js";
 import { processDueJobs } from "./queue.js";
 import { checkCeoSchedules } from "../services/ceo/index.js";
-import { runMediaCleanup, runWebhookCleanup } from "./cleanup.js";
+import { runMediaCleanup, runWebhookCleanup, runErrorLogCleanup } from "./cleanup.js";
 import { runSubscriptionReminders } from "./reminders.js";
 import { runWhatsappFollowups } from "./followups.js";
 import { processGroupAddQueue } from "../services/groups/queue-processor.js";
@@ -78,9 +78,18 @@ export function startScheduler(): void {
     void generateDueRecurringExpenses().catch(() => {
       // Best-effort generation; errors are non-fatal and retry next day.
     });
+    void runErrorLogCleanup().catch(() => {
+      // Best-effort retention; errors are non-fatal and retry next day.
+    });
   }, DAILY_INTERVAL_MS);
   dailySweeps.unref();
   timers.push(dailySweeps);
+
+  // Run the error-log prune once at boot too — cheap, and bounds the table if the
+  // process was restarting more often than the daily interval fires.
+  void runErrorLogCleanup().catch(() => {
+    // Best-effort; non-fatal at boot.
+  });
 }
 
 /** Stops all background jobs (used on shutdown / in tests). */

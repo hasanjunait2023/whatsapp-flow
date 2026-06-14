@@ -26,6 +26,24 @@ export interface ErrorContext {
 const ALERT_WINDOW_MS = 10 * 60 * 1000;
 const lastAlertAt = new Map<string, number>();
 
+// Periodic sweep so lastAlertAt doesn't grow unbounded with stale fingerprints
+// (mirrors the sweep in lib/rate-limit.ts). Entries older than the alert window
+// can no longer suppress anything, so they're safe to drop.
+const ALERT_SWEEP_MS = 10 * 60 * 1000;
+setInterval(() => {
+  const cutoff = Date.now() - ALERT_WINDOW_MS;
+  for (const [fp, ts] of lastAlertAt) if (ts <= cutoff) lastAlertAt.delete(fp);
+}, ALERT_SWEEP_MS).unref();
+
+/**
+ * Circuit-breaker for the DB sink. When the DB is down every 500 would trigger
+ * another failing INSERT, doubling load on an already-down DB. After a sink
+ * INSERT failure we skip the INSERT (log-only) for a short cooldown so captures
+ * don't amplify the outage.
+ */
+const SINK_FAILURE_COOLDOWN_MS = 30 * 1000;
+let lastSinkFailureAt = 0;
+
 function fingerprint(message: string, stack?: string | null): string {
   // First stack frame keeps the fingerprint stable across varying messages.
   const frame = (stack ?? "").split("\n").find((l) => l.includes("at ")) ?? "";
@@ -43,22 +61,35 @@ export async function captureError(
     const severity = ctx.severity ?? "error";
     const source = ctx.source ?? "backend";
 
-    await dbRun(
-      `INSERT INTO error_logs
-         (id, source, severity, fingerprint, message, stack, tenant_id, user_id, url, meta, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      crypto.randomUUID(),
-      source,
-      severity,
-      fp,
-      message.slice(0, 2000),
-      stack ? stack.slice(0, 8000) : null,
-      ctx.tenantId ?? null,
-      ctx.userId ?? null,
-      ctx.url ?? null,
-      ctx.meta ? JSON.stringify(ctx.meta) : null,
-      new Date().toISOString(),
-    );
+    // Circuit-breaker: if a recent sink INSERT failed (DB likely down), skip the
+    // INSERT for a cooldown and go log-only, so we don't pile failing writes onto
+    // a down DB.
+    const sinkOpen = Date.now() - lastSinkFailureAt < SINK_FAILURE_COOLDOWN_MS;
+    if (!sinkOpen) {
+      try {
+        await dbRun(
+          `INSERT INTO error_logs
+             (id, source, severity, fingerprint, message, stack, tenant_id, user_id, url, meta, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          crypto.randomUUID(),
+          source,
+          severity,
+          fp,
+          message.slice(0, 2000),
+          stack ? stack.slice(0, 8000) : null,
+          ctx.tenantId ?? null,
+          ctx.userId ?? null,
+          ctx.url ?? null,
+          ctx.meta ? JSON.stringify(ctx.meta) : null,
+          new Date().toISOString(),
+        );
+      } catch (insertErr) {
+        lastSinkFailureAt = Date.now();
+        logger.error("error_sink_failed", {
+          msg_preview: insertErr instanceof Error ? insertErr.message : String(insertErr),
+        });
+      }
+    }
 
     logger.error("captured_error", {
       source,

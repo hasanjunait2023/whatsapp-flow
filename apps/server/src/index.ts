@@ -33,6 +33,8 @@ import { startScheduler, stopScheduler } from "./jobs/scheduler.js";
 import { registerSoulJobs } from "./services/soul/index.js";
 import { registerHermesPipeline } from "./services/hermes/pipeline.js";
 import { registerCeoJobs } from "./services/ceo/index.js";
+import { registerOptOutHandler } from "./services/opt-out.js";
+import { registerBulkSend } from "./services/bulk-send.js";
 import { seedPlansIfEmpty } from "./services/billing/seed-plans.js";
 import {
   PORT,
@@ -283,8 +285,14 @@ if (IS_PRODUCTION && existsSync(WEB_DIST_DIR)) {
 }
 
 // Seed the pricing catalog if it's empty (migrations have already run via the
-// entrypoint). Idempotent and cheap; unblocks checkout on a fresh DB.
-await seedPlansIfEmpty();
+// entrypoint). Idempotent and cheap; unblocks checkout on a fresh DB. Wrapped so
+// a DB-down boot still binds the port — /healthz then reports degraded instead of
+// the process crashing before it can serve health.
+try {
+  await seedPlansIfEmpty();
+} catch (err) {
+  logger.error("seed_plans_failed", { msg_preview: err instanceof Error ? err.message : String(err) });
+}
 
 const server = serve({ fetch: app.fetch, port: PORT });
 // Attach the WebSocket upgrade handler to the Node http server.
@@ -293,6 +301,8 @@ injectWebSocket(server);
 registerSoulJobs();
 registerHermesPipeline();
 registerCeoJobs();
+registerOptOutHandler();
+registerBulkSend();
 
 // Re-queue jobs stranded 'running' by a previous process crash before the
 // scheduler starts claiming work, so orphaned jobs aren't lost.
