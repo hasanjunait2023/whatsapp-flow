@@ -181,9 +181,6 @@ async function refreshQr(instance: InstanceRow): Promise<FnResult> {
   try {
     // Ensure the session is started so a QR is available.
     const session = await wahaClient.getSession(sessionName).catch(() => null);
-    if (!session || session.status === "STOPPED") {
-      await wahaClient.startSession(sessionName).catch(() => undefined);
-    }
     if (session?.status === "WORKING") {
       await dbRun(
         "UPDATE whatsapp_instances SET status = 'active', qr_code = NULL, qr_expires_at = NULL WHERE id = ?",
@@ -191,6 +188,32 @@ async function refreshQr(instance: InstanceRow): Promise<FnResult> {
       );
       emitChange("whatsapp_instances", instance.tenant_id, { id: instance.id, status: "active" });
       return { data: { message: "Already connected", status: "active" }, error: null };
+    }
+    // A FAILED session never produces a QR (auth/qr -> 422) and never recovers
+    // on its own, so a stop+start is required to get back to SCAN_QR_CODE.
+    if (session?.status === "FAILED") {
+      await wahaClient.stopSession(sessionName).catch(() => undefined);
+      await wahaClient.startSession(sessionName).catch(() => undefined);
+    } else if (!session || session.status === "STOPPED") {
+      await wahaClient.startSession(sessionName).catch(() => undefined);
+    }
+
+    // Right after start the session is STARTING; auth/qr only works once it
+    // reaches SCAN_QR_CODE. Poll briefly so the first open returns a real QR
+    // instead of a 422 the user would see as an error.
+    let ready = session?.status === "SCAN_QR_CODE";
+    for (let i = 0; i < 8 && !ready; i++) {
+      await new Promise((r) => setTimeout(r, 750));
+      const s = await wahaClient.getSession(sessionName).catch(() => null);
+      if (s?.status === "WORKING") {
+        await dbRun(
+          "UPDATE whatsapp_instances SET status = 'active', qr_code = NULL, qr_expires_at = NULL WHERE id = ?",
+          instance.id,
+        );
+        emitChange("whatsapp_instances", instance.tenant_id, { id: instance.id, status: "active" });
+        return { data: { message: "Already connected", status: "active" }, error: null };
+      }
+      ready = s?.status === "SCAN_QR_CODE";
     }
 
     const { qr } = await wahaClient.getQr(sessionName);

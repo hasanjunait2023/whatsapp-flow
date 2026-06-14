@@ -191,16 +191,20 @@ export class WahaClient {
     await this.request<void>("POST", `/api/sessions/${name}/logout`, {});
   }
 
-  /** Fetches the QR code as a base64 data URI for the awaiting-scan session. */
-  async getQr(name: string): Promise<{ qr: string; mimetype: string }> {
-    const res = await this.request<{ data?: string; mimetype?: string }>(
+  /**
+   * Fetches the RAW WhatsApp linking payload for the awaiting-scan session,
+   * e.g. "https://wa.me/settings/linked_devices#2@...". WAHA's
+   * `auth/qr?format=raw` returns it under `value`. We return the raw string
+   * (NOT a rendered PNG): the client encodes it into a QR via QRCodeSVG, so
+   * wrapping it as an image data-URI here would make the client encode the
+   * data-URI text itself — a double-encoded, unscannable code ("invalid").
+   */
+  async getQr(name: string): Promise<{ qr: string }> {
+    const res = await this.request<{ value?: string }>(
       "GET",
       `/api/${name}/auth/qr?format=raw`,
     );
-    const value = res?.data ?? "";
-    const mimetype = res?.mimetype ?? "image/png";
-    const qr = value.startsWith("data:") ? value : `data:${mimetype};base64,${value}`;
-    return { qr, mimetype };
+    return { qr: res?.value ?? "" };
   }
 
   async sendText(req: WahaSendTextRequest): Promise<WahaSendResult> {
