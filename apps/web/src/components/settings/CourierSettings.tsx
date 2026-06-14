@@ -61,6 +61,8 @@ export function CourierSettings() {
         api_key: pathaoIntegration.api_key || '',
         api_secret: pathaoIntegration.api_secret || '',
         store_id: pathaoIntegration.store_id || '',
+        username: '',
+        password: '',
         is_active: pathaoIntegration.is_active,
         default_pickup_address: {
           name: pathaoIntegration.default_pickup_address?.name || '',

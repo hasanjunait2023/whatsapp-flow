@@ -217,7 +217,7 @@ export function useTenantAccounts(startDate: Date, endDate: Date) {
       return acc;
     }, {} as Record<string, { amount: number; count: number }>);
 
-    const salesByPaymentStatus = Object.entries(statusGroups).map(([status, data]) => ({
+    const salesByPaymentStatus = Object.entries(statusGroups).map(([status, data]: [string, { amount: number; count: number }]) => ({
       status,
       ...data,
     }));

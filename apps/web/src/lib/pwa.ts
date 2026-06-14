@@ -40,7 +40,7 @@ export async function enablePushNotifications(): Promise<boolean> {
     (await registration.pushManager.getSubscription()) ??
     (await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: base64UrlToUint8Array(vapidKey),
+      applicationServerKey: new Uint8Array(base64UrlToUint8Array(vapidKey)),
     }));
 
   const { supabase } = await import("@/integrations/supabase/client");

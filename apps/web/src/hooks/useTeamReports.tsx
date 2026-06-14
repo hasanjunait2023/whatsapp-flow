@@ -123,7 +123,7 @@ export function useTeamReports(period: ReportPeriod = 'today', customStart?: Dat
         .select('id, full_name, email, avatar_url')
         .in('id', userIds);
 
-      const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      const profilesMap = new Map(((profiles || []) as { id: string; full_name: string | null; email: string | null; avatar_url: string | null }[]).map(p => [p.id, p]));
 
       // 3. Get messages sent by each user in period
       const { data: messages } = await supabase

@@ -178,7 +178,7 @@ export function useInternalChat() {
     });
     if (fnError) throw fnError;
     await fetchRooms();
-    return data as { id: string };
+    return data as ChatRoom;
   };
 
   const addMemberToGroup = async (roomId: string, userId: string) => {

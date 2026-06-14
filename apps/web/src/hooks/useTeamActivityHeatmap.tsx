@@ -84,7 +84,7 @@ export function useTeamActivityHeatmap(dateRange: DateRange = 'today') {
       if (profilesError) throw profilesError;
 
       // Create a lookup map for profiles
-      const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+      const profileMap = new Map(((profiles || []) as { id: string; full_name: string | null; avatar_url: string | null }[]).map(p => [p.id, p]));
 
       // Build heatmap data structure
       const dates = eachDayOfInterval({ start, end });

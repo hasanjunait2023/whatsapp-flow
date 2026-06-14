@@ -167,7 +167,7 @@ export function useAdminDashboard() {
         ]);
 
         // Build lookup maps
-        const profilesMap = new Map((profilesResult.data || []).map(p => [p.id, p]));
+        const profilesMap = new Map(((profilesResult.data || []) as { id: string; email: string }[]).map(p => [p.id, p]));
         const subscriptionsMap = new Map((subscriptionsResult.data || []).map(s => [s.tenant_id, s.status]));
         
         // Count messages and instances per tenant
