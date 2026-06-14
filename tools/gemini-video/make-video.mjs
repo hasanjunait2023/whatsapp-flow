@@ -66,22 +66,46 @@ await page.goto('https://gemini.google.com/app', { waitUntil:'domcontentloaded' 
 await page.waitForTimeout(5000);
 await page.keyboard.press('Escape').catch(()=>{});
 
+const settle=(ms=800)=>page.waitForTimeout(ms);
 const inVideoMode = async () =>
   (await page.getByText(/Describe your video/i).count())>0 ||
   (await page.getByText(/Landscape \(16:9\)|Portrait \(9:16\)/i).count())>0;
 
+// RELIABILITY (founder tip): reuse a PREVIOUS video chat (already in video mode) via the
+// sidebar -> skips the flaky "Upload & tools -> Create video" menu navigation entirely.
+async function openVideoChat(){
+  try{
+    const sb = page.locator('[aria-label="Open sidebar"], [aria-label="Main menu"]').first();
+    if(await sb.count()){ await sb.click({timeout:5000}).catch(()=>{}); await settle(2000); }
+    const titleRe = /ভিডিও|@amijunait|video generation|COD অর্ডার ফেরত|Video Generation/i;
+    const rows = page.locator('[class*=conversation], [role=listitem], a[href*="/app/"]')
+      .filter({hasText:titleRe}).filter({hasNotText:/More options/i});
+    const n = Math.min(await rows.count(), 6);
+    log(`sidebar video-chat candidates: ${n}`);
+    for(let i=0;i<n;i++){
+      await rows.nth(i).click({timeout:6000, force:true}).catch(()=>{});
+      await settle(4000);
+      if(await inVideoMode()){ log('reused previous video chat'); return true; }
+    }
+  }catch(e){ log('openVideoChat note', e.message.slice(0,40)); }
+  return false;
+}
+
 async function enterVideoMode(){
   if (await inVideoMode()) { log('video mode persisted'); }
+  else if (await openVideoChat()) { /* reused */ }
   else {
-    await page.locator('[aria-label="Upload & tools"]').first().click({ timeout: 10000 });
+    log('no reusable video chat -> Create video menu');
+    await page.locator('[aria-label="Upload & tools"]').first().click({ timeout: 10000, force: true });
     await page.waitForTimeout(1300);
-    await page.locator('.cdk-overlay-pane').getByText('Create video', { exact: true }).first().click({ timeout: 6000 });
+    // force-click: a cdk-overlay-backdrop otherwise intercepts the menu item
+    await page.locator('.cdk-overlay-pane').getByText('Create video', { exact: true }).first().click({ timeout: 6000, force: true });
     await page.waitForTimeout(2500);
-    log('video mode set');
+    log('video mode set (menu)');
   }
-  // ensure 9:16
+  // ensure 9:16 (tolerant — reused chats usually already 9:16)
   try { const land = page.getByText(/Landscape \(16:9\)/i).first();
-    if (await land.count()) { await land.click({timeout:5000}); await page.waitForTimeout(800);
+    if (await land.count() && await land.isEnabled().catch(()=>false)) { await land.click({timeout:5000}); await page.waitForTimeout(800);
       const p=page.getByText(/Portrait \(9:16\)|9:16/i).first(); if(await p.count()){await p.click({timeout:4000}); log('-> 9:16');}
       await page.waitForTimeout(600);
     } else log('ratio already 9:16'); } catch(e){ log('ratio note', e.message); }
@@ -89,6 +113,7 @@ async function enterVideoMode(){
 await enterVideoMode();
 
 async function genClip(clip, idx){
+ try {
   // BASELINE: how many videos/downloads already exist (from prior clips in this chat)
   const dlSel = '[aria-label*="Download" i]';
   const before = await page.locator(dlSel).count();
@@ -125,6 +150,7 @@ async function genClip(clip, idx){
     const [d]=await Promise.all([page.waitForEvent('download',{timeout:30000}), dl.click()]);
     const out=`out/${content.slug}-clip${idx}.mp4`; await d.saveAs(out); log(`clip ${idx}: downloaded (new)`); return out;
   }catch(e){ log(`clip ${idx} dl note`, e.message); return null; }
+ } catch(e){ log(`clip ${idx} ERROR (non-fatal):`, e.message.slice(0,60)); await shot(`fail-clip${idx}.png`).catch(()=>{}); return null; }
 }
 
 const segs=[]; // { file, dialogue }
