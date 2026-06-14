@@ -1,31 +1,41 @@
-# whatsapp-flow (self-hosted)
+# What A App
 
-pnpm monorepo migrating off Supabase cloud to a self-hosted Node/Hono + SQLite backend.
+**What A App** is a self-hosted, multi-channel conversational CRM for Bangladeshi
+businesses — WhatsApp, Facebook Messenger & Instagram in one inbox, with order
+management, AI auto-replies, and per-tenant business knowledge (RAG). It is a product
+by **Ecomex**.
 
 ## Workspace layout
 
 ```
-apps/web/        # Vite React SPA (moved from repo root; zero logic changes)
-apps/server/     # Hono + Drizzle (SQLite) + better-auth backend
+apps/web/        # Vite React SPA (dashboard, inbox, landing, admin)
+apps/server/     # Hono + Drizzle (PostgreSQL) + better-auth backend
 packages/shared/ # API contract types shared by web and server
-supabase/        # legacy reference: 71 edge functions + migrations (ported in later phases)
+supabase/        # legacy reference only (the original edge functions; superseded by apps/server)
+docs/            # architecture & scaling docs (see below)
+deploy/          # VPS deploy runbook + scripts
 ```
 
-## Docs
+## Tech stack
 
-- [Scaling Roadmap (1 → 100k tenants)](docs/SCALING_ROADMAP.md) — phased plan for RAG, Citus sharding, queues, HA, and BDIX/EU hybrid infra.
+- **Frontend:** Vite + React 18 + TypeScript, Tailwind + shadcn/ui, TanStack Query, i18next (EN/বাংলা)
+- **Backend:** Hono (Node 22) + Drizzle ORM + **PostgreSQL**, better-auth (multi-tenant, organization plugin)
+- **Channels:** WhatsApp (WAHA), Facebook/Instagram (Graph), Telegram
+- **AI:** per-tenant LLM agents (OpenAI / Anthropic / Gemini) + **RAG** retrieval (Gemini embeddings + pgvector) — see [docs/RAG.md](docs/RAG.md)
+- **Payments:** UddoktaPay (BDT) + crypto (USDT)
 
 ## Quickstart (local dev)
 
 ```sh
 pnpm install                       # requires Node >= 22, pnpm 9
-# server env
-cp apps/server/.env.example apps/server/.env   # set AUTH_SECRET (32+ chars)
+cp apps/server/.env.example apps/server/.env   # set AUTH_SECRET (32+ chars) and DATABASE_URL
 
-pnpm --filter server migrate       # apply SQLite schema (drizzle)
+pnpm --filter server migrate       # apply schema (drizzle)
 pnpm --filter server seed          # demo tenant + owner@demo.test / demo-password-123
-pnpm dev                           # runs web (8080) + server (3000); /api proxied in dev
+pnpm dev                           # web (8080) + server (3000); /api proxied in dev
 ```
+
+Tests run against an in-process PGlite database, so no local Postgres is needed for `pnpm test`.
 
 ## Scripts (root)
 
@@ -37,78 +47,8 @@ pnpm dev                           # runs web (8080) + server (3000); /api proxi
 The SPA talks to the backend through a drop-in supabase shim
 (`apps/web/src/integrations/supabase/client.ts`), so existing call sites are unchanged.
 
----
+## Docs
 
-# Welcome to your Lovable project
-
-## Project info
-
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
-
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- [Scaling Roadmap (1 → 100k tenants)](docs/SCALING_ROADMAP.md) — phased plan for RAG, Citus sharding, queues, HA, and BDIX/EU hybrid infra.
+- [RAG Layer](docs/RAG.md) — Gemini embeddings + dedicated pgvector store; how indexing and retrieval are wired into the agents.
+- [Deploy Runbook](deploy/README.md) — VPS deployment, backups, rollback.

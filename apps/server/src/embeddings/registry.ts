@@ -27,7 +27,7 @@ function modelFor(provider: string): string {
   if (process.env.EMBEDDING_MODEL) return process.env.EMBEDDING_MODEL;
   switch (provider) {
     case "gemini":
-      return "text-embedding-004";
+      return "gemini-embedding-001";
     case "tei":
     case "ollama":
       return "BAAI/bge-m3";

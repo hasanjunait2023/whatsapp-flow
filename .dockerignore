@@ -22,7 +22,6 @@ data/
 .git
 .github
 .claude
-.lovable
 supabase
 
 # Logs + editor

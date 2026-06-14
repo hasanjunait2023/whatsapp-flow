@@ -8,6 +8,13 @@ import type { EmbeddingClient } from "../types.js";
  */
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
 
+function normalize(vec: number[]): number[] {
+  let norm = 0;
+  for (const v of vec) norm += v * v;
+  norm = Math.sqrt(norm) || 1;
+  return vec.map((v) => v / norm);
+}
+
 export function geminiClient(apiKey: string, model: string, dims: number): EmbeddingClient {
   const modelPath = model.startsWith("models/") ? model : `models/${model}`;
   return {
@@ -24,6 +31,7 @@ export function geminiClient(apiKey: string, model: string, dims: number): Embed
           requests: texts.map((t) => ({
             model: modelPath,
             content: { parts: [{ text: t }] },
+            outputDimensionality: dims,
           })),
         }),
       });
@@ -36,7 +44,10 @@ export function geminiClient(apiKey: string, model: string, dims: number): Embed
       if (vectors[0] && vectors[0].length !== dims) {
         throw new Error(`Gemini returned width ${vectors[0].length}, expected ${dims}`);
       }
-      return vectors;
+      // gemini-embedding-001 only pre-normalises the native 3072-dim output;
+      // truncated (outputDimensionality < 3072) vectors must be L2-normalised
+      // by the caller for cosine distance to behave.
+      return vectors.map(normalize);
     },
   };
 }

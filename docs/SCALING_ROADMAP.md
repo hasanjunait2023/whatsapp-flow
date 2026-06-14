@@ -159,7 +159,7 @@ Each phase: trigger → build → files/tables → exit criteria.
 ### P1 — Foundation (1–100 tenants)
 - **Build:** Finish SQLite→PG migration (incl. porting `jobs/queue.ts` off `sqlite.prepare`). Add `pgvector` extension. Ship RAG MVP (§4) on one GPU running TEI. Enforce `tenant_id` on every new table.
 - **Touches:** `db/index.ts`, `jobs/queue.ts`, new `services/rag/`, `services/hermes/agent.ts`, new `embedding_chunks` migration.
-- **Status:** RAG layer **built + wired**. `embeddings/` provider abstraction (TEI/Ollama/fake) + `services/rag/` (lazy `ensureRagSchema`, chunk, index, retrieve) + tests. Wired into `soul/index.ts` (register + enqueue `rag_index`) and `hermes/agent.ts` (retrieval injection, best-effort). Type-clean. Remaining = VPS infra (pgvector extension + Ollama/TEI) via `deploy/rag-setup.sh`, then `rag-doctor` + `backfill-rag`. See **[docs/RAG.md](RAG.md)**.
+- **Status:** RAG layer **LIVE on the VPS**. `embeddings/` provider abstraction (gemini/tei/ollama/fake) + `services/rag/` (lazy `ensureRagSchema`, chunk, index, retrieve over a dedicated pgvector DB) wired into `soul/index.ts` (enqueue `rag_index`) and `hermes/agent.ts` (best-effort retrieval injection). Deployed: dedicated `whatsapp-flow-ragdb` (pgvector 0.8.2), Gemini embeddings (`gemini-embedding-001`, 768d), `rag-doctor` all-green. Self-hosted BGE-M3 deferred to P5 (box is RAM-bound). See **[docs/RAG.md](RAG.md)**.
 - **Exit:** Agent answers from tenant's own `soulSources`; queue runs on Postgres.
 
 ### P2 — Optimization (100–500)

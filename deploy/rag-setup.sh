@@ -52,7 +52,7 @@ cat <<EOF
 
 ragdb ready. Add to the app environment (RAG_DATABASE_URL is in $ENV_FILE):
   EMBEDDING_PROVIDER=gemini
-  EMBEDDING_MODEL=text-embedding-004
+  EMBEDDING_MODEL=gemini-embedding-001
   EMBEDDING_DIMS=768
   GEMINI_API_KEY=<your key>
   RAG_DATABASE_URL=<from $ENV_FILE>

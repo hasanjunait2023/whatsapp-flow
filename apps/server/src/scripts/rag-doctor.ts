@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { ensureRagSchema } from "../services/rag/schema.js";
 import { ragQuery, hasDedicatedRagDb } from "../services/rag/db.js";
 import { resolveEmbeddingClient } from "../embeddings/registry.js";
@@ -59,7 +60,7 @@ export async function ragDoctor(): Promise<boolean> {
   return ok;
 }
 
-if (process.argv[1] && process.argv[1].endsWith("rag-doctor.ts")) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const ok = await ragDoctor();
   console.log(ok ? "RAG doctor: ALL PASS" : "RAG doctor: FAILURES — see above");
   process.exit(ok ? 0 : 1);

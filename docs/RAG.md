@@ -1,9 +1,11 @@
-# RAG Layer (P1) — Self-Hosted Embeddings + pgvector
+# RAG Layer (P1) — Gemini Embeddings + dedicated pgvector
 
 Phase 1 of the [Scaling Roadmap](SCALING_ROADMAP.md). Gives the AI agents
-retrieval over each tenant's own business knowledge, using **self-hosted BGE-M3**
-embeddings (strong Bengali) and **pgvector** in the existing Postgres — no separate
-vector database.
+retrieval over each tenant's own business knowledge: **Gemini API** embeddings
+(`gemini-embedding-001`, strong Bengali, zero VPS RAM) stored in a **dedicated
+`pgvector` container** (the shared app Postgres has no pgvector and the box is
+RAM-bound). The embedding provider is swappable — self-hosted BGE-M3 (TEI/Ollama)
+moves in at roadmap P5 on a GPU box via env only.
 
 Everything runs on the **VPS**. Nothing here needs local installation.
 
@@ -37,7 +39,7 @@ migration. Fold it into a generated migration once that settles.
 
 ```
 id uuid PK | tenant_id text | source_type text | source_id text
-chunk_index int | chunk_text text | embedding vector(1024) | created_at timestamptz
+chunk_index int | chunk_text text | embedding vector(EMBEDDING_DIMS) | created_at timestamptz
 INDEX (tenant_id) · UNIQUE (tenant_id, source_type, source_id, chunk_index)
 HNSW (embedding vector_cosine_ops)   -- best-effort
 ```
@@ -62,7 +64,7 @@ The Contabo box is RAM-bound (≈1.5 GB free) and its app DB is the shared
   ~40 MB), on the `whatsapp-flow_wf_net` network, reachable as host `ragdb`. Keeps
   vectors off the shared DB; no restart of postiz-postgres. The app points at it via
   `RAG_DATABASE_URL`; `ragQuery()` falls back to the app DB only when that's unset.
-- **Embeddings → Gemini API** (`text-embedding-004`, 768-dim, strong Bengali). Zero VPS
+- **Embeddings → Gemini API** (`gemini-embedding-001`, 768-dim, strong Bengali). Zero VPS
   RAM/GPU. Self-hosted BGE-M3 (TEI/Ollama providers already in the abstraction) moves in
   at roadmap P5 on a dedicated GPU box — an env change, no code change.
 
@@ -76,7 +78,7 @@ container, enabled `vector`, and wrote `RAG_DATABASE_URL` to `/srv/whatsapp-flow
 
 ```bash
 EMBEDDING_PROVIDER=gemini
-EMBEDDING_MODEL=text-embedding-004
+EMBEDDING_MODEL=gemini-embedding-001
 EMBEDDING_DIMS=768
 GEMINI_API_KEY=<your key>          # free from aistudio.google.com; no platform key existed
 RAG_DATABASE_URL=<from /srv/whatsapp-flow/.rag.env>
@@ -87,7 +89,7 @@ In tests `EMBEDDING_PROVIDER` defaults to `fake` (deterministic, no network) and
 
 > **`EMBEDDING_DIMS` is the single source of truth** for the `vector(N)` column width
 > (read by `services/rag/schema.ts`) and the client. Model width, this env, and the
-> column must agree: BGE-M3 = 1024, Gemini text-embedding-004 = 768, OpenAI 3-small = 1536.
+> column must agree: BGE-M3 = 1024, Gemini gemini-embedding-001 = 768, OpenAI 3-small = 1536.
 > Changing it after data exists requires re-creating `embedding_chunks` + re-backfilling.
 
 ---
@@ -108,15 +110,15 @@ A one-time backfill for tenants whose knowledge was ingested before RAG existed:
 
 ## Operational scripts
 
-Invoked with `tsx` (no `package.json` edit needed — that file is migration-owned):
+**On the VPS** (production image, compiled to `dist`) — run inside the app container:
 
 ```bash
-# Preflight: pgvector + embedding server + roundtrip. Run during VPS bring-up.
-pnpm --filter server exec tsx src/scripts/rag-doctor.ts
-
-# One-off backfill: embed all existing soul_sources rows. Run after wiring.
-pnpm --filter server exec tsx src/scripts/backfill-rag.ts
+cd /srv/whatsapp-flow
+docker compose exec app node dist/src/scripts/rag-doctor.js     # preflight: pgvector + embeddings + roundtrip
+docker compose exec app node dist/src/scripts/backfill-rag.js   # embed existing soul_sources
 ```
+
+Local/dev equivalent: `pnpm --filter server exec tsx src/scripts/rag-doctor.ts`.
 
 `rag-doctor` exits non-zero on any failure (CI/health-gate friendly). `backfill-rag`
 is idempotent — re-running re-indexes each source cleanly.
@@ -136,7 +138,9 @@ is idempotent — re-running re-indexes each source cleanly.
 ## Scale notes (later phases)
 
 - **P5:** swap the HNSW index for **pgvectorscale StreamingDiskANN** and the `embedding`
-  column to `halfvec(1024)` to take billions of vectors off RAM. Bump
-  `maintenance_work_mem` to 8–16GB only during index builds.
-- Embeddings are platform-level (one TEI for all tenants); the provider abstraction lets
-  you move to per-tenant or an API provider by config, not code.
+  column to `halfvec` to take billions of vectors off RAM. Bump `maintenance_work_mem`
+  to 8–16GB only during index builds. Move embeddings to self-hosted BGE-M3 on a GPU box
+  (set `EMBEDDING_PROVIDER=tei`, `EMBEDDING_URL`, `EMBEDDING_MODEL=BAAI/bge-m3`,
+  `EMBEDDING_DIMS=1024`) — code unchanged.
+- Embeddings are platform-level (one provider for all tenants); the abstraction lets you
+  move provider or to per-tenant keys by config, not code.

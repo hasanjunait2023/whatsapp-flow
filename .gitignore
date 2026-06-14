@@ -39,3 +39,7 @@ data/
 
 # Local Playwright debug/screenshot artifacts
 apps/web/pw-*
+
+# Local caches / tool artifacts
+.npmcache/
+.pwb/

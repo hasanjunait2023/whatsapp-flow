@@ -57,7 +57,7 @@ export async function sendWelcomeEmail(raw: Record<string, unknown>, ctx: FnCont
   void notify({
     tenantId,
     type: "welcome",
-    title: "Welcome to Ecomex Automation",
+    title: "Welcome to What A App",
     body: welcomeBody(body.customerName, body.email, body.tempPassword, body.businessName ?? "your business"),
     url: "/settings",
   });
@@ -156,7 +156,7 @@ export async function resendWelcomeNotification(raw: Record<string, unknown>, ct
   void notify({
     tenantId: order.tenant_id,
     type: "welcome",
-    title: "Welcome to Ecomex Automation",
+    title: "Welcome to What A App",
     body: welcomeBody(order.customer_name, order.customer_email, password, order.business_name),
     userId: order.user_id ?? undefined,
     url: "/settings",

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { rawDb } from "../db/index.js";
 import { indexSource } from "../services/rag/index.js";
 
@@ -40,7 +41,7 @@ export async function backfillRag(): Promise<{ sources: number; chunks: number }
   return { sources: rows.length, chunks };
 }
 
-if (process.argv[1] && process.argv[1].endsWith("backfill-rag.ts")) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const out = await backfillRag();
   console.log(`backfill complete: ${out.sources} sources, ${out.chunks} chunks`);
   process.exit(0);
