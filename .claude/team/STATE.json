@@ -1,26 +1,29 @@
 {
   "mission": "Autonomous growth company for What A App (Ecomex) — grow organically toward $100M; first goal 1,000 paying tenants profitably. Hormozi-driven, gated autonomy, hybrid architecture, BD-first.",
-  "phase": "BUILD",
-  "active_milestone": "M3 Lead-gen+funnel (+ SSR pre-render workstream)",
+  "phase": "SHIP",
+  "active_milestone": "M1-M3 + SSR all built; pending founder deploy",
   "awaiting_gate": null,
-  "paused": "SESSION API LIMIT hit 2026-06-14 (resets 8:50pm Asia/Dhaka). M3 + SSR subagents died with 0 result after ~33 tool calls each.",
   "chartered": "2026-06-14",
   "last_updated": "2026-06-14",
   "gates_passed": [
     "GATE1 plan 2026-06-14",
-    "M1 GATE2 ship 2026-06-14 (committed; deploy pending founder env)",
-    "GATE1 M2 2026-06-14",
-    "GATE2 M2 2026-06-14 (committed c7f1470)",
-    "M3+SSR direction approved 2026-06-14 (pre-render existing app; continue to M3)"
+    "M1 GATE2 2026-06-14 (foundation backend)",
+    "M2 GATE1+GATE2 2026-06-14 (content+SEO engine)",
+    "M3+SSR direction approved 2026-06-14"
   ],
-  "m1": "COMPLETE + committed. Deploy pending founder env.",
-  "m2": "COMPLETE + committed (c7f1470). Content+SEO drafts + content autopilot backend. Publishing pending M1 deploy.",
-  "m3_ssr_status": "IN PROGRESS, PAUSED by session limit. Partial dead-agent work QUARANTINED in .claude/team/wip-2026-06-14-m3-ssr/ (web-content scaffold: config.ts + lib/jsonld.ts; funnel-campaign.ts; web-package.json.diff for the SSG dep). Working tree reverted clean; HEAD buildable.",
-  "resume_plan": "After 8:50pm Asia/Dhaka reset, re-dispatch FRESH: (1) frontend-engineer = vite-react-ssg pre-render for /learn/* + /compare/* + per-page head/JSON-LD + robots.txt AI-crawler rules + sitemap + 2 sample pages (P0 pillar, C01 comparison) from docs/growth/seo/SEO-GEO-PLAN.md; (2) backend-engineer = M3 funnel (demo-lead -> marketingLeads -> enroll; seed value-first nurture campaign; advanceFunnelEnrollments draft->approval tick; send_marketing_message job WAHA-warm + stubbed email; gated). Reference wip/ partials. Then harden + GATE2 each.",
-  "blockers_founder_decisions": {
-    "M1_M2_deploy_env": "Set TELEGRAM_WEBHOOK_SECRET (hard-required), FOUNDER_TG_USER_ID, GROWTH_TELEGRAM_CHAT_ID, POSTIZ_URL/KEY; apply migration 0003 (additive); deploy apps/server; connect Postiz channels; run /api/fn/growth-test-approval. See docs/growth/DEPLOY-M1.md.",
-    "email_infra": "M3 nurture email needs SMTP/Resend key (none exists). WhatsApp nurture warm-only. Founder supplies email provider when ready."
+  "built": {
+    "M1": "Strategy, research, brand, skills (hormozi-growth + ai-search-seo), agent-company def, hardened approval-gate backend (migration 0003 additive). Committed.",
+    "M2": "30-day calendar + 3 lead magnets + SEO/GEO plan; content autopilot backend (seed + daily draft->approval tick). Committed c7f1470.",
+    "M3": "Lead-gen funnel: demo-lead->marketingLeads->enroll; seed-funnel-campaign; advanceFunnelEnrollments draft->approval tick; send_marketing_message (WAHA warm-only + stubbed email). Committed 9829248. 10/10 tests.",
+    "SSR": "vite-react-ssg isolated pre-render for /learn + /compare; 2 proof pages + JSON-LD in static HTML; robots.txt + sitemap; data-driven pattern for remaining pages. Committed 20e8d6b."
   },
-  "concurrency_note": "Separate active dev stream commits to master. Coordinate releases; growth code intact.",
-  "notes": "Loop = autonomous, gate at milestones. Resume with /ceo continue after limit reset. Prior missions archived under archive/2026-06-14-pre-growth/."
+  "founder_actions_to_go_live": [
+    "DEPLOY (see docs/growth/DEPLOY-M1.md): set TELEGRAM_WEBHOOK_SECRET (hard-required), FOUNDER_TG_USER_ID, GROWTH_TELEGRAM_CHAT_ID, POSTIZ_URL/POSTIZ_API_KEY; apply migration 0003 (additive); deploy apps/server; deploy apps/web (now runs SPA + content SSG build); connect Postiz channels; run POST /api/fn/growth-test-approval to prove the gate.",
+    "Run seed scripts post-deploy: npx tsx scripts/seed-growth-content.ts (GROWTH_LAUNCH_DATE=...) and npx tsx scripts/seed-funnel-campaign.ts",
+    "Supply email provider (SMTP/Resend key) for M3 nurture email — WhatsApp nurture is warm-only meanwhile",
+    "Confirm SITE_ORIGIN (currently https://ecomexautomation.com) + replace og-image.png placeholder"
+  ],
+  "remaining_build": "Content for the remaining ~16 SEO pages (data-driven, add to apps/web/src/content/data/ + slugs.ts); wire content_pieces publish job to the SSG pipeline; M4 after-sales; M5 gated scale.",
+  "concurrency_note": "Separate active dev stream commits to master (fb-data-deletion, legal pages). Coordinate. Growth/SSR commits isolated to their own files.",
+  "notes": "Loop = autonomous, gate at milestones. Everything is gated drafts/infra — nothing publishes/sends/contacts a human until founder deploys + approves each artifact on Telegram. Resume with /ceo continue. Prior missions archived under archive/2026-06-14-pre-growth/."
 }

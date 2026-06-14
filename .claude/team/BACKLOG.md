@@ -4,10 +4,14 @@
 > Status: `todo` | `active` | `blocked` | `done`
 
 ## Active milestone
-- [ ] **M2: Content + SEO engine** — status: GATE2 (buildable scope DONE)
-      DONE: 30-day calendar + 3 lead magnets (CONTENT-M2.md/calendar.json), SEO/GEO plan
-      (SEO-GEO-PLAN.md), content autopilot backend (seed + daily draft→approval tick, 18 tests).
-      BLOCKED for publish: M1 deploy (founder env) + SEO needs SPA pre-render decision.
+- [ ] **DEPLOY (founder)** — M1-M3 + SSR all BUILT + committed. Go live: docs/growth/DEPLOY-M1.md
+      (env + migration 0003 + deploy apps/server & apps/web + Postiz connect + seed scripts + test gate).
+
+## Done milestones
+- [x] **M1 Foundation** — DONE 2026-06-14 (strategy, brand, skills, agent-company, approval-gate backend).
+- [x] **M2 Content + SEO engine** — DONE 2026-06-14 (calendar + lead magnets + SEO/GEO plan + content autopilot).
+- [x] **M3 Lead-gen + funnel** — DONE 2026-06-14 (demo-lead->enroll, nurture campaign, gated draft tick, send job). commit 9829248.
+- [x] **SSR pre-render** — DONE 2026-06-14 (vite-react-ssg /learn + /compare, JSON-LD, robots, sitemap). commit 20e8d6b.
 
 ## Queue (priority order)
 - [ ] **SSR/pre-render decision** (founder) — unblocks ALL SEO/GEO; vite-plugin-ssg or static /blog. apps/web architecture.
