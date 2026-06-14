@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
+import { createNodeWebSocket } from "@hono/node-ws";
 import { Hono } from "hono";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -11,6 +12,7 @@ import { rpcRoute } from "./routes/rpc.js";
 import { fnRoute } from "./routes/fn.js";
 import { mediaRoute } from "./routes/media.js";
 import { realtimeRoute } from "./realtime/sse.js";
+import { realtimeWsEvents } from "./realtime/ws.js";
 import { llmSettingsRoute } from "./routes/llm-settings.js";
 import { adminBillingRoute } from "./routes/admin-billing.js";
 import { wahaWebhookRoute } from "./routes/waha/webhook.js";
@@ -34,6 +36,11 @@ if (IS_PRODUCTION) {
 }
 
 const app = new Hono();
+
+// WebSocket upgrade plumbing for the Node server. `upgradeWebSocket` is used on
+// the /api/ws route below; `injectWebSocket` is attached to the http server
+// returned by serve() so the realtime WS shares the app's port (no extra port).
+const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
 
 // --- health ----------------------------------------------------------------
 app.get("/healthz", async (c) => {
@@ -130,6 +137,9 @@ api.route("/rpc", rpcRoute);
 api.route("/fn", fnRoute);
 api.route("/media", mediaRoute);
 api.route("/realtime", realtimeRoute);
+// WebSocket realtime (primary transport; SSE /realtime stays as fallback).
+// tenantMiddleware (api.use("*")) authenticates the upgrade via session cookie.
+api.get("/ws", upgradeWebSocket(realtimeWsEvents));
 api.route("/llm-settings", llmSettingsRoute);
 api.route("/admin/billing", adminBillingRoute);
 api.route("/fb/oauth/start", fbOauthStartRoute);
@@ -154,6 +164,8 @@ if (IS_PRODUCTION && existsSync(WEB_DIST_DIR)) {
 await seedPlansIfEmpty();
 
 const server = serve({ fetch: app.fetch, port: PORT });
+// Attach the WebSocket upgrade handler to the Node http server.
+injectWebSocket(server);
 
 registerSoulJobs();
 registerHermesPipeline();
