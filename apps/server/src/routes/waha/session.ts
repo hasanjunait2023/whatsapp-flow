@@ -194,7 +194,11 @@ async function refreshQr(instance: InstanceRow): Promise<FnResult> {
     }
 
     const { qr } = await wahaClient.getQr(sessionName);
-    const expiresAt = new Date(Date.now() + 60000).toISOString();
+    // WhatsApp rotates the linking QR roughly every ~20s; a stored 60s window
+    // made the UI show a code that WhatsApp had already invalidated ("invalid"
+    // on scan). Keep the stored validity in step with the real rotation so the
+    // client refreshes before the code dies.
+    const expiresAt = new Date(Date.now() + 20000).toISOString();
     await dbRun(
       "UPDATE whatsapp_instances SET qr_code = ?, qr_expires_at = ?, status = 'disconnected', connection_error = NULL WHERE id = ?",
       qr,

@@ -73,40 +73,69 @@ export function useInstanceQR({ instanceId, enabled = true }: UseInstanceQROptio
     }
   }, [instanceId, enabled]);
 
-  // Request new QR code
-  const refreshQR = useCallback(async () => {
-    if (!instanceId) return;
+  // Request new QR code. `silent` is used by the auto-refresh loop: it swaps in
+  // the fresh QR without flashing a loading spinner or toasting, and never wipes
+  // a working QR to an error state on a transient failure.
+  const refreshQR = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!instanceId) return;
+      const silent = opts?.silent ?? false;
 
-    try {
-      setState((prev) => ({ ...prev, status: 'loading', error: null }));
+      try {
+        if (!silent) setState((prev) => ({ ...prev, status: 'loading', error: null }));
 
-      const { data, error } = await supabase.functions.invoke('wasender-connect-session', {
-        body: { instance_id: instanceId },
-      });
+        const { data, error } = await supabase.functions.invoke('wasender-connect-session', {
+          body: { instance_id: instanceId },
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast({
-        title: 'QR code refreshed',
-        description: 'Scan the new QR code to connect.',
-      });
+        // connect-session returns the inner fn payload: { qr_code, expires_at }
+        // when a code is available, or { status: 'active' } once linked.
+        const payload = (data ?? {}) as {
+          qr_code?: string;
+          expires_at?: string;
+          status?: string;
+        };
 
-      // Fetch updated QR
-      await fetchQR();
-    } catch (err) {
-      console.error('Error refreshing QR:', err);
-      toast({
-        title: 'Failed to refresh QR',
-        description: err instanceof Error ? err.message : 'Unknown error',
-        variant: 'destructive',
-      });
-      setState((prev) => ({
-        ...prev,
-        status: 'error',
-        error: err instanceof Error ? err.message : 'Failed to refresh QR code',
-      }));
-    }
-  }, [instanceId, fetchQR, toast]);
+        if (payload.status === 'active') {
+          setState({ qrCode: null, expiresAt: null, status: 'connected', error: null });
+        } else if (payload.qr_code) {
+          setState({
+            qrCode: payload.qr_code,
+            expiresAt: payload.expires_at
+              ? new Date(payload.expires_at)
+              : new Date(Date.now() + 20000),
+            status: 'awaiting_scan',
+            error: null,
+          });
+        } else {
+          await fetchQR();
+        }
+
+        if (!silent) {
+          toast({
+            title: 'QR code refreshed',
+            description: 'Scan the new QR code to connect.',
+          });
+        }
+      } catch (err) {
+        console.error('Error refreshing QR:', err);
+        if (silent) return; // keep the current QR; the next tick will retry
+        toast({
+          title: 'Failed to refresh QR',
+          description: err instanceof Error ? err.message : 'Unknown error',
+          variant: 'destructive',
+        });
+        setState((prev) => ({
+          ...prev,
+          status: 'error',
+          error: err instanceof Error ? err.message : 'Failed to refresh QR code',
+        }));
+      }
+    },
+    [instanceId, fetchQR, toast],
+  );
 
   // Subscribe to realtime updates
   useEffect(() => {
@@ -180,6 +209,20 @@ export function useInstanceQR({ instanceId, enabled = true }: UseInstanceQROptio
 
     return () => clearInterval(interval);
   }, [state.expiresAt, state.status]);
+
+  // Auto-refresh the QR before WhatsApp rotates it (~20s). Without this the
+  // displayed code goes stale and scanning it fails with "invalid". Runs only
+  // while the dialog is open and the instance is still awaiting a scan.
+  useEffect(() => {
+    if (!instanceId || !enabled) return;
+    if (state.status === 'connected' || state.status === 'error') return;
+
+    const interval = setInterval(() => {
+      void refreshQR({ silent: true });
+    }, 18000);
+
+    return () => clearInterval(interval);
+  }, [instanceId, enabled, state.status, refreshQR]);
 
   return {
     qrCode: state.qrCode,
