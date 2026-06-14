@@ -7,6 +7,8 @@ import {
   Building2,
   CreditCard,
   MessageSquare,
+  MessagesSquare,
+  Smartphone,
   Receipt,
   Users,
   RefreshCw,
@@ -79,7 +81,7 @@ export default function AdminDashboard() {
           variants={staggerContainer}
           initial="hidden"
           animate="show"
-          className="grid grid-cols-2 gap-4 lg:grid-cols-4"
+          className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6"
         >
           <KpiCard
             title="Total tenants"
@@ -100,6 +102,20 @@ export default function AdminDashboard() {
             value={stats?.totalMessages ?? 0}
             icon={MessageSquare}
             tone="primary"
+            loading={loading}
+          />
+          <KpiCard
+            title="Conversations"
+            value={stats?.totalConversations ?? 0}
+            icon={MessagesSquare}
+            tone="info"
+            loading={loading}
+          />
+          <KpiCard
+            title="Active instances"
+            value={stats?.activeInstances ?? 0}
+            icon={Smartphone}
+            tone="success"
             loading={loading}
           />
           <KpiCard

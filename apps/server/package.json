@@ -11,6 +11,7 @@
     "generate": "drizzle-kit generate",
     "push": "drizzle-kit push",
     "seed": "tsx scripts/seed-dev.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
     "migrate:from-pg": "tsx scripts/migrate-from-pg.ts",
     "test": "vitest run",
     "test:watch": "vitest",
