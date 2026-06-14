@@ -44,7 +44,10 @@ export function useDisconnectedInstances() {
         .from('whatsapp_instances')
         .select('id, name, phone_number, status, connection_error')
         .eq('tenant_id', currentTenant.id)
-        .eq('status', 'disconnected');
+        .eq('status', 'disconnected')
+        // Exclude soft-deleted rows, else removed instances keep showing in the
+        // "disconnected" banner forever.
+        .eq('is_deleted', false);
 
       if (error) {
         console.error('Error fetching disconnected instances:', error);

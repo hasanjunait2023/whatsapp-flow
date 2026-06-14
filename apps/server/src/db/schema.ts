@@ -158,7 +158,7 @@ export const whatsappInstances = pgTable(
     deleted_at: text("deleted_at"),
     device_info: jsonb("device_info"),
     is_default: boolean("is_default").default(false).notNull(),
-    is_deleted: boolean("is_deleted"),
+    is_deleted: boolean("is_deleted").default(false).notNull(),
     last_connected_at: text("last_connected_at"),
     last_qr_sent_at: text("last_qr_sent_at"),
     last_status_at: text("last_status_at"),
@@ -874,6 +874,28 @@ export const fbMessages = pgTable(
       t.contact_id,
       t.created_at,
     ),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// fb_data_deletion_requests (Meta Data Deletion Request Callback; platform-level,
+// not tenant-scoped — Meta sends an app-scoped user_id with no tenant context).
+// Rows are persisted for manual/audited deletion since no schema column maps the
+// app-scoped FB user_id to our page-scoped fb_contacts.psid.
+// ---------------------------------------------------------------------------
+export const fbDataDeletionRequests = pgTable(
+  "fb_data_deletion_requests",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    fb_user_id: text("fb_user_id").notNull(),
+    confirmation_code: text("confirmation_code").notNull(),
+    status: text("status").default("received").notNull(),
+    created_at: text("created_at").default(nowIso).notNull(),
+  },
+  (t) => ({
+    codeUnq: uniqueIndex("fb_data_deletion_requests_code_unq").on(t.confirmation_code),
   }),
 );
 
