@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && pnpm build:content",
+    "build:content": "vite-react-ssg build -c vite.content.config.ts",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "typecheck": "tsc -b",
@@ -96,10 +97,12 @@
     "globals": "^15.15.0",
     "jsdom": "^20.0.3",
     "postcss": "^8.5.6",
+    "react-helmet-async": "^2.0.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19",
+    "vite-react-ssg": "^0.9.0",
     "vitest": "^3.2.4"
   }
 }

@@ -1,0 +1,58 @@
+/*
+ * Stylesheet for the pre-rendered content pages (/learn, /compare).
+ *
+ * Isolated from the SPA's index.css so the content build stays lean (no CRM
+ * design system, no app chunks) — satisfies the CWV requirement in
+ * SEO-GEO-PLAN §4. Pulls Tailwind + the World B landing tokens (.lp scope)
+ * only, and paints the document in the near-black violet marketing world.
+ */
+/* World B tokens, scoped under `.lp` (near-black violet luxury).
+   CSS @import must precede all other statements. */
+@import "../styles/landing.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  background-color: var(--lp-bg, #08080c);
+  -webkit-text-size-adjust: 100%;
+}
+
+/* The whole content document lives in World B — paint the body near-black so
+   there is no flash of the app's cream canvas before the `.lp` root paints. */
+body {
+  margin: 0;
+  background-color: var(--lp-bg, #08080c);
+  color: var(--lp-text, #f4f4f6);
+  font-family: var(--lp-font-sans, "Inter", system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Bangla body: Noto Serif Bengali in the landing/social world, min 16px / 1.6
+   line-height per the Bangla legibility rules (TOKENS.md §3). */
+[lang="bn"] {
+  font-family: var(--lp-font-bn, "Noto Serif Bengali", serif);
+  line-height: 1.7;
+}
+
+/* Reading measure + rhythm for long-form content prose. */
+.prose-bd {
+  max-width: 68ch;
+}
+.prose-bd p {
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  color: var(--lp-text-muted, #a1a1b5);
+}
+.prose-bd p [lang="bn"],
+.prose-bd [lang="bn"] {
+  font-size: 1.0625rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

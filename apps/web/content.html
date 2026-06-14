@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- color-scheme dark up front so there is no flash of light before the
+         World B near-black content body paints. -->
+    <meta name="theme-color" content="#08080c" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.png" type="image/png" sizes="64x64" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Content pages: Inter (Latin) + Noto Serif Bengali (Bangla display/body in
+         the landing/social world). Non-blocking, display=swap. No Hind Siliguri
+         here — that is the app-UI Bangla face, not the marketing one. -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@400;500;600;700&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <noscript
+      ><link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@400;500;600;700&display=swap"
+    /></noscript>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/content/content-main.tsx"></script>
+  </body>
+</html>

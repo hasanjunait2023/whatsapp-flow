@@ -1,8 +1,48 @@
+# What A App — robots policy (SEO-GEO-PLAN §4).
+# Allow AI answer engines + search crawlers into the pre-rendered content
+# (/learn, /compare). Keep them out of the authenticated app and the API.
+
+# ── AI answer engines (GEO/AEO) ──
+User-agent: GPTBot
+Allow: /learn/
+Allow: /compare/
+Disallow: /app/
+Disallow: /api/
+
+User-agent: OAI-SearchBot
+Allow: /learn/
+Allow: /compare/
+Disallow: /app/
+Disallow: /api/
+
+User-agent: PerplexityBot
+Allow: /learn/
+Allow: /compare/
+Disallow: /app/
+Disallow: /api/
+
+User-agent: Google-Extended
+Allow: /learn/
+Allow: /compare/
+Disallow: /app/
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /learn/
+Allow: /compare/
+Disallow: /app/
+Disallow: /api/
+
+# ── Search crawlers ──
 User-agent: Googlebot
 Allow: /
+Disallow: /app/
+Disallow: /api/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /app/
+Disallow: /api/
 
 User-agent: Twitterbot
 Allow: /
@@ -10,5 +50,10 @@ Allow: /
 User-agent: facebookexternalhit
 Allow: /
 
+# ── Everyone else ──
 User-agent: *
 Allow: /
+Disallow: /app/
+Disallow: /api/
+
+Sitemap: https://ecomexautomation.com/sitemap.xml
