@@ -15,8 +15,10 @@ const TableHeader = React.forwardRef<HTMLTableSectionElement, React.HTMLAttribut
   ({ className, ...props }, ref) => (
     <thead
       ref={ref}
-      // Sticky header on a tinted surface; opt out per-table by overriding className.
-      className={cn("sticky top-0 z-10 bg-muted/60 backdrop-blur-sm [&_tr]:border-b", className)}
+      // Overline header on a tinted surface. Not sticky by default — opt in with
+      // `sticky top-0 z-10` per-table only when the table sits in a bounded scroll
+      // container (e.g. a ScrollArea), so page-scrolled tables don't pin oddly.
+      className={cn("bg-muted/60 backdrop-blur-sm [&_tr]:border-b", className)}
       {...props}
     />
   ),

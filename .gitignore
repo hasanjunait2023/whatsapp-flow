@@ -36,3 +36,6 @@ data/
 *.sln
 *.sw?
 .gstack/
+
+# Local Playwright debug/screenshot artifacts
+apps/web/pw-*
