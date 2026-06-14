@@ -12,6 +12,7 @@
 - [x] **M2 Content + SEO engine** — DONE 2026-06-14 (calendar + lead magnets + SEO/GEO plan + content autopilot).
 - [x] **M3 Lead-gen + funnel** — DONE 2026-06-14 (demo-lead->enroll, nurture campaign, gated draft tick, send job). commit 9829248.
 - [x] **SSR pre-render** — DONE 2026-06-14 (vite-react-ssg /learn + /compare, JSON-LD, robots, sitemap). commit 20e8d6b.
+- [x] **M4 After-sales + loyalty** — DONE 2026-06-14 (multi-channel router, lifecycle campaigns, template-approve-once, triggers). commit 3a7d9e6. Deferred: festival/usage-dip tick wiring, NPS detractor capture, UddoktaPay enroll hook, email+SMS provider keys.
 
 ## Queue (priority order)
 - [ ] **SSR/pre-render decision** (founder) — unblocks ALL SEO/GEO; vite-plugin-ssg or static /blog. apps/web architecture.
