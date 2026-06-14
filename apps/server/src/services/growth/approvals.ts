@@ -23,7 +23,8 @@ export type ArtifactType =
   | "outreach_batch"
   | "ad"
   | "funnel_email"
-  | "aftersales_touch";
+  | "aftersales_touch"
+  | "aftersales_template";
 
 export type ApprovalStatus =
   | "awaiting_approval"

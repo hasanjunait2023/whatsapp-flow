@@ -1288,6 +1288,13 @@ export const adminMarketingCampaigns = pgTable("admin_marketing_campaigns", {
 export const adminMarketingSequences = pgTable("admin_marketing_sequences", {
   id: uid(),
   ai_personalize: boolean("ai_personalize").default(false),
+  // M4 template-approve-once: a sequence step's template is approved by the
+  // founder ONCE through the gate. Once `approved`, after-sales enrollments
+  // auto-send this step (transactional) to consented owners — no per-message
+  // tap. A new/edited template resets `approved` so it re-gates. `approval_id`
+  // links the growth_approvals row that gated it (deduped re-queues).
+  approved: boolean("approved").default(false),
+  approval_id: text("approval_id"),
   campaign_id: text("campaign_id").notNull(),
   channel: text("channel").notNull(),
   content_template: jsonb("content_template").notNull(),
@@ -1301,6 +1308,44 @@ export const adminMarketingSequences = pgTable("admin_marketing_sequences", {
   theme: text("theme"),
   week_number: integer("week_number").notNull(),
 });
+
+/**
+ * M4 owner channel preferences + consent. One row per tenant (the seller/owner
+ * we send after-sales lifecycle touches to). Routing reads this to pick a
+ * channel, honor consent/opt-out, enforce quiet hours and a weekly cap, and
+ * resolve owner contact (email/sms). Booleans default to allowing the owned,
+ * zero-cost channels (in-app/push) and the warm channels (whatsapp/telegram);
+ * sms defaults OFF (paid, no provider yet).
+ */
+export const ownerChannelPrefs = pgTable(
+  "owner_channel_prefs",
+  {
+    id: uid(),
+    tenant_id: text("tenant_id").notNull(),
+    preferred_channel: text("preferred_channel"),
+    in_app_ok: boolean("in_app_ok").default(true).notNull(),
+    push_ok: boolean("push_ok").default(true).notNull(),
+    whatsapp_ok: boolean("whatsapp_ok").default(true).notNull(),
+    telegram_ok: boolean("telegram_ok").default(true).notNull(),
+    email: text("email"),
+    email_ok: boolean("email_ok").default(true).notNull(),
+    sms_number: text("sms_number"),
+    sms_ok: boolean("sms_ok").default(false).notNull(),
+    // Quiet hours in the owner's local clock (0-23). 22 -> 8 means no pings
+    // between 10pm and 8am. Null disables quiet-hours filtering.
+    quiet_hours_start: integer("quiet_hours_start").default(22),
+    quiet_hours_end: integer("quiet_hours_end").default(8),
+    opted_out: boolean("opted_out").default(false).notNull(),
+    weekly_cap: integer("weekly_cap").default(5).notNull(),
+    messages_this_week: integer("messages_this_week").default(0).notNull(),
+    week_reset_at: text("week_reset_at").default(nowIso),
+    created_at: text("created_at").default(nowIso).notNull(),
+    updated_at: text("updated_at").default(nowIso).notNull(),
+  },
+  (t) => ({
+    tenantUnq: uniqueIndex("owner_channel_prefs_tenant_unq").on(t.tenant_id),
+  }),
+);
 
 export const adminMarketingEnrollments = pgTable("admin_marketing_enrollments", {
   id: uid(),
@@ -1714,4 +1759,5 @@ export const moduleSchema = {
   serviceCards,
   serviceLabels,
   serviceCardActivity,
+  ownerChannelPrefs,
 };

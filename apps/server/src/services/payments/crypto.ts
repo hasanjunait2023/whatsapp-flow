@@ -3,6 +3,7 @@ import { dbGet, dbRun, dbTx } from "../../db/raw.js";
 import { emitChange } from "../../realtime/emitter.js";
 import { CRYPTO_USDT_ADDRESS_TRC20, CRYPTO_USDT_ADDRESS_BEP20 } from "../../lib/env.js";
 import { validateCoupon, redeemCouponInTx } from "./coupons.js";
+import { enrollTenantInAftersales } from "../growth/aftersales.js";
 
 /**
  * Manual USDT transfer checkout:
@@ -286,6 +287,15 @@ export async function approveCryptoPayment(requestId: string, review: ReviewCont
 
   emitChange("crypto_payment_requests", tenantId, { id: requestId, status: "approved" });
   emitChange("subscriptions", tenantId, {});
+
+  // M4 after-sales: the subscription just became active — enroll the tenant into
+  // the onboarding lifecycle campaign. Best-effort: a failure here (or a missing
+  // seed) must never roll back or break the approved payment.
+  try {
+    await enrollTenantInAftersales(tenantId);
+  } catch {
+    // Enrollment is non-critical; the daily after-sales tick is the safety net.
+  }
 }
 
 export async function rejectCryptoPayment(requestId: string, review: ReviewContext): Promise<void> {

@@ -7,7 +7,7 @@ import { runWhatsappFollowups } from "./followups.js";
 import { processGroupAddQueue } from "../services/groups/queue-processor.js";
 import { generateDueRecurringExpenses } from "../services/accounting/recurring.js";
 import { expireStaleApprovals } from "../services/growth/approvals.js";
-import { enqueueCompanyCeoReport, runDailyContentDraft, runDailyFunnelDraft } from "../services/growth/index.js";
+import { enqueueCompanyCeoReport, runDailyContentDraft, runDailyFunnelDraft, runDailyAftersales } from "../services/growth/index.js";
 
 /**
  * Minimal interval-based job scheduler. The plan suggested node-cron, but the
@@ -92,6 +92,12 @@ export function startScheduler(): void {
     void runDailyFunnelDraft().catch(() => {
       // Funnel autopilot: date-gated to once/day; only DRAFTS for approval,
       // never sends. Swallow tick errors and retry next day.
+    });
+    void runDailyAftersales().catch(() => {
+      // After-sales autopilot (M4): date-gated to once/day. Auto-sends only
+      // founder-approved templates to consented owners (opt-out/quiet-hours/cap
+      // enforced downstream); unapproved templates queue ONE approval and skip.
+      // Swallow tick errors and retry next day.
     });
     void runWebhookCleanup().catch(() => {
       // Best-effort retention; errors are non-fatal and retry next day.

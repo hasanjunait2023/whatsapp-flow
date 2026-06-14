@@ -4,6 +4,7 @@ import { registerGrowthSocialJobs } from "./social.js";
 import { registerMarketingSendJob } from "./marketing-send.js";
 import { draftDueSocialPosts } from "./content-scheduler.js";
 import { advanceFunnelEnrollments } from "./funnel.js";
+import { registerAftersalesJobs, advanceAftersales } from "./aftersales.js";
 import {
   registerFounderReportJobs,
   COMPANY_CEO_REPORT_JOB,
@@ -18,6 +19,7 @@ export function registerGrowthJobs(): void {
   registerGrowthSocialJobs();
   registerMarketingSendJob();
   registerFounderReportJobs();
+  registerAftersalesJobs();
 }
 
 /**
@@ -105,3 +107,36 @@ export async function runDailyFunnelDraft(): Promise<number> {
 
 /** Marker job kind used purely as a per-day lock for the funnel-draft tick. */
 const GROWTH_DAILY_FUNNEL_MARKER = "growth_daily_funnel_marker";
+
+/**
+ * After-sales behaviour tick (M4). Runs advanceAftersales() at most once per UTC
+ * date, via the same per-day marker-lock pattern: the first call of the day wins
+ * the marker insert; later calls dedupe and return 0. Approved templates
+ * auto-send to consented owners (transactional); unapproved templates queue ONE
+ * founder approval and skip. Idempotent + per-run capped inside advanceAftersales.
+ */
+export async function runDailyAftersales(): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
+  const claimed = await enqueueJob({
+    kind: GROWTH_DAILY_AFTERSALES_MARKER,
+    tenantId: COMPANY_TENANT_ID,
+    dedupeKey: `growth_daily_aftersales:${today}`,
+  });
+  const row = (await dbGet(
+    `SELECT status FROM job_queue WHERE id = ?`,
+    claimed,
+  )) as { status: string } | undefined;
+  if (!row || row.status !== "queued") return 0;
+
+  const own = await dbRun(
+    `UPDATE job_queue SET status = 'done', updated_at = ? WHERE id = ? AND status = 'queued'`,
+    new Date().toISOString(),
+    claimed,
+  );
+  if (own.changes !== 1) return 0;
+
+  return advanceAftersales();
+}
+
+/** Marker job kind used purely as a per-day lock for the after-sales tick. */
+const GROWTH_DAILY_AFTERSALES_MARKER = "growth_daily_aftersales_marker";
