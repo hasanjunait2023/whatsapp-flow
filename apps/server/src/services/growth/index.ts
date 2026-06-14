@@ -1,7 +1,9 @@
 import { enqueueJob } from "../../jobs/queue.js";
 import { dbGet, dbRun } from "../../db/raw.js";
 import { registerGrowthSocialJobs } from "./social.js";
+import { registerMarketingSendJob } from "./marketing-send.js";
 import { draftDueSocialPosts } from "./content-scheduler.js";
+import { advanceFunnelEnrollments } from "./funnel.js";
 import {
   registerFounderReportJobs,
   COMPANY_CEO_REPORT_JOB,
@@ -14,6 +16,7 @@ import {
  */
 export function registerGrowthJobs(): void {
   registerGrowthSocialJobs();
+  registerMarketingSendJob();
   registerFounderReportJobs();
 }
 
@@ -70,3 +73,35 @@ export async function runDailyContentDraft(): Promise<number> {
 
 /** Marker job kind used purely as a per-day lock for the content-draft tick. */
 const GROWTH_DAILY_CONTENT_MARKER = "growth_daily_content_marker";
+
+/**
+ * Funnel autopilot daily tick. Drafts due funnel steps through the approval gate,
+ * at most once per UTC date. Same per-day marker-lock pattern as
+ * runDailyContentDraft: the first call of the day wins the marker insert, later
+ * calls dedupe and become no-ops. Only DRAFTS for approval; never sends.
+ */
+export async function runDailyFunnelDraft(): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
+  const claimed = await enqueueJob({
+    kind: GROWTH_DAILY_FUNNEL_MARKER,
+    tenantId: COMPANY_TENANT_ID,
+    dedupeKey: `growth_daily_funnel:${today}`,
+  });
+  const row = (await dbGet(
+    `SELECT status FROM job_queue WHERE id = ?`,
+    claimed,
+  )) as { status: string } | undefined;
+  if (!row || row.status !== "queued") return 0;
+
+  const own = await dbRun(
+    `UPDATE job_queue SET status = 'done', updated_at = ? WHERE id = ? AND status = 'queued'`,
+    new Date().toISOString(),
+    claimed,
+  );
+  if (own.changes !== 1) return 0;
+
+  return advanceFunnelEnrollments();
+}
+
+/** Marker job kind used purely as a per-day lock for the funnel-draft tick. */
+const GROWTH_DAILY_FUNNEL_MARKER = "growth_daily_funnel_marker";

@@ -75,6 +75,14 @@ export const WAHA_SINGLE_SESSION =
   (process.env.WAHA_SINGLE_SESSION ?? "true").toLowerCase() === "true";
 
 /**
+ * WAHA session used for company growth/funnel outbound (warm, consented form
+ * submitters). Defaults to the single-session `default`; override when the
+ * company runs its own dedicated marketing session in WAHA Plus.
+ */
+export const GROWTH_WHATSAPP_SESSION =
+  process.env.GROWTH_WHATSAPP_SESSION ?? "default";
+
+/**
  * Public base URL WAHA uses to reach our webhook endpoint. In prod this is the
  * container-network address of the app (e.g. http://app:3000); the webhook path
  * /api/waha/webhook/{instanceId} is appended per instance.

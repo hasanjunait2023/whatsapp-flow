@@ -34,6 +34,7 @@ import { registerSoulJobs } from "./services/soul/index.js";
 import { registerHermesPipeline } from "./services/hermes/pipeline.js";
 import { registerCeoJobs } from "./services/ceo/index.js";
 import { registerGrowthJobs } from "./services/growth/index.js";
+import { enrollLeadInFunnel } from "./services/growth/funnel.js";
 import { registerOptOutHandler } from "./services/opt-out.js";
 import { registerBulkSend } from "./services/bulk-send.js";
 import { seedPlansIfEmpty } from "./services/billing/seed-plans.js";
@@ -235,20 +236,58 @@ app.post("/api/public/demo-lead", async (c) => {
   }
 
   const now = new Date().toISOString();
-  await dbRun(
-    `INSERT INTO marketing_leads
-       (id, full_name, email, whatsapp_number, business_name, source, status, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    crypto.randomUUID(),
-    fullName,
+
+  // Upsert on email so a repeat submission updates the existing lead instead of
+  // duplicating it (and keeps a single funnel enrollment downstream). A fresh
+  // capture starts at status 'new'; a re-submit refreshes contact fields without
+  // clobbering a lead that has already progressed past 'new'.
+  const existing = (await dbGet(
+    `SELECT id FROM marketing_leads WHERE email = ? LIMIT 1`,
     email,
-    whatsappNumber,
-    businessName,
-    "demo_request",
-    "new",
-    now,
-    now,
-  );
+  )) as { id: string } | undefined;
+
+  let leadId: string;
+  if (existing) {
+    leadId = existing.id;
+    await dbRun(
+      `UPDATE marketing_leads
+          SET full_name = ?, whatsapp_number = ?, business_name = ?, updated_at = ?
+        WHERE id = ?`,
+      fullName,
+      whatsappNumber,
+      businessName,
+      now,
+      leadId,
+    );
+  } else {
+    leadId = crypto.randomUUID();
+    await dbRun(
+      `INSERT INTO marketing_leads
+         (id, full_name, email, whatsapp_number, business_name, source, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      leadId,
+      fullName,
+      email,
+      whatsappNumber,
+      businessName,
+      "demo_request",
+      "new",
+      now,
+      now,
+    );
+  }
+
+  // Auto-enroll into the value-first nurture funnel. No-ops if the campaign
+  // isn't seeded or the lead is already enrolled. Best-effort: a funnel failure
+  // must never fail the lead capture itself.
+  try {
+    await enrollLeadInFunnel(leadId);
+  } catch (err) {
+    logger.error("funnel_enroll_failed", {
+      msg_preview: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   return c.json({ success: true });
 });
 
