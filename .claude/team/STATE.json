@@ -1,22 +1,26 @@
 {
   "mission": "Autonomous growth company for What A App (Ecomex) — grow organically toward $100M; first goal 1,000 paying tenants profitably. Hormozi-driven, gated autonomy, hybrid architecture, BD-first.",
-  "phase": "GATE2",
-  "active_milestone": "M2 Content + SEO engine",
-  "awaiting_gate": "GATE2",
+  "phase": "BUILD",
+  "active_milestone": "M3 Lead-gen+funnel (+ SSR pre-render workstream)",
+  "awaiting_gate": null,
+  "paused": "SESSION API LIMIT hit 2026-06-14 (resets 8:50pm Asia/Dhaka). M3 + SSR subagents died with 0 result after ~33 tool calls each.",
   "chartered": "2026-06-14",
   "last_updated": "2026-06-14",
   "gates_passed": [
     "GATE1 plan 2026-06-14",
-    "M1 GATE2 ship 2026-06-14 (foundation backend; deploy pending founder env)",
-    "GATE1 M2 2026-06-14 (build drafts now)"
+    "M1 GATE2 ship 2026-06-14 (committed; deploy pending founder env)",
+    "GATE1 M2 2026-06-14",
+    "GATE2 M2 2026-06-14 (committed c7f1470)",
+    "M3+SSR direction approved 2026-06-14 (pre-render existing app; continue to M3)"
   ],
-  "m1": "COMPLETE. Deploy pending founder env.",
-  "m2": "BUILT (drafts): CONTENT-M2.md (30-day calendar + 3 lead magnets) + calendar.json; SEO-GEO-PLAN.md (pillar+14 supporting+4 comparison pages, schema, GEO); content autopilot backend (seed-growth-content.ts + draftDueSocialPosts daily tick, gated, 18 tests). Publishing pending M1 deploy + Postiz connect.",
+  "m1": "COMPLETE + committed. Deploy pending founder env.",
+  "m2": "COMPLETE + committed (c7f1470). Content+SEO drafts + content autopilot backend. Publishing pending M1 deploy.",
+  "m3_ssr_status": "IN PROGRESS, PAUSED by session limit. Partial dead-agent work QUARANTINED in .claude/team/wip-2026-06-14-m3-ssr/ (web-content scaffold: config.ts + lib/jsonld.ts; funnel-campaign.ts; web-package.json.diff for the SSG dep). Working tree reverted clean; HEAD buildable.",
+  "resume_plan": "After 8:50pm Asia/Dhaka reset, re-dispatch FRESH: (1) frontend-engineer = vite-react-ssg pre-render for /learn/* + /compare/* + per-page head/JSON-LD + robots.txt AI-crawler rules + sitemap + 2 sample pages (P0 pillar, C01 comparison) from docs/growth/seo/SEO-GEO-PLAN.md; (2) backend-engineer = M3 funnel (demo-lead -> marketingLeads -> enroll; seed value-first nurture campaign; advanceFunnelEnrollments draft->approval tick; send_marketing_message job WAHA-warm + stubbed email; gated). Reference wip/ partials. Then harden + GATE2 each.",
   "blockers_founder_decisions": {
-    "SEO_ssr": "CRITICAL — apps/web is SPA with no SSR/pre-render; SEO/GEO pages invisible to AI+Google crawlers until fixed (vite-plugin-ssg OR static /blog site). Architecture decision needed.",
-    "M1_deploy_env": "Set TELEGRAM_WEBHOOK_SECRET (hard-required), FOUNDER_TG_USER_ID, GROWTH_TELEGRAM_CHAT_ID, POSTIZ_URL/KEY; apply migration 0003; deploy; connect Postiz channels; run /api/fn/growth-test-approval."
+    "M1_M2_deploy_env": "Set TELEGRAM_WEBHOOK_SECRET (hard-required), FOUNDER_TG_USER_ID, GROWTH_TELEGRAM_CHAT_ID, POSTIZ_URL/KEY; apply migration 0003 (additive); deploy apps/server; connect Postiz channels; run /api/fn/growth-test-approval. See docs/growth/DEPLOY-M1.md.",
+    "email_infra": "M3 nurture email needs SMTP/Resend key (none exists). WhatsApp nurture warm-only. Founder supplies email provider when ready."
   },
-  "next_after_gate2": "M3 Lead-gen+funnel (lead magnets -> /api/public/demo-lead -> marketingLeads -> nurture via admin-marketing tables). Or resolve SSR blocker to unlock SEO publishing.",
-  "concurrency_note": "Separate active dev stream commits to master (HEAD past 6921533). Coordinate releases; growth code intact.",
-  "notes": "Loop = autonomous, gate at milestones. Prior missions archived under archive/2026-06-14-pre-growth/."
+  "concurrency_note": "Separate active dev stream commits to master. Coordinate releases; growth code intact.",
+  "notes": "Loop = autonomous, gate at milestones. Resume with /ceo continue after limit reset. Prior missions archived under archive/2026-06-14-pre-growth/."
 }

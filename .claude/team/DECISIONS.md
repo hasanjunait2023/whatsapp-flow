@@ -88,3 +88,15 @@ Founder asked to use WebSocket. Implemented WS as the PRIMARY realtime transport
 - HARDEN (M2): new code reuses the already-hardened M1 approval path (queueApproval/publish_social_post). New surface is small (local-json seed + guarded draft tick). Safety invariant test-confirmed: drafts+queues ONLY, publish still requires founder ✅. Full gauntlet not re-run for this reuse-slice (CEO judgment; recorded). Idempotency guards verified by tests.
 - BLOCKERS surfaced (founder decisions, gate working): (1) CRITICAL SEO blocker — apps/web is a Vite/React SPA with NO SSR/pre-render -> content pages invisible to AI crawlers + Google; entire SEO/GEO payoff blocked until pre-render (vite-plugin-ssg or static /blog) decided. Architecture change to apps/web. (2) M1 deploy still pending founder env (TELEGRAM_WEBHOOK_SECRET hard-required, FOUNDER_TG_USER_ID, POSTIZ_*) — nothing publishes until then.
 - State: phase=GATE2 (M2), awaiting_gate=GATE2.
+
+## 2026-06-14 — GATE2(M2)/LOOP — founder direction → M3 + SSR
+- GATE2 M2: code committed c7f1470 (deploys with M1; no independent risk — gated drafts only).
+- Founder decisions: (1) SSR blocker -> ADD pre-rendering to existing apps/web (vite-plugin-ssg); (2) continue to M3 Lead-gen+funnel autonomously.
+- Dispatched (parallel): frontend-engineer (pre-render infra for /learn/* + /compare/* + per-page head/JSON-LD + robots.txt AI-crawler rules + sitemap + 2 sample pages to prove pipeline); backend-engineer (M3 funnel: /api/public/demo-lead -> marketingLeads, lead-magnet delivery, nurture via adminMarketingCampaigns/Sequences/Enrollments + advanceFunnelEnrollments draft->approval tick, warm/email only, gated).
+- State: phase=BUILD, active=M3 (+SSR).
+
+## 2026-06-14 — PAUSE — M3 + SSR blocked by session API limit
+- M3 (lead-gen funnel) + SSR (pre-render) subagents BOTH died on session API limit (resets 8:50pm Asia/Dhaka), 0 result after ~33 tool calls each.
+- They left PARTIAL unverified work: apps/web/package.json + pnpm-lock (SSG dep, half-wired), apps/web/src/content/ scaffold (config.ts + lib/jsonld.ts), apps/server funnel-campaign.ts. QUARANTINED to .claude/team/wip-2026-06-14-m3-ssr/; working tree reverted clean (git checkout package.json/lock; removed untracked partials). HEAD (M1+M2) intact + buildable.
+- RESUME after reset: re-dispatch fresh frontend-engineer (vite-react-ssg) + backend-engineer (M3 funnel) per STATE.resume_plan, referencing wip/ partials. Then harden + GATE2.
+- Founder actions outstanding: deploy M1+M2 env (DEPLOY-M1.md); supply email provider (SMTP/Resend) for M3 nurture email.

@@ -1,0 +1,17 @@
+diff --git a/apps/web/package.json b/apps/web/package.json
+index 699cc90..ce6def9 100644
+--- a/apps/web/package.json
++++ b/apps/web/package.json
+@@ -96,10 +96,12 @@
+     "globals": "^15.15.0",
+     "jsdom": "^20.0.3",
+     "postcss": "^8.5.6",
++    "react-helmet-async": "^2.0.5",
+     "tailwindcss": "^3.4.17",
+     "typescript": "^5.8.3",
+     "typescript-eslint": "^8.38.0",
+     "vite": "^5.4.19",
++    "vite-react-ssg": "^0.9.0",
+     "vitest": "^3.2.4"
+   }
+ }
