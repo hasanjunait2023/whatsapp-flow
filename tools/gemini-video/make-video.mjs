@@ -45,7 +45,9 @@ const content = process.argv[2] && existsSync(process.argv[2])
 log('content:', content.slug, '| clips:', content.clips.length);
 
 async function ensureChrome() {
-  try { const r = await fetch(`http://127.0.0.1:${PORT}/json/version`); if (r.ok) { log('chrome up'); return; } } catch {}
+  // Always start a CLEAN dedicated Chrome (a reused instance accumulates stuck overlays).
+  try { execFileSync('taskkill',['/F','/IM','chrome.exe'],{stdio:'ignore'}); } catch {}
+  await new Promise(r=>setTimeout(r,2500));
   const p = spawn(CHROME, [`--remote-debugging-port=${PORT}`,`--user-data-dir=${USER_DATA_DIR}`,
     '--no-first-run','--no-default-browser-check','--start-maximized','https://gemini.google.com/app'], { detached:true, stdio:'ignore' });
   p.on('error',e=>log('spawn err',e.message)); p.unref();
