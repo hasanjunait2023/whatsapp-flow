@@ -77,8 +77,8 @@ const ALL_TENANT_IDS = [RICH_TENANT_ID, ...DEMO_TENANT_IDS];
 // Team members for the rich tenant (created via better-auth, deleted by email).
 const TEAM = [
   { email: "manager@demo.test", name: "Nadia Karim", role: "manager" },
-  { email: "staff1@demo.test", name: "Tanvir Hasan", role: "staff" },
-  { email: "staff2@demo.test", name: "Sumaiya Islam", role: "staff" },
+  { email: "staff1@demo.test", name: "Tanvir Hasan", role: "agent" },
+  { email: "staff2@demo.test", name: "Sumaiya Islam", role: "agent" },
 ];
 const TEAM_EMAILS = TEAM.map((m) => m.email);
 
@@ -210,9 +210,9 @@ const ORDER_STATUSES = [
 
 const COMPLAINT_SEEDS = [
   { title: "Wrong size delivered", category: "delivery", priority: "high", status: "open" },
-  { title: "Item damaged in transit", category: "product", priority: "high", status: "in_progress" },
+  { title: "Item damaged in transit", category: "product_issue", priority: "high", status: "in_progress" },
   { title: "Late delivery", category: "delivery", priority: "medium", status: "resolved" },
-  { title: "Color mismatch", category: "product", priority: "low", status: "open" },
+  { title: "Color mismatch", category: "product_issue", priority: "low", status: "open" },
 ];
 
 const LEAD_SEEDS = [

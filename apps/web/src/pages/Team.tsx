@@ -311,7 +311,7 @@ export default function Team() {
                 ) : (
                   <div className="space-y-1">
                     {members.map((member) => {
-                      const role = roleConfig[member.role];
+                      const role = roleConfig[member.role] ?? roleConfig.agent;
                       const RoleIcon = role.icon;
                       const isCurrentUser = member.user_id === user?.id;
                       const canRemove = isOwner && !isCurrentUser && member.role !== 'owner';
@@ -438,7 +438,7 @@ export default function Team() {
                 <CardContent>
                   <div className="space-y-1">
                     {invitations.map((invitation) => {
-                      const role = roleConfig[invitation.role];
+                      const role = roleConfig[invitation.role] ?? roleConfig.agent;
                       const RoleIcon = role.icon;
 
                       return (

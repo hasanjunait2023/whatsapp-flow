@@ -49,9 +49,10 @@ const statusStyles: Record<ComplaintStatus, { bg: string; text: string }> = {
 };
 
 export function ComplaintCard({ complaint, onView, onDelete, canManage }: ComplaintCardProps) {
-  const CategoryIcon = categoryIcons[complaint.category];
-  const priorityStyle = priorityStyles[complaint.priority];
-  const statusStyle = statusStyles[complaint.status];
+  // Fall back to a safe default so one unrecognised value never white-screens the list.
+  const CategoryIcon = categoryIcons[complaint.category] ?? categoryIcons.other;
+  const priorityStyle = priorityStyles[complaint.priority] ?? priorityStyles.low;
+  const statusStyle = statusStyles[complaint.status] ?? statusStyles.open;
 
   return (
     <div
