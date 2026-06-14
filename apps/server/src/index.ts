@@ -46,6 +46,7 @@ import {
   getMasterKey,
   WAHA_WEBHOOK_HMAC_ENFORCED,
   TELEGRAM_WEBHOOK_SECRET,
+  TELEGRAM_BOT_TOKEN,
 } from "./lib/env.js";
 
 // Fail fast at startup (production only) if the secret-encryption key is missing
@@ -64,12 +65,14 @@ if (IS_PRODUCTION) {
     );
   }
   // The Telegram webhook is the transport gate for the growth approval buttons.
-  // With no secret token the route fails closed (rejects every update), so refuse
-  // to boot rather than silently run an inert, unauthenticated webhook surface.
-  if (!TELEGRAM_WEBHOOK_SECRET) {
+  // Only required when Telegram is actually configured (a bot token is set): if
+  // the bot is in use, a missing secret token means the webhook fails closed, so
+  // refuse to boot. With no bot token Telegram is simply off and the secret is
+  // irrelevant — don't crash a deployment that doesn't use Telegram.
+  if (TELEGRAM_BOT_TOKEN && !TELEGRAM_WEBHOOK_SECRET) {
     throw new Error(
-      "TELEGRAM_WEBHOOK_SECRET is not set in production. Set it (and register it via " +
-        "setWebhook secret_token) before starting, or the Telegram webhook rejects every update.",
+      "TELEGRAM_WEBHOOK_SECRET is not set but TELEGRAM_BOT_TOKEN is. Set the secret (and " +
+        "register it via setWebhook secret_token) before starting, or the Telegram webhook rejects every update.",
     );
   }
 }
