@@ -34,15 +34,18 @@ setInterval(() => {
 }, SWEEP_MS).unref();
 
 function clientIp(c: Context): string {
-  // Topology: client -> Cloudflare -> host nginx -> app. The LEFT-most
-  // X-Forwarded-For entry is attacker-controlled (any client can send the
-  // header), so keying on it lets an attacker rotate it to bypass the limit.
-  // CF-Connecting-IP is set by the trusted Cloudflare edge and overwritten on
-  // every request — it cannot be forged by the client behind CF, so it's the
-  // correct rate-limit key. nginx's X-Real-IP (the immediate trusted peer's
-  // view) is the fallback; "unknown" only if neither is present.
-  const cfip = c.req.header("cf-connecting-ip");
-  if (cfip) return cfip.trim();
+  // Topology: client -> Cloudflare -> host nginx -> app(127.0.0.1:3500).
+  //
+  // The app must NOT trust client-settable headers directly: X-Forwarded-For is
+  // attacker-controlled, and CF-Connecting-IP is forgeable by anyone hitting the
+  // origin directly (port 80 is open). The only trustworthy value is X-Real-IP,
+  // which nginx sets authoritatively from $remote_addr AFTER its real_ip module
+  // resolves the genuine client IP (set_real_ip_from <CF ranges> + real_ip_header
+  // CF-Connecting-IP) and `proxy_set_header X-Real-IP $remote_addr` overwrites
+  // any value the client tried to send. See deploy/nginx/app.conf.
+  //
+  // Fail closed: if X-Real-IP is absent (misconfigured proxy / direct hit), all
+  // such requests share the "unknown" bucket rather than getting a free pass.
   return c.req.header("x-real-ip")?.trim() ?? "unknown";
 }
 
