@@ -34,9 +34,16 @@ setInterval(() => {
 }, SWEEP_MS).unref();
 
 function clientIp(c: Context): string {
-  const xff = c.req.header("x-forwarded-for");
-  if (xff) return xff.split(",")[0]!.trim();
-  return c.req.header("x-real-ip") ?? "unknown";
+  // Topology: client -> Cloudflare -> host nginx -> app. The LEFT-most
+  // X-Forwarded-For entry is attacker-controlled (any client can send the
+  // header), so keying on it lets an attacker rotate it to bypass the limit.
+  // CF-Connecting-IP is set by the trusted Cloudflare edge and overwritten on
+  // every request — it cannot be forged by the client behind CF, so it's the
+  // correct rate-limit key. nginx's X-Real-IP (the immediate trusted peer's
+  // view) is the fallback; "unknown" only if neither is present.
+  const cfip = c.req.header("cf-connecting-ip");
+  if (cfip) return cfip.trim();
+  return c.req.header("x-real-ip")?.trim() ?? "unknown";
 }
 
 export function rateLimit(opts: RateLimitOptions): MiddlewareHandler {
