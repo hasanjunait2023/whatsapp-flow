@@ -1,57 +1,34 @@
-# BACKLOG
+# Backlog — Autonomous Growth Company
 
-## Now (BUILD)
-- [ ] Phase 0: infra discovery + WAHA pilot (devops-deployer)
-- [ ] Phase 1: backend skeleton + supabase shim (backend-engineer)
+> Prioritized milestones. CEO pops the top open item each LOOP iteration.
+> Status: `todo` | `active` | `blocked` | `done`
 
-## Next
-- [ ] Phase 2: WAHA vertical slice (keystone)
-- [ ] Phase 3: module-by-module port
-- [ ] Phase 4: migration rehearsal on copy
-- [ ] Phase 5: cutover
-- [ ] Phase 6: hardening + launch
+## Active milestone
+- [ ] **M1: Foundation** — status: active
+  - Offer + positioning (Grand Slam Offer, Hormozi)
+  - Brand kit (visual + voice, Bangla+EN)
+  - Skills: `hormozi-growth`, `ai-search-seo`
+  - Agent-company role definitions
+  - Approval-gate plumbing (growth_approvals + Telegram ✅/❌ + company CEO report)
+  - Growth strategy doc ($100M model, organic Core Four, funnel map, after-sales journey)
 
-## Later (Phase 7 — deferred modules, behind flags)
-- [x] **Accounting** — DONE (expense tracking + categories + monthly P&L summary +
-      recurring-expense generator + /accounting page). LIVE.
-- [x] **Service Boards** — already complete (tables allowlisted + UI). Verified. LIVE.
-- [x] **WooCommerce** — DONE (BYOK save+verify, product sync, fail-closed order webhook,
-      SSRF-guarded). LIVE. Tenant adds store URL + key/secret in Settings.
-- [x] **Pathao courier** — DONE (OAuth password grant, booking, tracking; creds encrypted).
-      LIVE. Follow-up: numeric city/zone/area lookup UI.
-- [x] **Internal Chat** — DONE (dedicated membership-scoped route internal-chat-fns.ts;
-      useInternalChat rewritten; cross-tenant + intra-tenant DM authz tested). LIVE.
-- [ ] Scheduled Reports — largely covered by agent_schedules (CEO reports); verify email cron path
-- [ ] Marketing Sequences — DEFERRED by founder (revisit later); needs schema + trigger/step model
-- [ ] WooCommerce sync — needs per-tenant store URL + consumer key/secret; webhook route /api/webhooks/woocommerce not built
-- [ ] Service Boards — read-only stub today
-- [x] **Bulk Group tooling** — DONE (group-queue-batch enqueue + group-batch-processor +
-      scheduler worker; paced batches + per-tenant daily cap enforced; tested). LIVE.
-- [x] **Courier BD** — DONE (BYOK; Steadfast booking/tracking + BDCourier risk check;
-      encrypted creds; tested). Pathao booking deferred (OAuth). LIVE. Tenants add their
-      own keys in Courier settings.
-- [ ] Courier: Pathao booking (OAuth token flow + city/zone/area lookups) — deferred
-- [ ] Tenant must supply their own courier API keys in Settings → Courier when ready.
+## Queue (priority order)
+- [ ] **M2: Content + SEO engine** — Postiz adapter + social_posts + draftDailyContent;
+      SEO/GEO content clusters + content_pieces; 30-day editorial calendar (all gated)
+- [ ] **M3: Lead-gen + funnel** — lead magnets; /api/public/demo-lead → marketingLeads;
+      nurture via admin-marketing tables; value-first opt-in → trial
+- [ ] **M4: After-sales experience** — onboarding win-fast, milestones, NPS, referral loop, tier-up (Hermes)
+- [ ] **M5: (Gated) scale** — warm-only cold outreach; then paid/media buying behind explicit budget approval
+
+## Done
+<!-- moved here on completion, with date -->
+
+## Follow-ups / tech debt (captured at RETRO)
+- Confirm exact Postiz `/public/v1/posts` payload shape against running VPS instance at build
+- FOUNDER_TG_USER_ID allowlist decision for approval-callback authz
+- ARPU-climb + regional-expansion modeling (needed for true $100M path)
 
 ## Founder action items
-- [ ] Purchase WAHA Plus subscription ($19/mo) — needed before Phase 2 multi-session/media work
-- [ ] Create Cloudflare R2 bucket + API token — needed by Phase 4 backup setup
-- [ ] Scan pilot QR with a test WhatsApp number when Phase 0 reports ready
-- [ ] Rotate Supabase anon key (committed in git) — after cutover, Supabase decommission
-
-## Phase 3 coverage audit (2026-06-12) — 41/71 edge fns mapped; classify+close the 30 below
-Verify each is genuinely handled (relocated/deferred) or a real v1 gap to port:
-- RELOCATED (confirm wired, not /api/fn): fb-webhook→webhooks/fb.ts; wasender-webhook→waha ingest; wasender-session-healthcheck→waha-health job; uddoktapay-webhook→payment webhook route; send-telegram-notification→services/telegram.
-- CRONS (confirm in scheduler/jobs): media-cleanup-cron, webhook-cleanup-cron, subscription-reminder-cron, whatsapp-followup-cron, backfill-thread-state (one-off migration script).
-- DEFERRED Phase-7 (OK to skip v1): woocommerce-order-webhook, woocommerce-scheduled-sync, marketing-enroll-entity, marketing-unsubscribe, seed-marketing-sequences, send-daily/weekly/monthly-report, sales-order-webhook, workflow-execute(?).
-- LIKELY REAL v1 GAPS — port or justify: admin-delete-tenant, admin-fix-webhook, admin-link-session, admin-reset-user-password, admin-test-welcome-message, report-system-error, resend-welcome-notification, send-welcome-email, test-welcome-message, fb-backfill-profiles, group-batch-processor.
-
-## Tech debt / follow-ups
-- [ ] FB OAuth WIP (concurrent, uncommitted): fb-oauth.ts + services/facebook/ + index.ts/env.ts
-      have 3 tsc errors (fb-fns.ts:296/302, fb-oauth.ts:35 — string|null). Resolve before it ships.
-      NOT included in the deployed HEAD (uncommitted). Left untouched.
-- [ ] Dead-Supabase refs still in admin tools (WebhookSecretManager, ResetPasswordDialog) +
-      broken fetches (useExternalSales, presence hooks) — follow-up sweep.
-- [ ] Hetzner exit path doc if Contabo SLAs become an issue
-- [ ] WAHA tag-upgrade runbook (protocol breaks every ~3-6mo)
-- [ ] Resolve 7 residual web tsc errors (Map inference in useTeamReports/useTeamActivityHeatmap/useAdminDashboard) — vite build unaffected
+- [ ] Provide Postiz API key + base URL (POSTIZ_URL, POSTIZ_API_KEY)
+- [ ] Confirm GROWTH_TELEGRAM_CHAT_ID (or reuse OPS_TELEGRAM_CHAT_ID)
+- [ ] Connect social channels inside Postiz (FB/IG/YouTube/TikTok/LinkedIn)

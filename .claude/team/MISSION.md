@@ -1,41 +1,57 @@
-# MISSION
+# Mission Charter — Autonomous Growth Company
 
-**Goal:** Fully self-host the whatsapp-flow SaaS on the founder's Contabo VPS: replace Wasender API with self-hosted WAHA Plus, migrate Supabase cloud → SQLite + Node/Hono backend, migrate live production data, and launch.
+> Written at CHARTER. The sacred source of intent. Every agent reads this first.
+> Supersedes prior missions (self-host, landing, design overhaul — all shipped;
+> archived under `archive/2026-06-14-pre-growth/`).
 
-**Success criteria:**
-- Production runs entirely on Contabo VPS (app + WAHA + SQLite + backups)
-- Frontend works with zero per-call-site changes (supabase shim; <10 web files touched)
-- Live tenants/users/messages/media migrated; users log in with existing passwords (bcrypt verify+rehash)
-- Real WA message round-trip: receive → inbox via SSE → reply → delivered/read acks → media both ways
-- Zero cross-tenant data leakage (isolation fuzz passed)
-- Off-VPS backups (Litestream + restic → Cloudflare R2) with tested restore
-- 48h stable soak post-cutover
+- **Project:** What A App (Ecomex) — autonomous growth company
+- **Chartered:** 2026-06-14
+- **CEO run:** /ceo
 
-**Constraints:**
-- VPS shared: 6 vCPU / 12GB RAM (~6.4GB free), ports 80/443 owned by existing proxy — never bind them
-- WAHA Plus $19/mo; NOWEB engine; pinned stable tag; <20 sessions at launch
-- Ban-risk policy: reactive-first, <30 proactive msgs/hr/number, warm-up guidance, tenant ToS disclosure
-- Keep Supabase project alive ≥2 weeks post-cutover for rollback
+## Goal
+Grow **What A App** (multi-tenant WhatsApp/FB/IG CRM for Bangladeshi e-commerce
+sellers) **organically** toward a $100M business, run by an autonomous agent
+company. First measurable goal: **1,000 paying tenants, profitably.**
 
-**Non-goals (v1):** Accounting, Internal Chat, Scheduled Reports, Marketing Sequences, WooCommerce sync, Service Boards, bulk Group tooling — flagged/deferred to Phase 7 (NOT dropped; founder wants everything eventually).
+## Success criteria (M1 Foundation — how we know it's done)
+- [ ] Grand Slam Offer + positioning locked (Hormozi Value Equation) — founder-approved
+- [ ] Brand kit (visual system + voice, Bangla+EN) delivered
+- [ ] `hormozi-growth` + `ai-search-seo` skills authored and usable
+- [ ] Agent-company roles defined (CEO, CMO/Growth, Content, SEO/GEO, Brand, Sales/Lead, Hermes, Eng/Bug)
+- [ ] Approval-gate plumbing live: `growth_approvals` + Telegram ✅/❌ callback + company CEO report (e2e test passes)
+- [ ] Every external action (publish/spend/contact-human) blocked behind one-tap founder approval
 
-**Approved plan:** C:\Users\Junait\.claude\plans\https-github-com-hasanjunait2023-whatsap-async-puppy.md
+## Constraints
+- Stack: monorepo — apps/web (Vite+React), apps/server (Hono+Drizzle+Postgres)
+- Deploy target: Contabo VPS (Docker), shared postiz-postgres
+- Reuse existing: job_queue, scheduler, admin marketing tables, Telegram alerts, ceo_reports
+- Publishing: Postiz public API (`POST /public/v1/posts`) — separate VPS service
+- Autonomy: draft/research/schedule 24/7; HARD approval before publish/spend/outreach
+- Growth motion: organic Core Four (warm outreach, free content, lead magnets); paid/cold gated
 
----
+## Non-goals (out of scope for now)
+- Autonomous media buying / ad spend (gated behind explicit per-campaign budget approval)
+- Cold WhatsApp outreach to non-opted-in numbers (ban + spam-law risk)
+- Global English repositioning (BD-first; architect for regional, don't build it yet)
+- Rebuilding marketing tables that already exist (extend, don't duplicate)
 
-# MISSION 2 (2026-06-12) — High-conversion sales landing page
+## Strategy spine (Alex Hormozi)
+- **$100M Offers:** Grand Slam Offer via Value Equation = (Dream Outcome × Perceived
+  Likelihood) / (Time Delay × Effort). Offer stack + guarantee + naming.
+- **$100M Leads:** organic Core Four (warm outreach, free content, lead magnets);
+  value-first — give until they ask.
+- **Funnel:** value-first lead magnet → opt-in → 5-day trial → paid.
+- **After-sales:** retention/ascension — win first 24h, milestones, NPS, referral, tier-up.
 
-**Goal:** Build a public marketing/sales landing page for the BD WhatsApp/FB/IG CRM SaaS, modeled on a dark AI-themed reference (Eclipse/BoostIQ style), engineered for high conversion, wired into the live app (signup → 5-day trial → UddoktaPay/crypto checkout).
+## Honest $100M math
+At ~৳1,499/mo ARPU, $100M ARR ≈ ~700k tenants — beyond BD alone. Path: climb ARPU
+(Business/Enterprise + add-ons) + regional expansion + organic brand flywheel.
+First goal = 1,000 paying tenants, profitably.
 
-**Success criteria:**
-- Public landing at the app root for unauthenticated visitors; dark/purple AI-business aesthetic matching the reference
-- BD-market pain points + sales psychology + trust signals; bilingual-friendly (Bangla where it lands)
-- Pricing: Starter ৳899 (1 FB + 1 WA), Pro ৳1499 (2× FB+WA+IG), Business ৳2799 (5 instances), Enterprise (negotiable) — seeded in DB
-- 5-day free trial: signup creates a `trialing` subscription (trial_ends_at = +5d)
-- Ad-conversion tracking: Meta Pixel + Google (GA4/Ads) + TikTok Pixel, env-configurable, firing PageView/Lead/Purchase
-- Dashboard/feature screenshots embedded
-- CTAs wire to signup→trial→checkout end-to-end
-
-**Constraints:** reuse existing apps/web stack (Vite+React+Tailwind+shadcn); pixels dormant until founder supplies IDs; no new payment infra (UddoktaPay + crypto already live).
-
-**Non-goals:** blog/CMS, multi-language full i18n of the whole site (focus EN + key Bangla), A/B testing infra (note as follow-up).
+## Stakeholder decisions
+- 2026-06-14 — Founder approved plan `now-the-most-important-synthetic-parrot.md`
+- 2026-06-14 — Autonomy = gate before public/spend/outreach
+- 2026-06-14 — Hybrid architecture (Claude skills + product backend)
+- 2026-06-14 — Foundation sprint first
+- 2026-06-14 — BD-first, architected for regional expansion
+- 2026-06-14 — Run autonomously on bypass permissions, looped
