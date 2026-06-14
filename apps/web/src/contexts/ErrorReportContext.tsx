@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useCallback, useRef, ReactNode } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 
 interface ErrorContext {
   type?: 'api' | 'js' | 'network' | 'component' | 'validation' | 'unknown';
@@ -36,34 +35,6 @@ function getErrorHash(message: string): string {
     hash = hash & hash;
   }
   return hash.toString(36);
-}
-
-function getBrowserInfo(): string {
-  const ua = navigator.userAgent;
-  let browser = 'Unknown';
-  let os = 'Unknown';
-
-  // Detect browser
-  if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Chrome';
-  else if (ua.includes('Firefox')) browser = 'Firefox';
-  else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
-  else if (ua.includes('Edg')) browser = 'Edge';
-
-  // Detect OS
-  if (ua.includes('Windows')) os = 'Windows';
-  else if (ua.includes('Mac')) os = 'macOS';
-  else if (ua.includes('Linux')) os = 'Linux';
-  else if (ua.includes('Android')) os = 'Android';
-  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
-
-  return `${browser} / ${os}`;
-}
-
-function getSource(): 'tenant' | 'admin' | 'public' {
-  const path = window.location.pathname;
-  if (path.startsWith('/admin')) return 'admin';
-  if (path.startsWith('/auth') || path === '/') return 'public';
-  return 'tenant';
 }
 
 export function ErrorReportProvider({ children }: { children: ReactNode }) {
@@ -142,41 +113,23 @@ export function ErrorReportProvider({ children }: { children: ReactNode }) {
 
       isReportingRef.current = true;
 
-      // Get current user and tenant context
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // Try to get tenant_id from localStorage or context
-      let tenantId: string | undefined;
-      try {
-        const selectedTenantJson = localStorage.getItem('selectedTenantId');
-        if (selectedTenantJson) {
-          tenantId = selectedTenantJson.replace(/"/g, '');
-        }
-      } catch {
-        // Ignore
-      }
-
+      // Payload matches the live backend contract for POST /api/client-errors:
+      // { message, stack, url, userAgent, componentStack?, severity? }.
       const payload = {
-        source: getSource(),
-        tenant_id: tenantId,
-        user_id: session?.user?.id,
-        user_email: session?.user?.email,
-        error_message: errorMessage.substring(0, 1000), // Limit message size
-        error_stack: errorStack?.substring(0, 2000), // Limit stack size
-        error_type: context?.type || 'unknown',
-        page_url: window.location.pathname,
-        component_name: context?.component,
-        browser_info: getBrowserInfo(),
-        user_action: context?.action
+        message: errorMessage.substring(0, 1000), // Limit message size
+        stack: errorStack?.substring(0, 2000), // Limit stack size
+        url: window.location.href,
+        userAgent: navigator.userAgent,
+        componentStack: context?.component,
+        severity: context?.type ?? 'unknown',
       };
 
-      // Fire and forget - don't await, don't block
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/report-system-error`, {
+      // Fire and forget - don't await, don't block. Same-origin so the
+      // better-auth session cookie is sent automatically.
+      fetch('/api/client-errors', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       }).catch(err => {
         // Silent fail - don't crash the app because of error reporting

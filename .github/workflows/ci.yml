@@ -1,0 +1,48 @@
+name: CI
+
+# Real CI gate for the pnpm monorepo (apps/server + apps/web).
+# Fails the build if typecheck, tests, or the web build fail.
+#
+# NOTE: This does NOT deploy. Production deploy is the manual, intentional
+# script deploy/deploy.sh (rsync to the `contabo` VPS, docker compose build +
+# up -d, poll /healthz). See deploy/README.md.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Server typecheck
+        run: pnpm --filter server typecheck
+
+      - name: Server tests
+        run: pnpm --filter server test
+
+      - name: Web typecheck
+        run: pnpm --filter web typecheck
+
+      - name: Web build
+        run: pnpm --filter web build

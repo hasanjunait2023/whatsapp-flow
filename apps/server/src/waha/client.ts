@@ -7,6 +7,9 @@ import { WAHA_URL, WAHA_API_KEY, WAHA_SINGLE_SESSION } from "../lib/env.js";
  * id so each tenant instance gets its own session.
  */
 
+/** Per-request timeout for WAHA calls (Node fetch has none by default). */
+const WAHA_REQUEST_TIMEOUT_MS = 30_000;
+
 export interface WahaWebhookConfig {
   url: string;
   events: string[];
@@ -98,10 +101,14 @@ export class WahaClient {
       headers["Content-Type"] = "application/json";
     }
     const doFetch = this.fetchImpl ?? globalThis.fetch;
+    // Bound every WAHA call: Node fetch has no default timeout, so a black-holed
+    // WAHA connection would hang the request indefinitely and hold a DB pool
+    // connection. 30s per attempt; the caller's retry/backoff handles transients.
     const res = await doFetch(`${this.baseUrl}${path}`, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(WAHA_REQUEST_TIMEOUT_MS),
     });
     const text = await res.text();
     if (!res.ok) {

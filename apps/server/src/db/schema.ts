@@ -256,6 +256,12 @@ export const messages = pgTable(
       t.contact_id,
       t.created_at,
     ),
+    // Tenant-wide history / exports / stats scans: keeps tenant_id leading so the
+    // planner prunes to one tenant then walks created_at in order.
+    tenantCreatedIdx: index("messages_tenant_id_created_at_idx").on(
+      t.tenant_id,
+      t.created_at,
+    ),
   }),
 );
 
@@ -482,6 +488,32 @@ export const webhookEventsLog = pgTable(
   },
   (t) => ({
     instanceIdx: index("webhook_events_log_instance_id_idx").on(t.instance_id),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// error_logs (self-hosted error sink — backend + frontend crashes)
+// ---------------------------------------------------------------------------
+export const errorLogs = pgTable(
+  "error_logs",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    source: text("source").notNull(), // 'backend' | 'frontend'
+    severity: text("severity").default("error").notNull(),
+    fingerprint: text("fingerprint").notNull(),
+    message: text("message").notNull(),
+    stack: text("stack"),
+    tenant_id: text("tenant_id"),
+    user_id: text("user_id"),
+    url: text("url"),
+    meta: jsonb("meta"),
+    created_at: text("created_at").default(nowIso).notNull(),
+  },
+  (t) => ({
+    createdIdx: index("error_logs_created_at_idx").on(t.created_at),
+    fingerprintIdx: index("error_logs_fingerprint_idx").on(t.fingerprint),
   }),
 );
 
@@ -1225,6 +1257,7 @@ export const appSchema = {
   adminAuditLogs,
   usageCounters,
   webhookEventsLog,
+  errorLogs,
   messageRawPayloads,
   plans,
   payments,

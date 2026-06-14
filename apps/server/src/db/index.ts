@@ -26,6 +26,12 @@ export interface RawDb {
 
 let db: NodePgDatabase<typeof schema>;
 let rawDb: RawDb;
+let closePoolImpl: (() => Promise<void>) | null = null;
+
+/** Closes the underlying pg Pool (prod only; no-op in tests). For shutdown. */
+export async function closePool(): Promise<void> {
+  if (closePoolImpl) await closePoolImpl();
+}
 
 if (NODE_ENV === "test") {
   // PGlite: in-process WASM Postgres. Each test file runs in its own fork
@@ -52,7 +58,14 @@ if (NODE_ENV === "test") {
     },
   };
 } else {
-  const pool = new pg.Pool({ connectionString: getDatabaseUrl(), max: 10 });
+  // max bumped 10→15: the pool is shared by the API, the in-process scheduler
+  // sweeps, and long-lived SSE handlers. 15 stays well under the shared
+  // postiz-postgres max_connections while giving headroom. closePool() below
+  // lets shutdown() drain cleanly.
+  const pool = new pg.Pool({ connectionString: getDatabaseUrl(), max: 15 });
+  closePoolImpl = async () => {
+    await pool.end();
+  };
   db = drizzlePg(pool, { schema });
   rawDb = {
     async query(text, params = []) {

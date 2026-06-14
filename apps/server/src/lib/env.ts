@@ -119,6 +119,18 @@ export const TELEGRAM_BOT_USERNAME = process.env.TELEGRAM_BOT_USERNAME ?? "";
 /** Validates X-Telegram-Bot-Api-Secret-Token on the webhook route. */
 export const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET ?? "";
 
+// --- Ops alerting (platform-level, not per-tenant) ---------------------------
+
+/**
+ * Telegram chat id that receives platform ops alerts (backend errors, RAM/disk
+ * pressure). Empty disables sending — alerts then only hit the structured log.
+ */
+export const OPS_TELEGRAM_CHAT_ID = process.env.OPS_TELEGRAM_CHAT_ID ?? "";
+
+/** Resource-pressure alert thresholds (fractions 0..1). Box is RAM-tight. */
+export const ALERT_MEM_THRESHOLD = Number(process.env.ALERT_MEM_THRESHOLD ?? "0.85");
+export const ALERT_DISK_THRESHOLD = Number(process.env.ALERT_DISK_THRESHOLD ?? "0.80");
+
 // --- Crypto payments (manual USDT transfer) ----------------------------------
 
 /** Platform USDT receiving addresses per network; empty = network disabled. */

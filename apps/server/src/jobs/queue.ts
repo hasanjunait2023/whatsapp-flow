@@ -72,6 +72,24 @@ export async function enqueueJob(opts: EnqueueOptions): Promise<string> {
   return id;
 }
 
+/**
+ * Resets jobs stranded in 'running' back to 'queued'. A process that dies mid-job
+ * (crash, OOM, SIGKILL) leaves the row 'running' forever — nothing re-claims it.
+ * Run this at startup: any 'running' row older than the threshold is an orphan
+ * from a previous process (the single in-process worker never runs two at once),
+ * so re-queueing is safe and idempotent.
+ */
+export async function reapStuckJobs(olderThanMs = 5 * 60 * 1000): Promise<number> {
+  const cutoff = new Date(Date.now() - olderThanMs).toISOString();
+  const res = await dbRun(
+    `UPDATE job_queue SET status = 'queued', updated_at = ?
+       WHERE status = 'running' AND updated_at <= ?`,
+    new Date().toISOString(),
+    cutoff,
+  );
+  return res.changes;
+}
+
 /** Claims one due job atomically; returns undefined when none are due. */
 async function claimNextJob(): Promise<JobRow | undefined> {
   const now = new Date().toISOString();

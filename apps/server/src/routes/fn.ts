@@ -20,6 +20,7 @@ import { ADMIN_HANDLERS } from "./admin-fns.js";
 import { WELCOME_HANDLERS } from "./welcome-fns.js";
 import { EXPORT_HANDLERS } from "./export-fns.js";
 import { uploadChatMediaJson, uploadChatMediaMultipart } from "./upload-fns.js";
+import { captureError } from "../lib/error-tracking.js";
 
 export const fnRoute = new Hono();
 
@@ -91,6 +92,27 @@ fnRoute.post("/:name", async (c) => {
   } catch {
     return c.json({ data: null, error: { message: "Invalid JSON body" } }, 400);
   }
-  const result = await handler(body, ctx);
+
+  let result: FnResult;
+  try {
+    result = await handler(body, ctx);
+  } catch (err) {
+    // A handler threw (not the normal { data, error } failure path). Record it
+    // and return a generic 500 — never leak the raw error to the client.
+    void captureError(err, {
+      source: "backend",
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      url: `/api/fn/${name}`,
+      meta: { fn: name },
+    });
+    return c.json({ data: null, error: { message: "Internal error" } }, 500);
+  }
+
+  // Map an explicit FORBIDDEN code to a real 403 (auth contract); everything
+  // else keeps the 200 + { data, error } envelope the shim expects.
+  if (result?.error?.code === "FORBIDDEN") {
+    return c.json(result, 403);
+  }
   return c.json(result);
 });

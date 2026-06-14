@@ -348,16 +348,26 @@ const deductProductStock: RpcHandler = async (args, ctx) => {
   if (!ctx.isAdmin && product.tenant_id !== ctx.tenantId) return fail("Forbidden product");
   if (!product.track_inventory) return ok(null);
 
-  const current = product.stock_quantity ?? 0;
-  const next = Math.max(0, current - quantity);
   const userId = (args.p_user_id as string | null) ?? ctx.userId ?? null;
-  await dbRun(
-    "UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ?",
-    next,
+  // Atomic decrement: a single locked statement (CTE FOR UPDATE) computes the
+  // new value in-DB so concurrent orders can't both read the same stock and
+  // over-sell. Returns the true previous + new values for the movement log.
+  const updated = (await dbGet(
+    `WITH prev AS (SELECT stock_quantity AS old_qty FROM products WHERE id = ? FOR UPDATE)
+       UPDATE products p
+          SET stock_quantity = GREATEST(0, p.stock_quantity - ?), updated_at = ?
+         FROM prev
+        WHERE p.id = ?
+       RETURNING prev.old_qty AS previous_quantity, p.stock_quantity AS new_quantity`,
+    productId,
+    quantity,
     new Date().toISOString(),
     productId,
-  );
-  await recordMovement(tenantId, productId, "out", -quantity, current, next, "sale", "order", orderId, null, userId);
+  )) as { previous_quantity: number; new_quantity: number } | undefined;
+  if (!updated) return fail("Product not found");
+  const current = updated.previous_quantity ?? 0;
+  const next = updated.new_quantity ?? 0;
+  await recordMovement(tenantId, productId, "out", -(current - next), current, next, "sale", "order", orderId, null, userId);
   emitChange("products", tenantId, { id: productId });
   return ok(null);
 };
@@ -385,19 +395,24 @@ const restoreStockForOrder: RpcHandler = async (args, ctx) => {
 
   await dbTx(async (tx) => {
     for (const item of items) {
-      const product = (await tx.get(
-        "SELECT stock_quantity, track_inventory FROM products WHERE id = ? LIMIT 1",
+      // Atomic increment (locked single statement) so concurrent restores can't
+      // lose an update. Only touches inventory-tracked products; returns the true
+      // previous + new values for the movement log.
+      const updated = (await tx.get(
+        `WITH prev AS (SELECT stock_quantity AS old_qty FROM products WHERE id = ? AND track_inventory = true FOR UPDATE)
+           UPDATE products p
+              SET stock_quantity = p.stock_quantity + ?, updated_at = ?
+             FROM prev
+            WHERE p.id = ?
+           RETURNING prev.old_qty AS previous_quantity, p.stock_quantity AS new_quantity`,
         item.product_id,
-      )) as ProductStockRow | undefined;
-      if (!product || !product.track_inventory) continue;
-      const current = product.stock_quantity ?? 0;
-      const next = current + item.quantity;
-      await tx.run(
-        "UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ?",
-        next,
+        item.quantity,
         new Date().toISOString(),
         item.product_id,
-      );
+      )) as { previous_quantity: number; new_quantity: number } | undefined;
+      if (!updated) continue; // missing or non-tracked product
+      const current = updated.previous_quantity ?? 0;
+      const next = updated.new_quantity ?? 0;
       await recordMovement(tenantId, item.product_id, "in", item.quantity, current, next, reason, "order", orderId, null, userId, tx.run);
     }
   });

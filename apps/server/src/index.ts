@@ -2,9 +2,18 @@ import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { Hono } from "hono";
+import { secureHeaders } from "hono/secure-headers";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { dbGet, dbRun } from "./db/raw.js";
+import { closePool } from "./db/index.js";
+import { logger } from "./lib/logger.js";
+import { captureError } from "./lib/error-tracking.js";
+import { rateLimit } from "./lib/rate-limit.js";
+import { checkResourcePressure } from "./lib/system-alerts.js";
+import { clientErrorsRoute } from "./routes/client-errors.js";
+import { reapStuckJobs } from "./jobs/queue.js";
+import { getTenant } from "./middleware/tenant.js";
 import { auth } from "./auth/index.js";
 import { tenantMiddleware } from "./middleware/tenant.js";
 import { queryRoute } from "./routes/query.js";
@@ -25,7 +34,14 @@ import { registerSoulJobs } from "./services/soul/index.js";
 import { registerHermesPipeline } from "./services/hermes/pipeline.js";
 import { registerCeoJobs } from "./services/ceo/index.js";
 import { seedPlansIfEmpty } from "./services/billing/seed-plans.js";
-import { PORT, IS_PRODUCTION, WEB_DIST_DIR, warnIfWebhookUnverified, getMasterKey } from "./lib/env.js";
+import {
+  PORT,
+  IS_PRODUCTION,
+  WEB_DIST_DIR,
+  warnIfWebhookUnverified,
+  getMasterKey,
+  WAHA_WEBHOOK_HMAC_ENFORCED,
+} from "./lib/env.js";
 
 // Fail fast at startup (production only) if the secret-encryption key is missing
 // or malformed. Without this, MASTER_KEY is validated lazily on the first
@@ -33,6 +49,22 @@ import { PORT, IS_PRODUCTION, WEB_DIST_DIR, warnIfWebhookUnverified, getMasterKe
 // confusing mid-request 500 instead of a clean boot failure.
 if (IS_PRODUCTION) {
   getMasterKey();
+  // Production runs WAHA Plus, which signs webhooks. Refuse to boot accepting
+  // unauthenticated webhooks — a missing HMAC secret in prod is a hard error,
+  // not a warning (an attacker who knows an instance id could inject events).
+  if (!WAHA_WEBHOOK_HMAC_ENFORCED) {
+    throw new Error(
+      "WAHA webhook HMAC is not enforced in production. Set WAHA_WEBHOOK_HMAC_SECRET " +
+        "(or WAHA_WEBHOOK_REQUIRE_HMAC=true) before starting.",
+    );
+  }
+}
+
+// Per-request correlation id, attached by the logging middleware below.
+declare module "hono" {
+  interface ContextVariableMap {
+    requestId: string;
+  }
 }
 
 const app = new Hono();
@@ -41,6 +73,73 @@ const app = new Hono();
 // the /api/ws route below; `injectWebSocket` is attached to the http server
 // returned by serve() so the realtime WS shares the app's port (no extra port).
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
+
+// --- security headers --------------------------------------------------------
+// Built-in Hono middleware: nosniff, X-Frame-Options DENY, Referrer-Policy, HSTS
+// (edge serves HTTPS), plus a CSP. The SPA is bundled by Vite (no external
+// scripts) so script-src 'self' is safe; style/img/connect are kept permissive
+// enough not to break the dashboard (inline styles, external/data images, SSE/WS).
+app.use(
+  "*",
+  secureHeaders({
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+      // 'unsafe-inline' is required by index.html: a no-flash bootstrap <script>
+      // and the font-preload link's inline `onload=` handler (inline event
+      // handlers can't be allowed by a hash). cloudflareinsights = CF analytics
+      // beacon injected at the edge. React auto-escapes and the app uses no
+      // dangerouslySetInnerHTML, keeping the XSS surface low despite this.
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://static.cloudflareinsights.com"],
+      // Google Fonts stylesheet origin + inline styles (Tailwind/React).
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      fontSrc: ["'self'", "data:", "https:"], // fonts.gstatic.com
+      connectSrc: ["'self'", "https:", "wss:"], // API, CF beacon, WebSocket
+      mediaSrc: ["'self'", "data:", "blob:", "https:"],
+      // YouTube embed for the in-app product tour / demo video.
+      frameSrc: ["'self'", "https://www.youtube.com", "https://www.youtube-nocookie.com"],
+      frameAncestors: ["'none'"], // clickjacking protection
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+    },
+  }),
+);
+
+// --- request logging (structured, correlation id) ---------------------------
+// Logs only /api traffic (skips static assets). Attaches a short request id to
+// the context so handlers / onError / captureError can correlate.
+app.use("/api/*", async (c, next) => {
+  const requestId = crypto.randomUUID().slice(0, 8);
+  c.set("requestId", requestId);
+  const start = Date.now();
+  await next();
+  logger.info("request", {
+    request_id: requestId,
+    method: c.req.method,
+    path: c.req.path,
+    status: c.res.status,
+    ms: Date.now() - start,
+  });
+});
+
+// --- global error handler ----------------------------------------------------
+// Anything that throws out of a handler lands here: record it (DB + ops alert),
+// log it, and return a generic 500 — never leak internal error text/stack.
+app.onError((err, c) => {
+  const requestId = (c.get("requestId") as string | undefined) ?? null;
+  void captureError(err, {
+    source: "backend",
+    url: c.req.path,
+    requestId,
+    meta: { method: c.req.method },
+  });
+  logger.error("unhandled_error", {
+    request_id: requestId ?? undefined,
+    path: c.req.path,
+    msg_preview: err instanceof Error ? err.message : String(err),
+  });
+  return c.json({ error: { message: "Internal server error" } }, 500);
+});
 
 // --- health ----------------------------------------------------------------
 app.get("/healthz", async (c) => {
@@ -63,7 +162,13 @@ app.get("/healthz", async (c) => {
 });
 
 // --- auth (better-auth mounts its own handler under /api/auth) ---------------
+// Rate-limit auth by IP to blunt credential-stuffing / brute-force.
+app.use("/api/auth/*", rateLimit({ name: "auth", windowMs: 60_000, max: 30 }));
 app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+
+// --- client error sink (public; pre-auth crashes too) ------------------------
+app.use("/api/client-errors", rateLimit({ name: "client-errors", windowMs: 60_000, max: 20 }));
+app.route("/api/client-errors", clientErrorsRoute);
 
 // --- WAHA webhook (machine caller; no session middleware) --------------------
 // Authenticated by instance id + optional HMAC, not by a user session.
@@ -85,6 +190,7 @@ app.route("/api/fb/oauth/callback", fbOauthCallbackRoute);
 // Mounted on the public app BEFORE the authed api router. Writes to
 // marketing_leads (an admin/read-only table via the generic API), so it needs
 // its own validated endpoint instead of a client-side insert.
+app.use("/api/public/*", rateLimit({ name: "public", windowMs: 60_000, max: 10 }));
 app.post("/api/public/demo-lead", async (c) => {
   let body: Record<string, unknown> = {};
   try {
@@ -132,6 +238,23 @@ app.post("/api/public/demo-lead", async (c) => {
 // --- authed API --------------------------------------------------------------
 const api = new Hono();
 api.use("*", tenantMiddleware);
+// Per-user request cap (generous; dashboards fan out many reads on load). Abuse
+// protection, not throttling normal use. Process-local — see lib/rate-limit.ts.
+api.use(
+  "*",
+  rateLimit({
+    name: "api",
+    windowMs: 60_000,
+    max: 600,
+    keyFn: (c) => {
+      try {
+        return getTenant(c).userId;
+      } catch {
+        return "anon";
+      }
+    },
+  }),
+);
 api.route("/query", queryRoute);
 api.route("/rpc", rpcRoute);
 api.route("/fn", fnRoute);
@@ -170,19 +293,39 @@ injectWebSocket(server);
 registerSoulJobs();
 registerHermesPipeline();
 registerCeoJobs();
+
+// Re-queue jobs stranded 'running' by a previous process crash before the
+// scheduler starts claiming work, so orphaned jobs aren't lost.
+void reapStuckJobs()
+  .then((n) => {
+    if (n > 0) logger.warn("reaped_stuck_jobs", { count: n });
+  })
+  .catch((err) => logger.error("reap_failed", { msg_preview: String(err) }));
+
 startScheduler();
+
+// Resource-pressure watchdog (RAM/disk → Telegram). The box runs near its
+// memory ceiling; alert before it tips over.
+void checkResourcePressure();
+const resourceTimer = setInterval(() => void checkResourcePressure(), 60_000);
+resourceTimer.unref();
+
 warnIfWebhookUnverified();
 void warnIfFbPagesUnverified();
 
+let shuttingDown = false;
 function shutdown(signal: string): void {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info("shutdown", { signal });
   stopScheduler();
+  clearInterval(resourceTimer);
   server.close(() => {
-    // The pg Pool's sockets are released on process exit; nothing to close here.
-    process.exit(0);
+    // Drain the DB pool cleanly so in-flight queries finish and sockets close.
+    void closePool().finally(() => process.exit(0));
   });
-  // Force-exit if close hangs.
+  // Force-exit if close/drain hangs.
   setTimeout(() => process.exit(1), 5000).unref();
-  void signal;
 }
 
 process.on("SIGINT", () => shutdown("SIGINT"));

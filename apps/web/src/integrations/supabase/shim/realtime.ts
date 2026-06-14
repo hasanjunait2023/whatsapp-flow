@@ -44,6 +44,29 @@ interface Handler {
 const channels = new Set<RealtimeChannel>();
 
 // ---------------------------------------------------------------------------
+// Gap recovery. A WS/SSE reconnect resets the failure count but the connection
+// was DOWN for a window — any change events emitted during that gap are lost.
+// On every (re)connect we trigger a refetch of the active data so the UI
+// catches up. App.tsx registers a recovery callback wired to the QueryClient.
+// ---------------------------------------------------------------------------
+
+let recover: (() => void) | null = null;
+
+/** Registered by App so a (re)connect can invalidate active queries. */
+export function setRealtimeRecover(fn: (() => void) | null): void {
+  recover = fn;
+}
+
+function triggerRecovery(): void {
+  if (!active) return;
+  try {
+    recover?.();
+  } catch {
+    /* never let recovery throw break the transport */
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Transport manager: WebSocket primary, SSE fallback, self-healing back to WS.
 // ---------------------------------------------------------------------------
 
@@ -134,6 +157,8 @@ function connectWs(): void {
   ws = socket;
   socket.onopen = () => {
     wsFailures = 0;
+    // Connection (re)established — refetch active data to fill the gap.
+    triggerRecovery();
   };
   socket.onmessage = (e) => {
     const event = parseMessage(e.data);
@@ -165,6 +190,8 @@ function connectSse(): void {
   closeWs();
   if (!sse) {
     sse = new EventSource("/api/realtime", { withCredentials: true });
+    // EventSource auto-reconnects; fill the gap each time it (re)opens.
+    sse.onopen = () => triggerRecovery();
     sse.addEventListener("postgres_changes", (e: MessageEvent) => {
       try {
         dispatchAll(JSON.parse(e.data) as ServerChangeEvent);
@@ -196,6 +223,8 @@ function tryWsUpgrade(): void {
     closeSse();
     wsFailures = 0;
     ws = socket;
+    // Upgraded back to WS — refetch active data to fill any gap.
+    triggerRecovery();
     socket.onmessage = (e) => {
       const event = parseMessage(e.data);
       if (event) dispatchAll(event);
@@ -218,11 +247,54 @@ function tryWsUpgrade(): void {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Wake / network-restore recovery. After a laptop sleep or a dropped network,
+// the existing socket is often a zombie (no close event fired). Force a fresh
+// WS connect and refetch active data so the UI recovers promptly.
+// ---------------------------------------------------------------------------
+
+function forceReconnect(): void {
+  if (!active) return;
+  clearReconnect();
+  stopProbe();
+  closeWs();
+  closeSse();
+  wsFailures = 0;
+  connectWs();
+}
+
+function onOnline(): void {
+  forceReconnect();
+}
+
+function onVisibilityChange(): void {
+  if (document.visibilityState === "visible") {
+    forceReconnect();
+  }
+}
+
+let recoveryListenersAttached = false;
+
+function attachRecoveryListeners(): void {
+  if (recoveryListenersAttached) return;
+  recoveryListenersAttached = true;
+  window.addEventListener("online", onOnline);
+  document.addEventListener("visibilitychange", onVisibilityChange);
+}
+
+function detachRecoveryListeners(): void {
+  if (!recoveryListenersAttached) return;
+  recoveryListenersAttached = false;
+  window.removeEventListener("online", onOnline);
+  document.removeEventListener("visibilitychange", onVisibilityChange);
+}
+
 /** Opens the realtime connection on first subscribe (WebSocket-first). */
 function ensureSource(): void {
   if (active) return;
   active = true;
   wsFailures = 0;
+  attachRecoveryListeners();
   connectWs();
 }
 
@@ -230,6 +302,7 @@ function ensureSource(): void {
 function teardownIfIdle(): void {
   if (channels.size > 0) return;
   active = false;
+  detachRecoveryListeners();
   clearReconnect();
   stopProbe();
   closeWs();

@@ -63,7 +63,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
               কিছু একটা ভুল হয়েছে
             </h1>
             <p className="text-muted-foreground mb-6">
-              দুঃখিত, একটি unexpected error ঘটেছে। আমাদের টিম কে automatically জানানো হয়েছে।
+              দুঃখিত, একটি unexpected error ঘটেছে। অনুগ্রহ করে আবার চেষ্টা করুন বা পেজ রিলোড করুন।
             </p>
 
             <div className="space-y-3">

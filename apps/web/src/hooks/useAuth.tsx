@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { setUnauthorizedHandler } from '@/integrations/supabase/shim/http';
 
 interface AuthContextType {
   user: User | null;
@@ -19,6 +20,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Clear in-memory auth when any API call gets a 401 (http.ts handles the
+    // redirect to /auth/login as the single choke-point).
+    setUnauthorizedHandler(() => {
+      setSession(null);
+      setUser(null);
+    });
+
     // Retry helper: attempts getSession() up to 4 times with increasing delays
     // to handle transient 504 database timeouts during token refresh
     const retryGetSession = async (): Promise<boolean> => {
@@ -107,7 +115,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      setUnauthorizedHandler(null);
+    };
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string) => {

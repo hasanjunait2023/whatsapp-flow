@@ -1,10 +1,10 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
-const PublicLanding = lazy(() => import("@/pages/Landing"));
+import { Loader2 } from "lucide-react";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/hooks/useAuth";
 import { TenantProvider } from "@/contexts/TenantContext";
@@ -19,72 +19,106 @@ import DashboardLayoutWrapper from "@/components/layout/DashboardLayoutWrapper";
 import AdminLayoutWrapper from "@/components/layout/AdminLayoutWrapper";
 import RootRedirect from "@/components/routing/RootRedirect";
 import { MotionProvider } from "@/lib/motion";
-import Login from "./pages/auth/Login";
-import Signup from "./pages/auth/Signup";
-import Onboarding from "./pages/Onboarding";
-import Dashboard from "./pages/Dashboard";
-import Instances from "./pages/Instances";
-import InstanceOnboarding from "./pages/InstanceOnboarding";
-import Inbox from "./pages/Inbox";
-import FBInbox from "./pages/FBInbox";
-import Team from "./pages/Team";
-import Automation from "./pages/Automation";
-import Analytics from "./pages/Analytics";
-import Billing from "./pages/Billing";
-import Contacts from "./pages/Contacts";
-import Settings from "./pages/Settings";
-import AiAgent from "./pages/AiAgent";
-import AcceptInvitation from "./pages/AcceptInvitation";
-import Workflows from "./pages/Workflows";
-import Products from "./pages/Products";
-import Orders from "./pages/Orders";
-import Inventory from "./pages/Inventory";
-import Complaints from "./pages/Complaints";
-import InternalChat from "./pages/InternalChat";
-import NotFound from "./pages/NotFound";
-import Accounts from "./pages/Accounts";
-import TeamReports from "./pages/TeamReports";
-import Reports from "./pages/Reports";
-import Groups from "./pages/Groups";
-import Segmentation from "./pages/Segmentation";
-import PendingActivation from "./pages/PendingActivation";
-import PaymentSuccess from "./pages/billing/PaymentSuccess";
-import PaymentCancelled from "./pages/billing/PaymentCancelled";
-import SetupWizard from "./pages/SetupWizard";
-import WhatsAppFunctions from "./pages/WhatsAppFunctions";
-import Notifications from "./pages/Notifications";
-import AdminDashboard from "./pages/admin/Dashboard";
-import AdminTenants from "./pages/admin/Tenants";
-import AdminPayments from "./pages/admin/Payments";
-import AdminSubscriptions from "./pages/admin/Subscriptions";
-import AdminPlans from "./pages/admin/Plans";
-import AdminUsers from "./pages/admin/Users";
-import AdminInstances from "./pages/admin/Instances";
-import AdminAuditLogs from "./pages/admin/AuditLogs";
-import AdminSettings from "./pages/admin/Settings";
-import AdminAccounts from "./pages/admin/Accounts";
-import AdminLeads from "./pages/admin/Leads";
-import AdminManagement from "./pages/admin/AdminManagement";
-import AdminExternalSales from "./pages/admin/ExternalSales";
-import AdminCommunication from "./pages/admin/Communication";
-import AdminSupport from "./pages/admin/Support";
-import AdminTeam from "./pages/admin/AdminTeam";
-import AdminReports from "./pages/admin/AdminReports";
-import AdminMarketing from "./pages/admin/AdminMarketing";
-import AdminCampaignDetail from "./pages/admin/AdminCampaignDetail";
-import AdminInbox from "./pages/admin/AdminInbox";
-import ServiceBoards from "./pages/service/Boards";
-import ServiceBoardPage from "./pages/service/Board";
-import AdminServiceBoards from "./pages/admin/AdminServiceBoards";
-import AdminServiceBoardPage from "./pages/admin/AdminServiceBoardPage";
-import AdminInternalChat from "./pages/admin/AdminInternalChat";
-import AdminWhatsAppFunctions from "./pages/admin/AdminWhatsAppFunctions";
-import AdminWhatsAppInstances from "./pages/admin/AdminWhatsAppInstances";
+import { setRealtimeRecover } from "@/integrations/supabase/shim/realtime";
+
+// Route-level code splitting: page modules load on demand instead of being
+// pulled into the initial bundle.
+const PublicLanding = lazy(() => import("@/pages/Landing"));
+const Login = lazy(() => import("./pages/auth/Login"));
+const Signup = lazy(() => import("./pages/auth/Signup"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Instances = lazy(() => import("./pages/Instances"));
+const InstanceOnboarding = lazy(() => import("./pages/InstanceOnboarding"));
+const Inbox = lazy(() => import("./pages/Inbox"));
+const FBInbox = lazy(() => import("./pages/FBInbox"));
+const Team = lazy(() => import("./pages/Team"));
+const Automation = lazy(() => import("./pages/Automation"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Billing = lazy(() => import("./pages/Billing"));
+const Contacts = lazy(() => import("./pages/Contacts"));
+const Settings = lazy(() => import("./pages/Settings"));
+const AiAgent = lazy(() => import("./pages/AiAgent"));
+const AcceptInvitation = lazy(() => import("./pages/AcceptInvitation"));
+const Workflows = lazy(() => import("./pages/Workflows"));
+const Products = lazy(() => import("./pages/Products"));
+const Orders = lazy(() => import("./pages/Orders"));
+const Inventory = lazy(() => import("./pages/Inventory"));
+const Complaints = lazy(() => import("./pages/Complaints"));
+const InternalChat = lazy(() => import("./pages/InternalChat"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Accounts = lazy(() => import("./pages/Accounts"));
+const TeamReports = lazy(() => import("./pages/TeamReports"));
+const Reports = lazy(() => import("./pages/Reports"));
+const Groups = lazy(() => import("./pages/Groups"));
+const Segmentation = lazy(() => import("./pages/Segmentation"));
+const PendingActivation = lazy(() => import("./pages/PendingActivation"));
+const PaymentSuccess = lazy(() => import("./pages/billing/PaymentSuccess"));
+const PaymentCancelled = lazy(() => import("./pages/billing/PaymentCancelled"));
+const SetupWizard = lazy(() => import("./pages/SetupWizard"));
+const WhatsAppFunctions = lazy(() => import("./pages/WhatsAppFunctions"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
+const AdminTenants = lazy(() => import("./pages/admin/Tenants"));
+const AdminPayments = lazy(() => import("./pages/admin/Payments"));
+const AdminSubscriptions = lazy(() => import("./pages/admin/Subscriptions"));
+const AdminPlans = lazy(() => import("./pages/admin/Plans"));
+const AdminUsers = lazy(() => import("./pages/admin/Users"));
+const AdminInstances = lazy(() => import("./pages/admin/Instances"));
+const AdminAuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
+const AdminSettings = lazy(() => import("./pages/admin/Settings"));
+const AdminAccounts = lazy(() => import("./pages/admin/Accounts"));
+const AdminLeads = lazy(() => import("./pages/admin/Leads"));
+const AdminManagement = lazy(() => import("./pages/admin/AdminManagement"));
+const AdminExternalSales = lazy(() => import("./pages/admin/ExternalSales"));
+const AdminCommunication = lazy(() => import("./pages/admin/Communication"));
+const AdminSupport = lazy(() => import("./pages/admin/Support"));
+const AdminTeam = lazy(() => import("./pages/admin/AdminTeam"));
+const AdminReports = lazy(() => import("./pages/admin/AdminReports"));
+const AdminMarketing = lazy(() => import("./pages/admin/AdminMarketing"));
+const AdminCampaignDetail = lazy(() => import("./pages/admin/AdminCampaignDetail"));
+const AdminInbox = lazy(() => import("./pages/admin/AdminInbox"));
+const ServiceBoards = lazy(() => import("./pages/service/Boards"));
+const ServiceBoardPage = lazy(() => import("./pages/service/Board"));
+const AdminServiceBoards = lazy(() => import("./pages/admin/AdminServiceBoards"));
+const AdminServiceBoardPage = lazy(() => import("./pages/admin/AdminServiceBoardPage"));
+const AdminInternalChat = lazy(() => import("./pages/admin/AdminInternalChat"));
+const AdminWhatsAppFunctions = lazy(() => import("./pages/admin/AdminWhatsAppFunctions"));
+const AdminWhatsAppInstances = lazy(() => import("./pages/admin/AdminWhatsAppInstances"));
 
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 
+// Errors already surfaced elsewhere should not double-toast: 401 is handled by
+// the http.ts choke-point (redirect to login); offline "Failed to fetch" noise
+// is not actionable to the user.
+function shouldSwallowQueryError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return (
+    message.includes('Session expired') ||
+    message.includes('401') ||
+    message.includes('Failed to fetch') ||
+    message.includes('Network error') ||
+    message.includes('NetworkError') ||
+    message.includes('Load failed')
+  );
+}
+
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error) => {
+      if (shouldSwallowQueryError(error)) return;
+      const message = error instanceof Error ? error.message : 'Failed to load data';
+      toast.error(message);
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error) => {
+      if (shouldSwallowQueryError(error)) return;
+      const message = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+      toast.error(message);
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5,      // 5 minutes - data stays fresh
@@ -96,6 +130,26 @@ const queryClient = new QueryClient({
   },
 });
 
+// On realtime (re)connect, refetch the active inbox/thread/contacts data so any
+// change events missed while the connection was down are recovered. The shim's
+// realtime transport calls this on every WS/SSE open and on wake/online events.
+setRealtimeRecover(() => {
+  queryClient.invalidateQueries({ queryKey: ['inbox'] });
+  queryClient.invalidateQueries({ queryKey: ['sidebar-unread'] });
+  queryClient.invalidateQueries({ queryKey: ['thread-messages'] });
+  queryClient.invalidateQueries({ queryKey: ['contacts'] });
+});
+
+// Suspense fallback for lazily-loaded route modules. Reuses the same spinner
+// idiom as ProtectedRoute so loading states feel consistent.
+function PageFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+}
+
 // Global error handler component with error reporting
 function GlobalErrorHandler({ children }: { children: React.ReactNode }) {
   const { reportError } = useErrorReporter();
@@ -104,10 +158,10 @@ function GlobalErrorHandler({ children }: { children: React.ReactNode }) {
     // Handle unhandled promise rejections
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       console.error('Unhandled promise rejection:', event.reason);
-      
+
       const errorMessage = event.reason?.message || event.reason?.toString() || 'Unknown async error';
       reportError(errorMessage, { type: 'js', action: 'unhandled_rejection' });
-      
+
       toast.error('An unexpected error occurred. Please try again.');
       event.preventDefault();
     };
@@ -115,20 +169,20 @@ function GlobalErrorHandler({ children }: { children: React.ReactNode }) {
     // Handle JavaScript runtime errors
     const handleGlobalError = (event: ErrorEvent) => {
       console.error('Global error:', event.error);
-      
+
       const errorMessage = event.error?.message || event.message || 'Unknown error';
-      reportError(errorMessage, { 
-        type: 'js', 
+      reportError(errorMessage, {
+        type: 'js',
         action: 'global_error',
         component: `${event.filename}:${event.lineno}:${event.colno}`
       });
-      
+
       // Don't show toast for every JS error - can be too noisy
     };
 
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
     window.addEventListener('error', handleGlobalError);
-    
+
     return () => {
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
       window.removeEventListener('error', handleGlobalError);
@@ -141,7 +195,7 @@ function GlobalErrorHandler({ children }: { children: React.ReactNode }) {
 // Error boundary wrapper that uses the error reporter
 function ErrorBoundaryWithReporter({ children }: { children: React.ReactNode }) {
   const { reportError } = useErrorReporter();
-  
+
   return (
     <GlobalErrorBoundary reportError={reportError}>
       {children}
@@ -166,16 +220,17 @@ const App = () => (
                       <BrowserRouter>
                         <ImpersonationBanner />
                         <FloatingWhatsAppButton />
+                        <Suspense fallback={<PageFallback />}>
                         <Routes>
                           {/* Public routes */}
                           <Route path="/" element={<RootRedirect />} />
                           {/* Direct public landing — always renders, no auth gating */}
-                          <Route path="/home" element={<Suspense fallback={<div className="min-h-screen bg-[#08080c]" />}><PublicLanding /></Suspense>} />
-                          <Route path="/landing" element={<Suspense fallback={<div className="min-h-screen bg-[#08080c]" />}><PublicLanding /></Suspense>} />
+                          <Route path="/home" element={<PublicLanding />} />
+                          <Route path="/landing" element={<PublicLanding />} />
                           <Route path="/auth/login" element={<Login />} />
                           <Route path="/auth/signup" element={<Signup />} />
                           <Route path="/invite/:token" element={<AcceptInvitation />} />
-                          
+
                           {/* Special routes without DashboardLayout */}
                           <Route
                             path="/onboarding"
@@ -193,7 +248,7 @@ const App = () => (
                               </ProtectedRoute>
                             }
                           />
-                          
+
                           {/* Payment callback routes - no auth required */}
                           <Route path="/billing/payment-success" element={<PaymentSuccess />} />
                           <Route path="/billing/payment-cancelled" element={<PaymentCancelled />} />
@@ -266,6 +321,7 @@ const App = () => (
 
                           <Route path="*" element={<NotFound />} />
                         </Routes>
+                        </Suspense>
                       </BrowserRouter>
                       </MotionProvider>
                     </TooltipProvider>

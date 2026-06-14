@@ -17,7 +17,13 @@ import type { FnContext, FnResult } from "./waha/session.js";
  */
 
 const ok = (data: unknown): FnResult => ({ data, error: null });
-const forbidden = (): FnResult => ok({ error: "Admin privileges required" });
+// Returns an error envelope with a FORBIDDEN code so the /api/fn dispatcher maps
+// it to a real HTTP 403 (previously this returned 200 with the message buried in
+// `data.error`, which proxies/clients that only inspect status treated as success).
+const forbidden = (): FnResult => ({
+  data: null,
+  error: { message: "Admin privileges required", code: "FORBIDDEN" },
+});
 
 const WEBHOOK_EVENTS = ["message", "message.ack", "session.status"];
 

@@ -17,6 +17,7 @@ import {
   type IngestInstance,
 } from "../../waha/ingest.js";
 import { fireInboundMessagePersisted } from "../../services/inbound-hooks.js";
+import { captureError } from "../../lib/error-tracking.js";
 
 /**
  * POST /api/waha/webhook/:instanceId — receives WAHA NOWEB webhook events.
@@ -239,7 +240,14 @@ wahaWebhookRoute.post("/:instanceId", async (c) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "ingest error";
     await dbRun("UPDATE webhook_events_log SET error = ? WHERE id = ?", message, logId);
-    return c.json({ error: message }, 500);
+    // Record internally; do NOT leak the raw error text to the (machine) caller.
+    void captureError(error, {
+      source: "backend",
+      tenantId: instance.tenant_id,
+      url: `/api/waha/webhook/${instanceId}`,
+      meta: { event, logId },
+    });
+    return c.json({ error: "Webhook processing failed" }, 500);
   }
 
   return c.json({ success: true });
