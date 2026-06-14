@@ -1,0 +1,13 @@
+{
+  "name": "gemini-video-agent",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Local runner: drive Chrome (amijunait profile) -> gemini.google.com/app Video tool -> 2x10s clips -> stitch -> approval -> Postiz",
+  "scripts": {
+    "explore": "node explore.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.60.0"
+  }
+}
