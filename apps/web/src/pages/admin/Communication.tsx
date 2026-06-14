@@ -1,9 +1,29 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Phone, RefreshCw, Loader2, ExternalLink, Inbox, Users, Workflow, Zap, Link2, Plus, Trash2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { EmptyState } from '@/components/ui/empty-state';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { m, pageEnter, staggerContainer, staggerItem, useCountUp } from '@/lib/motion';
+import { cn } from '@/lib/utils';
+import {
+  MessageSquare,
+  Phone,
+  RefreshCw,
+  ExternalLink,
+  Inbox,
+  Users,
+  Workflow,
+  Zap,
+  Link2,
+  Plus,
+  Trash2,
+  Wifi,
+  Radio,
+} from 'lucide-react';
 import { useAdminCommunication } from '@/hooks/useAdminCommunication';
 import { Link } from 'react-router-dom';
 import AdminConnectQRDialog from '@/components/admin/AdminConnectQRDialog';
@@ -17,14 +37,93 @@ interface AdminInstance {
   phone_number?: string | null;
 }
 
+type StatusVariant = 'success-soft' | 'info-soft' | 'neutral-soft' | 'destructive-soft';
+
+const STATUS_META: Record<string, { label: string; variant: StatusVariant; dot: string }> = {
+  connected: { label: 'Connected', variant: 'success-soft', dot: 'bg-success' },
+  active: { label: 'Active', variant: 'success-soft', dot: 'bg-success' },
+  connecting: { label: 'Connecting', variant: 'info-soft', dot: 'bg-info' },
+  disconnected: { label: 'Disconnected', variant: 'neutral-soft', dot: 'bg-muted-foreground' },
+  banned: { label: 'Banned', variant: 'destructive-soft', dot: 'bg-destructive' },
+};
+
+function getStatusMeta(status: string) {
+  return (
+    STATUS_META[status] || {
+      label: status || 'Unknown',
+      variant: 'destructive-soft' as const,
+      dot: 'bg-destructive',
+    }
+  );
+}
+
+function getInitials(name: string) {
+  return (
+    name
+      .split(' ')
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() || '?'
+  );
+}
+
+const QUICK_LINKS = [
+  { to: '/admin/inbox', icon: Inbox, title: 'Admin Inbox', description: 'View and respond to messages' },
+  { to: '/admin/whatsapp-functions', icon: Zap, title: 'WA Functions', description: 'Quick replies & auto messages' },
+  { to: '/contacts', icon: Users, title: 'Admin Contacts', description: 'Manage leads and contacts' },
+  { to: '/workflows', icon: Workflow, title: 'Automation', description: 'Auto-replies and workflows' },
+] as const;
+
+/**
+ * The single full-orange surface on this page (DESIGN.md §2.2): the focal KPI.
+ * Active (live) WhatsApp channels is the page's most important metric — orange stays
+ * rare, so this is the only `bg-primary` tile; every other stat uses a soft KpiCard.
+ */
+function ChannelsHighlightTile({ active, total }: { active: number; total: number }) {
+  const display = useCountUp(active);
+
+  return (
+    <m.div variants={staggerItem} whileHover={{ y: -2 }} transition={{ duration: 0.15 }} className="h-full">
+      <div className="relative flex h-full min-h-[140px] flex-col overflow-hidden rounded-card bg-primary p-5 text-primary-foreground shadow-elevation-accent">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/10"
+        />
+        <div className="relative z-10 flex h-full flex-col">
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-2 text-sm font-medium text-primary-foreground/85">
+              <Radio className="h-4 w-4" aria-hidden />
+              Live channels
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold tabular-nums">
+              {total.toLocaleString('en-US')} total
+            </span>
+          </div>
+
+          <p className="mt-2 tabular-nums text-3xl font-bold leading-none tracking-tight md:text-4xl">
+            {display.toLocaleString('en-US')}
+          </p>
+
+          <span className="mt-auto inline-flex w-fit items-center gap-1 text-xs font-medium text-primary-foreground/80">
+            <Wifi className="h-3.5 w-3.5" aria-hidden />
+            Connected and ready to message
+          </span>
+        </div>
+      </div>
+    </m.div>
+  );
+}
+
 export default function Communication() {
   const [connectingInstance, setConnectingInstance] = useState<AdminInstance | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [deletingInstance, setDeletingInstance] = useState<AdminInstance | null>(null);
-  
+
   const {
     systemTenant,
-    instances, 
+    instances,
     loading,
     creating,
     deleting,
@@ -33,250 +132,237 @@ export default function Communication() {
     deleteInstance,
   } = useAdminCommunication();
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'connected':
-      case 'active':
-        return 'bg-green-500';
-      case 'connecting': return 'bg-yellow-500';
-      default: return 'bg-red-500';
+  const stats = useMemo(() => {
+    let active = 0;
+    let connecting = 0;
+    let offline = 0;
+    for (const instance of instances) {
+      const status = instance.status;
+      if (status === 'connected' || status === 'active') active += 1;
+      else if (status === 'connecting') connecting += 1;
+      else offline += 1;
     }
-  };
+    return { total: instances.length, active, connecting, offline };
+  }, [instances]);
 
-  const webhookUrl = (instanceId: string) => 
+  const webhookUrl = (instanceId: string) =>
     `https://cdkrvztqeuflxilrtnws.supabase.co/functions/v1/wasender-webhook/${instanceId}`;
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Admin Communication</h1>
-            <p className="text-muted-foreground">
-              Manage Ecomex business WhatsApp for lead communication
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
+        {/* Header */}
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Communication</h1>
+            <p className="text-sm text-muted-foreground">
+              Manage the platform WhatsApp channels used for lead communication
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={() => setShowAddDialog(true)} disabled={loading}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Instance
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button onClick={() => setShowAddDialog(true)} disabled={loading} className="min-h-[44px] sm:min-h-0">
+              <Plus className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Add Instance</span>
             </Button>
-            <Button variant="outline" onClick={fetchAll} disabled={loading}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+            <Button
+              variant="outline"
+              onClick={fetchAll}
+              disabled={loading}
+              className="min-h-[44px] sm:min-h-0"
+            >
+              <RefreshCw className={cn('h-4 w-4 md:mr-2', loading && 'animate-spin')} />
+              <span className="hidden md:inline">Refresh</span>
             </Button>
           </div>
-        </div>
+        </header>
 
-        {/* Quick Access Cards */}
+        {/* KPI strip — soft stat cards + the ONE orange highlight (live channels) */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+        >
+          <KpiCard title="Total channels" value={stats.total} icon={MessageSquare} tone="primary" loading={loading} />
+          <KpiCard title="Connecting" value={stats.connecting} icon={Radio} tone="info" loading={loading} />
+          <KpiCard title="Offline" value={stats.offline} icon={Phone} tone="destructive" loading={loading} />
+          <ChannelsHighlightTile active={stats.active} total={stats.total} />
+        </m.div>
+
+        {/* Quick access */}
         {systemTenant && (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <Link to="/admin/inbox">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Inbox className="h-5 w-5 text-primary" />
-                    Admin Inbox
-                  </CardTitle>
-                  <CardDescription>
-                    View and respond to messages
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" size="sm" className="w-full">
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Open Inbox
-                  </Button>
-                </CardContent>
-              </Link>
-            </Card>
-
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <Link to="/admin/whatsapp-functions">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-primary" />
-                    WA Functions
-                  </CardTitle>
-                  <CardDescription>
-                    Quick replies & auto messages
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" size="sm" className="w-full">
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Open Functions
-                  </Button>
-                </CardContent>
-              </Link>
-            </Card>
-
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <Link to="/contacts">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Users className="h-5 w-5 text-primary" />
-                    Admin Contacts
-                  </CardTitle>
-                  <CardDescription>
-                    Manage leads and contacts
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" size="sm" className="w-full">
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Open Contacts
-                  </Button>
-                </CardContent>
-              </Link>
-            </Card>
-
-            <Card className="hover:shadow-md transition-shadow cursor-pointer">
-              <Link to="/workflows">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Workflow className="h-5 w-5 text-primary" />
-                    Automation
-                  </CardTitle>
-                  <CardDescription>
-                    Set up auto-replies and workflows
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" size="sm" className="w-full">
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Open Workflows
-                  </Button>
-                </CardContent>
-              </Link>
-            </Card>
-          </div>
+          <m.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            {QUICK_LINKS.map((quick) => (
+              <m.div key={quick.to} variants={staggerItem} whileHover={{ y: -2 }} transition={{ duration: 0.15 }}>
+                <Link to={quick.to} className="block h-full">
+                  <Card className="h-full transition-shadow hover:shadow-elevation-2">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-primary">
+                          <quick.icon className="h-5 w-5" aria-hidden />
+                        </span>
+                        {quick.title}
+                      </CardTitle>
+                      <CardDescription>{quick.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+                        Open
+                        <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                      </span>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </m.div>
+            ))}
+          </m.div>
         )}
 
         {/* WhatsApp Instances */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">WhatsApp Instances</h2>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-col gap-1">
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <MessageSquare className="h-5 w-5" />
+                WhatsApp Instances
+              </CardTitle>
+              <CardDescription className="tabular-nums">
+                {instances.length} {instances.length === 1 ? 'channel' : 'channels'} configured
+              </CardDescription>
             </div>
-          ) : !systemTenant ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No System Tenant Found</h3>
-                <p className="text-muted-foreground text-center">
-                  System tenant is not configured. Please contact support.
-                </p>
-              </CardContent>
-            </Card>
-          ) : instances.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No WhatsApp Instances</h3>
-                <p className="text-muted-foreground text-center mb-4">
-                  Add your first WhatsApp instance to start communicating
-                </p>
-                <Button onClick={() => setShowAddDialog(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Instance
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-              {instances.map((instance) => (
-                <Card key={instance.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">{instance.name}</CardTitle>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="flex items-center gap-1">
-                          <span className={`h-2 w-2 rounded-full ${getStatusColor(instance.status)}`} />
-                          {instance.status}
-                        </Badge>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {[...Array(2)].map((_, i) => (
+                  <Skeleton key={i} className="h-40 w-full rounded-card" />
+                ))}
+              </div>
+            ) : !systemTenant ? (
+              <EmptyState
+                icon={MessageSquare}
+                title="No system tenant found"
+                description="The system tenant is not configured. Please contact support."
+              />
+            ) : instances.length === 0 ? (
+              <EmptyState
+                icon={MessageSquare}
+                title="No WhatsApp instances"
+                description="Add your first WhatsApp instance to start communicating with leads."
+                action={{
+                  label: 'Add Instance',
+                  onClick: () => setShowAddDialog(true),
+                  icon: Plus,
+                }}
+              />
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {instances.map((instance) => {
+                  const meta = getStatusMeta(instance.status);
+                  const isActive = instance.status === 'active' || instance.status === 'connected';
+                  return (
+                    <div
+                      key={instance.id}
+                      className="flex flex-col gap-3 rounded-card border border-border bg-card p-5 shadow-elevation-1"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Avatar className="h-10 w-10">
+                            <AvatarFallback className="bg-muted-soft text-xs font-semibold text-muted-foreground">
+                              {getInitials(instance.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{instance.name}</p>
+                            {instance.phone_number && (
+                              <p className="flex items-center gap-1 truncate text-xs text-muted-foreground tabular-nums">
+                                <Phone className="h-3 w-3" aria-hidden />
+                                {instance.phone_number}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Badge variant={meta.variant} className="gap-1.5">
+                            <span className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} aria-hidden />
+                            {meta.label}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => setDeletingInstance(instance)}
+                            aria-label={`Delete ${instance.name}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="text-xs text-muted-foreground">
+                        <p className="mb-1 font-medium">Webhook URL</p>
+                        <code className="block break-all rounded-md bg-muted px-2 py-1 text-xs">
+                          {webhookUrl(instance.id)}
+                        </code>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => setDeletingInstance(instance)}
+                          variant={isActive ? 'outline' : 'default'}
+                          size="sm"
+                          onClick={() => setConnectingInstance(instance)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          {isActive ? (
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                          ) : (
+                            <Link2 className="mr-2 h-4 w-4" />
+                          )}
+                          {isActive ? 'Reconnect' : 'Connect'}
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
+                          <Link to="/admin/inbox">
+                            <Inbox className="mr-2 h-4 w-4" />
+                            Inbox
+                          </Link>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
+                          <Link to="/admin/inbox">
+                            <Users className="mr-2 h-4 w-4" />
+                            Contacts
+                          </Link>
                         </Button>
                       </div>
                     </div>
-                    {instance.phone_number && (
-                      <CardDescription className="flex items-center gap-1">
-                        <Phone className="h-3 w-3" />
-                        {instance.phone_number}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="text-xs text-muted-foreground">
-                      <p className="font-medium mb-1">Webhook URL:</p>
-                      <code className="bg-muted px-2 py-1 rounded text-xs break-all block">
-                        {webhookUrl(instance.id)}
-                      </code>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {instance.status !== 'active' && (
-                        <Button 
-                          variant="default" 
-                          size="sm"
-                          onClick={() => setConnectingInstance(instance)}
-                        >
-                          <Link2 className="mr-2 h-4 w-4" />
-                          Connect
-                        </Button>
-                      )}
-                      {instance.status === 'active' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setConnectingInstance(instance)}
-                        >
-                          <RefreshCw className="mr-2 h-4 w-4" />
-                          Reconnect
-                        </Button>
-                      )}
-                      <Button variant="outline" size="sm" asChild>
-                        <Link to="/admin/inbox">
-                          <Inbox className="mr-2 h-4 w-4" />
-                          Inbox
-                        </Link>
-                      </Button>
-                      <Button variant="outline" size="sm" asChild>
-                        <Link to="/admin/inbox">
-                          <Users className="mr-2 h-4 w-4" />
-                          Contacts
-                        </Link>
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* System Tenant Info */}
         {systemTenant && (
-          <Card className="bg-muted/50">
+          <Card className="bg-muted/40">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                System Tenant
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">System Tenant</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm">
+            <CardContent className="space-y-1 text-sm">
+              <p>
                 <span className="font-medium">Name:</span> {systemTenant.name}
               </p>
-              <p className="text-sm">
-                <span className="font-medium">ID:</span>{' '}
-                <code className="text-xs bg-background px-1 py-0.5 rounded">{systemTenant.id}</code>
+              <p className="flex items-center gap-1">
+                <span className="font-medium">ID:</span>
+                <code className="rounded bg-background px-1 py-0.5 text-xs">{systemTenant.id}</code>
               </p>
             </CardContent>
           </Card>
@@ -312,7 +398,7 @@ export default function Communication() {
           onConfirm={deleteInstance}
           deleting={deleting}
         />
-      </div>
+      </m.div>
     </AdminLayout>
   );
 }

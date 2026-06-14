@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { Plus, LayoutGrid, Loader2, MoreHorizontal, Archive, Users } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, LayoutGrid, Loader2, MoreHorizontal, Archive, Users, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useServiceBoards } from '@/hooks/service-boards';
-import { cn } from '@/lib/utils';
+import { m, pageEnter, staggerContainer, staggerItem } from '@/lib/motion';
 
 // System tenant ID for admin service boards
 const SYSTEM_TENANT_ID = '5a0ad1d5-588a-473a-af82-724e69890074';
@@ -22,12 +23,12 @@ export default function AdminServiceBoards() {
 
   const handleCreateBoard = async () => {
     if (!newBoardName.trim()) return;
-    
+
     await createBoard({
       name: newBoardName.trim(),
       description: newBoardDescription.trim() || undefined,
     });
-    
+
     setNewBoardName('');
     setNewBoardDescription('');
     setCreateDialogOpen(false);
@@ -37,33 +38,32 @@ export default function AdminServiceBoards() {
     await deleteBoard(boardId);
   };
 
-  // Board card colors for visual variety
-  const boardColors = [
-    'from-blue-500/20 to-blue-600/10 border-blue-500/30',
-    'from-purple-500/20 to-purple-600/10 border-purple-500/30',
-    'from-green-500/20 to-green-600/10 border-green-500/30',
-    'from-orange-500/20 to-orange-600/10 border-orange-500/30',
-    'from-pink-500/20 to-pink-600/10 border-pink-500/30',
-    'from-cyan-500/20 to-cyan-600/10 border-cyan-500/30',
-  ];
+  // Derived board metrics (presentation only — same hook data).
+  const boardStats = useMemo(() => {
+    const totalCards = boards.reduce((sum, b) => sum + (b.card_count || 0), 0);
+    const totalMembers = boards.reduce((sum, b) => sum + (b.member_count || 1), 0);
+    return { boards: boards.length, totalCards, totalMembers };
+  }, [boards]);
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <m.div
+      variants={pageEnter}
+      initial="hidden"
+      animate="show"
+      className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+    >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <LayoutGrid className="h-6 w-6 text-primary" />
-            Service Boards
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">Service Boards</h1>
+          <p className="text-sm text-muted-foreground">
             Manage service tasks with Kanban boards
           </p>
         </div>
-        
+
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="min-h-[44px] gap-2 self-start sm:min-h-0 sm:self-auto">
               <Plus className="h-4 w-4" />
               Create Board
             </Button>
@@ -102,13 +102,73 @@ export default function AdminServiceBoards() {
                 Cancel
               </Button>
               <Button onClick={handleCreateBoard} disabled={!newBoardName.trim() || isCreating}>
-                {isCreating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Create Board
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      </header>
+
+      {/* KPI strip — ONE orange focal tile (boards) + calm neutral stats */}
+      <m.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5"
+      >
+        {/* The single orange surface for this page */}
+        <m.div variants={staggerItem} className="h-full">
+          <Card className="h-full border-0 bg-primary text-primary-foreground shadow-elevation-accent">
+            <CardContent className="flex h-full flex-col gap-3 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-medium text-primary-foreground/80">Active boards</p>
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-foreground/15">
+                  <LayoutGrid className="h-5 w-5" aria-hidden />
+                </span>
+              </div>
+              <p className="text-2xl font-bold leading-none tracking-tight tabular-nums md:text-3xl">
+                {boardStats.boards}
+              </p>
+              <p className="mt-auto text-xs text-primary-foreground/70">Kanban workspaces in service ops</p>
+            </CardContent>
+          </Card>
+        </m.div>
+
+        <m.div variants={staggerItem} className="h-full">
+          <Card className="h-full">
+            <CardContent className="flex h-full flex-col gap-3 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-medium text-muted-foreground">Total cards</p>
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-info-soft text-info">
+                  <Layers className="h-5 w-5" aria-hidden />
+                </span>
+              </div>
+              <p className="text-2xl font-bold leading-none tracking-tight tabular-nums md:text-3xl">
+                {boardStats.totalCards.toLocaleString()}
+              </p>
+              <p className="mt-auto text-xs text-muted-foreground">Tasks tracked across all boards</p>
+            </CardContent>
+          </Card>
+        </m.div>
+
+        <m.div variants={staggerItem} className="h-full">
+          <Card className="h-full">
+            <CardContent className="flex h-full flex-col gap-3 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-medium text-muted-foreground">Members</p>
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-success-soft text-success">
+                  <Users className="h-5 w-5" aria-hidden />
+                </span>
+              </div>
+              <p className="text-2xl font-bold leading-none tracking-tight tabular-nums md:text-3xl">
+                {boardStats.totalMembers.toLocaleString()}
+              </p>
+              <p className="mt-auto text-xs text-muted-foreground">Collaborators with board access</p>
+            </CardContent>
+          </Card>
+        </m.div>
+      </m.div>
 
       {/* Loading State */}
       {isLoading && (
@@ -121,14 +181,14 @@ export default function AdminServiceBoards() {
       {!isLoading && boards.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <LayoutGrid className="h-8 w-8 text-primary" />
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-accent text-primary">
+              <LayoutGrid className="h-8 w-8" />
             </div>
-            <h3 className="font-semibold text-lg mb-2">No boards yet</h3>
-            <p className="text-muted-foreground text-center max-w-sm mb-4">
+            <h3 className="mb-2 text-lg font-semibold">No boards yet</h3>
+            <p className="mb-4 max-w-sm text-center text-muted-foreground">
               Create your first board to start organizing service tasks with a Kanban workflow.
             </p>
-            <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
+            <Button onClick={() => setCreateDialogOpen(true)} className="min-h-[44px] gap-2 sm:min-h-0">
               <Plus className="h-4 w-4" />
               Create Your First Board
             </Button>
@@ -138,73 +198,89 @@ export default function AdminServiceBoards() {
 
       {/* Board Grid */}
       {!isLoading && boards.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {boards.map((board, index) => (
-            <Link
-              key={board.id}
-              to={`/admin/service-boards/${board.id}`}
-              className="block group"
-            >
-              <Card className={cn(
-                'h-40 bg-gradient-to-br border transition-all duration-200 hover:shadow-lg hover:scale-[1.02]',
-                boardColors[index % boardColors.length]
-              )}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg line-clamp-1 group-hover:text-primary transition-colors">
-                      {board.name}
-                    </CardTitle>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => {
-                          e.preventDefault();
-                          handleArchiveBoard(board.id);
-                        }}>
-                          <Archive className="h-4 w-4 mr-2" />
-                          Archive Board
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  {board.description && (
-                    <CardDescription className="line-clamp-2 text-xs">
-                      {board.description}
-                    </CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      <span>{board.member_count || 1}</span>
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-5"
+        >
+          {boards.map((board) => (
+            <m.div key={board.id} variants={staggerItem} whileHover={{ y: -2 }} transition={{ duration: 0.15 }}>
+              <Link
+                to={`/admin/service-boards/${board.id}`}
+                className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-card"
+              >
+                <Card className="h-44 transition-shadow duration-200 hover:shadow-elevation-2">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent text-primary">
+                          <LayoutGrid className="h-4 w-4" aria-hidden />
+                        </span>
+                        <CardTitle className="line-clamp-1 text-base transition-colors group-hover:text-primary">
+                          {board.name}
+                        </CardTitle>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleArchiveBoard(board.id);
+                            }}
+                          >
+                            <Archive className="mr-2 h-4 w-4" />
+                            Archive Board
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <LayoutGrid className="h-3.5 w-3.5" />
-                      <span>{board.card_count || 0} cards</span>
+                    {board.description && (
+                      <CardDescription className="line-clamp-2 pt-1 text-xs">
+                        {board.description}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                  <CardContent className="flex items-end pt-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="neutral-soft" className="gap-1.5">
+                        <Users className="h-3 w-3" aria-hidden />
+                        <span className="tabular-nums">{board.member_count || 1}</span>
+                      </Badge>
+                      <Badge variant="info-soft" className="gap-1.5">
+                        <LayoutGrid className="h-3 w-3" aria-hidden />
+                        <span className="tabular-nums">{board.card_count || 0}</span> cards
+                      </Badge>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+                  </CardContent>
+                </Card>
+              </Link>
+            </m.div>
           ))}
 
           {/* Create New Board Card */}
-          <Card
-            className="h-40 border-dashed cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 flex items-center justify-center"
-            onClick={() => setCreateDialogOpen(true)}
-          >
-            <div className="text-center text-muted-foreground">
-              <Plus className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <span className="text-sm font-medium">Create Board</span>
-            </div>
-          </Card>
-        </div>
+          <m.div variants={staggerItem}>
+            <Card
+              className="flex h-44 cursor-pointer items-center justify-center border-dashed transition-colors duration-200 hover:border-primary/50 hover:bg-accent/40"
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              <div className="text-center text-muted-foreground">
+                <Plus className="mx-auto mb-2 h-8 w-8 opacity-50" />
+                <span className="text-sm font-medium">Create Board</span>
+              </div>
+            </Card>
+          </m.div>
+        </m.div>
       )}
-    </div>
+    </m.div>
   );
 }

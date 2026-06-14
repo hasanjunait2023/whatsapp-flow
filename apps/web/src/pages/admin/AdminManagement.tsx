@@ -28,10 +28,13 @@ import {
 import { PendingRequestsCard } from '@/components/admin/PendingRequestsCard';
 import { AdminPermissionEditor } from '@/components/admin/AdminPermissionEditor';
 import { CreateAdminUserDialog } from '@/components/admin/CreateAdminUserDialog';
-import { RefreshCw, Shield, Crown, MoreHorizontal, Settings, ShieldOff, Users, UserPlus } from 'lucide-react';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { m, pageEnter, staggerContainer, staggerItem } from '@/lib/motion';
+import { cn } from '@/lib/utils';
+import { RefreshCw, Shield, Crown, MoreHorizontal, Settings, ShieldOff, Users, UserPlus, ClipboardList } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 
 interface AdminUser {
   id: string;
@@ -157,6 +160,13 @@ export default function AdminManagement() {
     return Object.values(perms).filter(Boolean).length;
   };
 
+  // Derived admin metrics (presentation only — same data sources).
+  const adminStats = useMemo(() => {
+    const total = admins.length;
+    const superAdmins = admins.filter((a) => a.is_super_admin).length;
+    return { total, superAdmins, standard: total - superAdmins };
+  }, [admins]);
+
   const refresh = () => {
     fetchAdmins();
     refetchRequests();
@@ -164,25 +174,64 @@ export default function AdminManagement() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Admin Management</h1>
-            <p className="text-muted-foreground">Manage administrators and access requests</p>
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">Admin Management</h1>
+            <p className="text-sm text-muted-foreground">Manage administrators and access requests</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 self-start sm:self-auto">
             {isSuperAdmin && (
-              <Button onClick={() => setCreateDialogOpen(true)}>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Create Admin
+              <Button onClick={() => setCreateDialogOpen(true)} className="min-h-[44px] sm:min-h-0">
+                <UserPlus className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Create Admin</span>
               </Button>
             )}
-            <Button variant="outline" onClick={refresh}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
+            <Button variant="outline" onClick={refresh} className="min-h-[44px] sm:min-h-0">
+              <RefreshCw className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Refresh</span>
             </Button>
           </div>
-        </div>
+        </header>
+
+        {/* KPI strip — ONE orange focal tile (total admins) + calm neutral stats */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5"
+        >
+          {/* The single orange surface for this page */}
+          <m.div variants={staggerItem} className="h-full">
+            <Card className="h-full border-0 bg-primary text-primary-foreground shadow-elevation-accent">
+              <CardContent className="flex h-full flex-col gap-3 p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-medium text-primary-foreground/80">Total administrators</p>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-foreground/15">
+                    <Users className="h-5 w-5" aria-hidden />
+                  </span>
+                </div>
+                <p className="text-2xl font-bold leading-none tracking-tight tabular-nums md:text-3xl">
+                  {adminStats.total}
+                </p>
+                <p className="mt-auto text-xs text-primary-foreground/70">Users with admin panel access</p>
+              </CardContent>
+            </Card>
+          </m.div>
+
+          <m.div variants={staggerItem} className="h-full">
+            <KpiCard title="Super admins" value={adminStats.superAdmins} icon={Crown} tone="warning" loading={loading} />
+          </m.div>
+
+          <m.div variants={staggerItem} className="h-full">
+            <KpiCard title="Pending requests" value={pendingRequests.length} icon={ClipboardList} tone="info" loading={requestsLoading} />
+          </m.div>
+        </m.div>
 
         {/* Pending Requests */}
         {isSuperAdmin && (
@@ -200,10 +249,10 @@ export default function AdminManagement() {
         {/* Current Admins */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
               <Users className="h-5 w-5" />
               Current Administrators
-              <Badge variant="secondary">{admins.length}</Badge>
+              <Badge variant="neutral-soft" className="tabular-nums">{admins.length}</Badge>
             </CardTitle>
             <CardDescription>
               Users with access to the admin panel
@@ -217,10 +266,12 @@ export default function AdminManagement() {
                 ))}
               </div>
             ) : admins.length === 0 ? (
-              <div className="text-center py-12">
-                <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="font-medium text-lg">No administrators</h3>
-                <p className="text-muted-foreground">No admin accounts configured yet</p>
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-primary">
+                  <Shield className="h-7 w-7" />
+                </span>
+                <h3 className="text-lg font-medium">No administrators</h3>
+                <p className="text-sm text-muted-foreground">No admin accounts configured yet</p>
               </div>
             ) : (
               <Table>
@@ -240,36 +291,40 @@ export default function AdminManagement() {
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9">
                             <AvatarImage src={admin.avatar_url || ''} />
-                            <AvatarFallback>
-                              {admin.full_name?.charAt(0) || admin.email?.charAt(0) || 'A'}
+                            <AvatarFallback className="bg-muted-soft text-xs font-semibold text-muted-foreground">
+                              {(admin.full_name?.charAt(0) || admin.email?.charAt(0) || 'A').toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          <div>
-                            <p className="font-medium">{admin.full_name || 'Unknown'}</p>
-                            <p className="text-sm text-muted-foreground">{admin.email}</p>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{admin.full_name || 'Unknown'}</p>
+                            <p className="truncate text-xs text-muted-foreground">{admin.email}</p>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         {admin.is_super_admin ? (
-                          <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20">
-                            <Crown className="h-3 w-3 mr-1" />
+                          <Badge variant="warning-soft" className="gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-warning" aria-hidden />
+                            <Crown className="h-3 w-3" />
                             Super Admin
                           </Badge>
                         ) : (
-                          <Badge variant="outline">
-                            <Shield className="h-3 w-3 mr-1" />
+                          <Badge variant="neutral-soft" className="gap-1.5">
+                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" aria-hidden />
+                            <Shield className="h-3 w-3" />
                             Admin
                           </Badge>
                         )}
                       </TableCell>
                       <TableCell>
                         {admin.is_super_admin ? (
-                          <span className="text-muted-foreground">All ({Object.keys(PERMISSION_LABELS).length})</span>
+                          <Badge variant="info-soft" className="gap-1 tabular-nums">
+                            All ({Object.keys(PERMISSION_LABELS).length})
+                          </Badge>
                         ) : (
-                          <span className="text-muted-foreground">
+                          <Badge variant="neutral-soft" className="gap-1 tabular-nums">
                             {getPermissionCount(admin.permissions)} / {Object.keys(PERMISSION_LABELS).length}
-                          </span>
+                          </Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
@@ -277,7 +332,7 @@ export default function AdminManagement() {
                           <div>
                             <p className="text-sm">{admin.granter_name}</p>
                             {admin.granted_at && (
-                              <p className="text-xs">{format(new Date(admin.granted_at), 'MMM d, yyyy')}</p>
+                              <p className="text-xs tabular-nums">{format(new Date(admin.granted_at), 'MMM d, yyyy')}</p>
                             )}
                           </div>
                         ) : (
@@ -358,7 +413,7 @@ export default function AdminManagement() {
           onOpenChange={setCreateDialogOpen}
           onCreated={fetchAdmins}
         />
-      </div>
+      </m.div>
     </AdminLayout>
   );
 }

@@ -6,7 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { SalesHighlightTile } from '@/components/admin/external-sales/SalesHighlightTile';
+import { m, pageEnter, staggerContainer } from '@/lib/motion';
+import { cn } from '@/lib/utils';
 import {
   Table,
   TableBody,
@@ -39,14 +43,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { 
-  ShoppingCart, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
+import {
+  ShoppingCart,
+  CheckCircle,
   RefreshCw,
-  DollarSign,
-  AlertTriangle,
   Search,
   ExternalLink,
   Copy,
@@ -54,7 +54,8 @@ import {
   Plus,
   Trash2,
   Eye,
-  MoreHorizontal
+  MoreHorizontal,
+  Target
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState } from 'react';
@@ -62,7 +63,6 @@ import { toast } from 'sonner';
 import CreateExternalOrderDialog from '@/components/admin/CreateExternalOrderDialog';
 import NotificationStatusBadges from '@/components/admin/NotificationStatusBadges';
 import OrderDetailsDialog from '@/components/admin/OrderDetailsDialog';
-import { ResponsivePageHeader } from '@/components/admin/ResponsivePageHeader';
 import { MobileDataCard } from '@/components/admin/MobileDataCard';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -97,17 +97,36 @@ export default function ExternalSales() {
   });
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Badge className="bg-green-500/10 text-green-600 border-green-500/20"><CheckCircle className="h-3 w-3 mr-1" />Completed</Badge>;
-      case 'failed':
-        return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Failed</Badge>;
-      case 'processing':
-        return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Processing</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
+    const map: Record<
+      string,
+      { label: string; variant: 'success-soft' | 'info-soft' | 'neutral-soft' | 'destructive-soft' | 'warning-soft'; dot: string }
+    > = {
+      completed: { label: 'Completed', variant: 'success-soft', dot: 'bg-success' },
+      processing: { label: 'Processing', variant: 'info-soft', dot: 'bg-info' },
+      pending: { label: 'Pending', variant: 'warning-soft', dot: 'bg-warning' },
+      failed: { label: 'Failed', variant: 'destructive-soft', dot: 'bg-destructive' },
+    };
+    const meta = map[status] || {
+      label: status,
+      variant: 'neutral-soft' as const,
+      dot: 'bg-muted-foreground',
+    };
+    return (
+      <Badge variant={meta.variant} className="gap-1.5">
+        <span className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} aria-hidden />
+        {meta.label}
+      </Badge>
+    );
   };
+
+  const getInitials = (name: string) =>
+    name
+      .split(' ')
+      .map((w) => w[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() || '?';
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -118,12 +137,7 @@ export default function ExternalSales() {
 
   const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL || 'https://cdkrvztqeuflxilrtnws.supabase.co'}/functions/v1/sales-order-webhook`;
 
-  const statCards = [
-    { title: 'Total Orders', value: stats.total, icon: ShoppingCart, color: 'text-muted-foreground' },
-    { title: 'Completed', value: stats.completed, icon: CheckCircle, color: 'text-green-500' },
-    { title: 'Failed', value: stats.failed, icon: AlertTriangle, color: 'text-red-500' },
-    { title: 'Total Revenue', value: `৳${stats.totalRevenue.toLocaleString()}`, icon: DollarSign, color: 'text-emerald-500' },
-  ];
+  const conversionPct = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
 
   // Mobile order card
   const OrderCard = ({ order }: { order: ExternalSalesOrder }) => (
@@ -146,7 +160,7 @@ export default function ExternalSales() {
           key: 'amount',
           label: 'Amount',
           render: () => (
-            <span className="font-semibold">
+            <span className="font-semibold tabular-nums">
               ৳{order.amount.toLocaleString()}<span className="text-xs text-muted-foreground">/{order.billing_cycle}</span>
             </span>
           ),
@@ -204,70 +218,60 @@ export default function ExternalSales() {
 
   return (
     <AdminLayout>
-      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
-        <ResponsivePageHeader
-          title="External Sales"
-          description="Orders received from your external sales website"
-          actions={
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => refetch()} disabled={loading}>
-                <RefreshCw className={`h-4 w-4 ${isMobile ? '' : 'mr-2'} ${loading ? 'animate-spin' : ''}`} />
-                {!isMobile && 'Refresh'}
-              </Button>
-              <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
-                <Plus className={`h-4 w-4 ${isMobile ? '' : 'mr-2'}`} />
-                {!isMobile && 'Create Order'}
-              </Button>
-            </div>
-          }
-        />
-
-        {/* Stats Cards - Scrollable on mobile */}
-        {isMobile ? (
-          <ScrollArea className="w-full whitespace-nowrap">
-            <div className="flex gap-3 pb-2">
-              {statCards.map((stat) => (
-                <Card key={stat.title} className="min-w-[140px] shrink-0">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2 p-3">
-                    <CardTitle className="text-xs font-medium text-muted-foreground">
-                      {stat.title}
-                    </CardTitle>
-                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                  </CardHeader>
-                  <CardContent className="p-3 pt-0">
-                    {loading ? <Skeleton className="h-6 w-12" /> : (
-                      <p className={`text-lg font-bold ${stat.title === 'Completed' ? 'text-green-600' : stat.title === 'Failed' ? 'text-red-600' : ''}`}>
-                        {stat.value}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {statCards.map((stat) => (
-              <Card key={stat.title}>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
-                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                </CardHeader>
-                <CardContent>
-                  {loading ? <Skeleton className="h-8 w-16" /> : (
-                    <p className={`text-2xl font-bold ${stat.title === 'Completed' ? 'text-green-600' : stat.title === 'Failed' ? 'text-red-600' : ''}`}>
-                      {stat.value}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
+        {/* Header */}
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">External Sales</h1>
+            <p className="text-sm text-muted-foreground">
+              Orders received from your external sales website
+            </p>
           </div>
-        )}
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={loading}
+              className="min-h-[44px] sm:min-h-0"
+            >
+              <RefreshCw className={cn('h-4 w-4 md:mr-2', loading && 'animate-spin')} />
+              <span className="hidden md:inline">Refresh</span>
+            </Button>
+            <Button size="sm" onClick={() => setCreateDialogOpen(true)} className="min-h-[44px] sm:min-h-0">
+              <Plus className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Create Order</span>
+            </Button>
+          </div>
+        </header>
+
+        {/* KPI strip — soft stat cards + the ONE orange highlight (total revenue) */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
+        >
+          <KpiCard title="Total orders" value={stats.total} icon={ShoppingCart} tone="primary" loading={loading} />
+          <KpiCard title="Completed deals" value={stats.completed} icon={CheckCircle} tone="success" loading={loading} />
+          <KpiCard
+            title="Conversion"
+            value={conversionPct}
+            format={(v) => `${Math.round(v)}%`}
+            icon={Target}
+            tone="info"
+            loading={loading}
+          />
+          <SalesHighlightTile revenue={stats.totalRevenue} completed={stats.completed} loading={loading} />
+        </m.div>
 
         {/* Webhook URL Card */}
-        <Card className="border-primary/20 bg-primary/5">
+        <Card className="bg-muted/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm md:text-base flex items-center gap-2">
               <ExternalLink className="h-4 w-4" />
@@ -378,9 +382,16 @@ export default function ExternalSales() {
                           {order.external_order_id}
                         </TableCell>
                         <TableCell>
-                          <div>
-                            <p className="font-medium">{order.customer_name}</p>
-                            <p className="text-xs text-muted-foreground">{order.customer_email}</p>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9">
+                              <AvatarFallback className="bg-muted-soft text-xs font-semibold text-muted-foreground">
+                                {getInitials(order.customer_name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{order.customer_name}</p>
+                              <p className="truncate text-xs text-muted-foreground">{order.customer_email}</p>
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -390,7 +401,7 @@ export default function ExternalSales() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className="font-semibold">৳{order.amount.toLocaleString()}</span>
+                          <span className="font-semibold tabular-nums">৳{order.amount.toLocaleString()}</span>
                           <span className="text-xs text-muted-foreground ml-1">/{order.billing_cycle}</span>
                         </TableCell>
                         <TableCell>
@@ -403,7 +414,7 @@ export default function ExternalSales() {
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <span className="text-xs text-red-500 truncate max-w-[150px] block cursor-help">
+                                    <span className="text-xs text-destructive truncate max-w-[150px] block cursor-help">
                                       {order.error_message}
                                     </span>
                                   </TooltipTrigger>
@@ -470,8 +481,8 @@ export default function ExternalSales() {
                               </TooltipProvider>
                             )}
                             {order.status === 'completed' && order.tenant_id && (
-                              <Badge variant="outline" className="text-green-600">
-                                <CheckCircle className="h-3 w-3 mr-1" />
+                              <Badge variant="success-soft" className="gap-1">
+                                <CheckCircle className="h-3 w-3" />
                                 Active
                               </Badge>
                             )}
@@ -536,7 +547,7 @@ export default function ExternalSales() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
+      </m.div>
     </AdminLayout>
   );
 }

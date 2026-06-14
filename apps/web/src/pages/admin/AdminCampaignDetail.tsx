@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { EmptyState } from '@/components/ui/empty-state';
+import { KpiCard } from '@/components/dashboard/bento/KpiCard';
+import { CampaignSequencesTile } from '@/components/admin/marketing/CampaignSequencesTile';
+import { m, pageEnter, staggerContainer, staggerItem } from '@/lib/motion';
+import { cn } from '@/lib/utils';
 import {
   ArrowLeft,
   Plus,
@@ -20,7 +25,6 @@ import {
   MessageSquare,
   Mail,
   Calendar,
-  Percent,
   Save,
   X,
   Target,
@@ -30,19 +34,20 @@ import {
   BookOpen,
   Heart,
   CheckCircle,
+  Power,
 } from 'lucide-react';
-import { useMarketingCampaigns, MarketingCampaign } from '@/hooks/useMarketingCampaigns';
+import { useMarketingCampaigns } from '@/hooks/useMarketingCampaigns';
 import { useMarketingSequences, MarketingSequence, MarketingSequenceInput } from '@/hooks/useMarketingSequences';
 import { toast } from 'sonner';
 
 const THEME_OPTIONS = [
-  { value: 'welcome', label: 'স্বাগতম', labelEn: 'Welcome', icon: Sparkles, color: 'text-yellow-500 bg-yellow-500/10' },
-  { value: 'educational', label: 'শিক্ষামূলক', labelEn: 'Educational', icon: BookOpen, color: 'text-blue-500 bg-blue-500/10' },
-  { value: 'feature', label: 'ফিচার পরিচয়', labelEn: 'Feature', icon: Target, color: 'text-purple-500 bg-purple-500/10' },
-  { value: 'social_proof', label: 'সোশ্যাল প্রুফ', labelEn: 'Social Proof', icon: Users, color: 'text-green-500 bg-green-500/10' },
-  { value: 'offer', label: 'অফার/ছাড়', labelEn: 'Offer', icon: Gift, color: 'text-red-500 bg-red-500/10' },
-  { value: 'engagement', label: 'এনগেজমেন্ট', labelEn: 'Engagement', icon: Heart, color: 'text-pink-500 bg-pink-500/10' },
-  { value: 'checkin', label: 'চেক-ইন', labelEn: 'Check-in', icon: CheckCircle, color: 'text-cyan-500 bg-cyan-500/10' },
+  { value: 'welcome', label: 'স্বাগতম', labelEn: 'Welcome', icon: Sparkles },
+  { value: 'educational', label: 'শিক্ষামূলক', labelEn: 'Educational', icon: BookOpen },
+  { value: 'feature', label: 'ফিচার পরিচয়', labelEn: 'Feature', icon: Target },
+  { value: 'social_proof', label: 'সোশ্যাল প্রুফ', labelEn: 'Social Proof', icon: Users },
+  { value: 'offer', label: 'অফার/ছাড়', labelEn: 'Offer', icon: Gift },
+  { value: 'engagement', label: 'এনগেজমেন্ট', labelEn: 'Engagement', icon: Heart },
+  { value: 'checkin', label: 'চেক-ইন', labelEn: 'Check-in', icon: CheckCircle },
 ];
 
 const CHANNEL_OPTIONS = [
@@ -175,13 +180,21 @@ export default function AdminCampaignDetail() {
     .map(Number)
     .sort((a, b) => a - b);
 
+  // KPI metrics derived from real sequence data (presentation only).
+  const activeCount = sequences.filter((s) => s.is_active).length;
+  const whatsappCount = sequences.filter((s) => s.channel === 'whatsapp' || s.channel === 'both').length;
+
   if (campaignsLoading || sequencesLoading) {
     return (
       <AdminLayout>
-        <div className="p-6 space-y-6">
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-32" />
-          <Skeleton className="h-64" />
+        <div className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6">
+          <Skeleton className="h-9 w-64" />
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 sm:gap-5">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-[120px] w-full rounded-card" />
+            ))}
+          </div>
+          <Skeleton className="h-64 w-full rounded-card" />
         </div>
       </AdminLayout>
     );
@@ -190,14 +203,15 @@ export default function AdminCampaignDetail() {
   if (!campaign) {
     return (
       <AdminLayout>
-        <div className="p-6">
+        <div className="mx-auto w-full max-w-[1440px] p-4 md:p-6">
           <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">ক্যাম্পেইন পাওয়া যায়নি</p>
-              <Button variant="outline" className="mt-4" onClick={() => navigate('/admin/marketing')}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                ফিরে যান
-              </Button>
+            <CardContent className="py-4">
+              <EmptyState
+                icon={Target}
+                title="ক্যাম্পেইন পাওয়া যায়নি"
+                description="The campaign you are looking for does not exist or has been removed."
+                action={{ label: 'ফিরে যান', onClick: () => navigate('/admin/marketing'), icon: ArrowLeft }}
+              />
             </CardContent>
           </Card>
         </div>
@@ -207,25 +221,54 @@ export default function AdminCampaignDetail() {
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
+      <m.div
+        variants={pageEnter}
+        initial="hidden"
+        animate="show"
+        className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/admin/marketing')}>
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/admin/marketing')}
+              className="min-h-[44px] min-w-[44px] shrink-0"
+              aria-label="ফিরে যান"
+            >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold">{campaign.name_bn || campaign.name}</h1>
-              <p className="text-muted-foreground text-sm">
-                {sequences.length}টি সিকোয়েন্স • সর্বোচ্চ {campaign.max_discount_percent}% ছাড়
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-bold tracking-tight md:text-3xl">
+                {campaign.name_bn || campaign.name}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                <span className="tabular-nums">{sequences.length}</span>টি সিকোয়েন্স • সর্বোচ্চ{' '}
+                <span className="tabular-nums">{campaign.max_discount_percent}</span>% ছাড়
               </p>
             </div>
           </div>
-          <Button onClick={handleOpenAdd}>
+          <Button onClick={handleOpenAdd} className="min-h-[44px] self-start sm:min-h-0 sm:self-auto">
             <Plus className="h-4 w-4 mr-2" />
             নতুন সিকোয়েন্স
           </Button>
-        </div>
+        </header>
+
+        {/* KPI strip — 3 stat cards + the ONE orange Sequences tile */}
+        <m.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 gap-4 lg:grid-cols-4 sm:gap-5"
+        >
+          <KpiCard title="Active" value={activeCount} icon={Power} tone="success" />
+          <KpiCard title="WhatsApp" value={whatsappCount} icon={MessageSquare} tone="info" />
+          <KpiCard title="Max ছাড়" value={campaign.max_discount_percent} icon={Gift} tone="warning" />
+          <m.div variants={staggerItem}>
+            <CampaignSequencesTile total={sequences.length} weeks={sortedWeeks.length} />
+          </m.div>
+        </m.div>
 
         {/* Sequences List */}
         <Card>
@@ -240,25 +283,22 @@ export default function AdminCampaignDetail() {
           </CardHeader>
           <CardContent>
             {sequences.length === 0 ? (
-              <div className="text-center py-12">
-                <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                <p className="text-muted-foreground">কোনো সিকোয়েন্স নেই</p>
-                <Button variant="outline" className="mt-4" onClick={handleOpenAdd}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  প্রথম সিকোয়েন্স যোগ করুন
-                </Button>
-              </div>
+              <EmptyState
+                icon={MessageSquare}
+                title="কোনো সিকোয়েন্স নেই"
+                description="প্রতি সপ্তাহে কোন মেসেজ পাঠানো হবে তা সেট করতে প্রথম সিকোয়েন্স যোগ করুন।"
+                action={{ label: 'প্রথম সিকোয়েন্স যোগ করুন', onClick: handleOpenAdd, icon: Plus }}
+                className="py-12"
+              />
             ) : (
               <div className="space-y-4">
                 {sortedWeeks.map((week) => (
-                  <div key={week} className="border rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Badge variant="outline" className="font-mono">
+                  <div key={week} className="rounded-card border border-border p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Badge variant="neutral-soft" className="font-mono tabular-nums">
                         Week {week}
                       </Badge>
-                      <span className="text-sm text-muted-foreground">
-                        সপ্তাহ {week}
-                      </span>
+                      <span className="text-sm text-muted-foreground tabular-nums">সপ্তাহ {week}</span>
                     </div>
                     <div className="space-y-2">
                       {sequencesByWeek[week]
@@ -266,60 +306,61 @@ export default function AdminCampaignDetail() {
                         .map((seq) => {
                           const themeConfig = getThemeConfig(seq.theme);
                           const ThemeIcon = themeConfig.icon;
-                          
+
                           return (
                             <div
                               key={seq.id}
-                              className={`flex items-start gap-3 p-3 rounded-lg border ${
-                                seq.is_active ? 'bg-background' : 'bg-muted/50 opacity-60'
-                              }`}
+                              className={cn(
+                                'flex items-start gap-3 rounded-control border border-border p-3 transition-colors',
+                                seq.is_active ? 'bg-card hover:bg-muted-soft' : 'bg-muted/50 opacity-60',
+                              )}
                             >
-                              <div className={`p-2 rounded-lg shrink-0 ${themeConfig.color}`}>
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
                                 <ThemeIcon className="h-4 w-4" />
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-medium text-sm">
-                                    {seq.name_bn || seq.name}
-                                  </span>
-                                  <Badge variant="secondary" className="text-xs">
+                              <div className="min-w-0 flex-1">
+                                <div className="mb-1 flex flex-wrap items-center gap-2">
+                                  <span className="text-sm font-medium">{seq.name_bn || seq.name}</span>
+                                  <Badge variant="neutral-soft" className="text-xs">
                                     {themeConfig.label}
                                   </Badge>
                                   {seq.discount_percent > 0 && (
-                                    <Badge variant="destructive" className="text-xs">
+                                    <Badge variant="warning-soft" className="text-xs tabular-nums">
                                       {seq.discount_percent}% ছাড়
                                     </Badge>
                                   )}
-                                  {seq.channel === 'whatsapp' && (
-                                    <MessageSquare className="h-3 w-3 text-green-500" />
+                                  {(seq.channel === 'whatsapp' || seq.channel === 'both') && (
+                                    <MessageSquare className="h-3.5 w-3.5 text-whatsapp" aria-label="WhatsApp" />
                                   )}
-                                  {seq.channel === 'email' && (
-                                    <Mail className="h-3 w-3 text-blue-500" />
+                                  {(seq.channel === 'email' || seq.channel === 'both') && (
+                                    <Mail className="h-3.5 w-3.5 text-info" aria-label="Email" />
                                   )}
                                   {!seq.is_active && (
-                                    <Badge variant="outline" className="text-xs">
+                                    <Badge variant="neutral-soft" className="text-xs">
                                       নিষ্ক্রিয়
                                     </Badge>
                                   )}
                                 </div>
-                                <p className="text-xs text-muted-foreground line-clamp-2">
+                                <p className="line-clamp-2 text-xs text-muted-foreground">
                                   {seq.content_template?.wa_message_bn || 'No message content'}
                                 </p>
                               </div>
-                              <div className="flex gap-1 shrink-0">
+                              <div className="flex shrink-0 gap-1">
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8"
+                                  className="h-9 w-9"
                                   onClick={() => handleOpenEdit(seq)}
+                                  aria-label="এডিট"
                                 >
                                   <Edit className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 text-destructive"
+                                  className="h-9 w-9 text-destructive hover:text-destructive"
                                   onClick={() => handleDelete(seq)}
+                                  aria-label="মুছুন"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -492,7 +533,7 @@ export default function AdminCampaignDetail() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      </m.div>
     </AdminLayout>
   );
 }
