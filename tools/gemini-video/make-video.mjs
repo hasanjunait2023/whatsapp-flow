@@ -45,13 +45,13 @@ const content = process.argv[2] && existsSync(process.argv[2])
 log('content:', content.slug, '| clips:', content.clips.length);
 
 async function ensureChrome() {
-  // Always start a CLEAN dedicated Chrome (a reused instance accumulates stuck overlays).
-  try { execFileSync('taskkill',['/F','/IM','chrome.exe'],{stdio:'ignore'}); } catch {}
-  await new Promise(r=>setTimeout(r,2500));
+  // REUSE the running dedicated Chrome (do NOT kill — killing causes "target closed" crashes
+  // and overlapping-run failures). Spawn ONCE only if it isn't already up.
+  try { const r = await fetch(`http://127.0.0.1:${PORT}/json/version`); if (r.ok) { log('chrome up (reused)'); return; } } catch {}
   const p = spawn(CHROME, [`--remote-debugging-port=${PORT}`,`--user-data-dir=${USER_DATA_DIR}`,
     '--no-first-run','--no-default-browser-check','--start-maximized','https://gemini.google.com/app'], { detached:true, stdio:'ignore' });
   p.on('error',e=>log('spawn err',e.message)); p.unref();
-  const t0=Date.now(); while(Date.now()-t0<30000){ try{ const r=await fetch(`http://127.0.0.1:${PORT}/json/version`); if(r.ok){log('chrome up');return;} }catch{} await new Promise(r=>setTimeout(r,500)); }
+  const t0=Date.now(); while(Date.now()-t0<30000){ try{ const r=await fetch(`http://127.0.0.1:${PORT}/json/version`); if(r.ok){log('chrome up (spawned once)');return;} }catch{} await new Promise(r=>setTimeout(r,500)); }
   throw new Error('chrome not up');
 }
 await ensureChrome();
@@ -73,23 +73,40 @@ const inVideoMode = async () =>
 
 // RELIABILITY (founder tip): reuse a PREVIOUS video chat (already in video mode) via the
 // sidebar -> skips the flaky "Upload & tools -> Create video" menu navigation entirely.
+// Open the sidebar and return the visible recent-chat titles (so we can SEE where prior
+// videos rendered). Used by openVideoChat and the `--chats` listing mode.
+async function listChats(){
+  const sb = page.locator('[aria-label="Open sidebar"], [aria-label="Main menu"]').first();
+  if(await sb.count()){ await sb.click({timeout:5000, force:true}).catch(()=>{}); await settle(2000); }
+  return await page.evaluate(()=>{
+    const titles=[];
+    for(const e of document.querySelectorAll('a[href*="/app/"],[role=listitem],[class*=conversation],[data-test-id*=conversation]')){
+      const t=(e.getAttribute('aria-label')||e.textContent||'').trim().replace(/\s+/g,' ');
+      if(t && t.length>2 && !/^More options/i.test(t)) titles.push(t.slice(0,60));
+    }
+    return [...new Set(titles)];
+  });
+}
+const VIDEO_RE = /ভিডিও|@amijunait|video generation|COD অর্ডার ফেরত|Video Generation|অর্ডার হারানো|ফলোয়ার্স/i;
 async function openVideoChat(){
   try{
-    const sb = page.locator('[aria-label="Open sidebar"], [aria-label="Main menu"]').first();
-    if(await sb.count()){ await sb.click({timeout:5000}).catch(()=>{}); await settle(2000); }
-    const titleRe = /ভিডিও|@amijunait|video generation|COD অর্ডার ফেরত|Video Generation/i;
-    const rows = page.locator('[class*=conversation], [role=listitem], a[href*="/app/"]')
-      .filter({hasText:titleRe}).filter({hasNotText:/More options/i});
-    const n = Math.min(await rows.count(), 6);
-    log(`sidebar video-chat candidates: ${n}`);
-    for(let i=0;i<n;i++){
-      await rows.nth(i).click({timeout:6000, force:true}).catch(()=>{});
-      await settle(4000);
-      if(await inVideoMode()){ log('reused previous video chat'); return true; }
+    const titles = await listChats();
+    const vids = titles.filter(t=>VIDEO_RE.test(t) && !/^More options/i.test(t));
+    log(`sidebar chats: ${titles.length}, video-like: ${vids.length}`);
+    for(const title of vids.slice(0,6)){
+      // click the chat by its exact visible title (force; the row is the clickable target)
+      const loc = page.getByText(title.slice(0,40), { exact:false }).filter({hasNotText:/More options/i}).first();
+      if(await loc.count()){
+        await loc.click({timeout:6000, force:true}).catch(()=>{});
+        await settle(4000);
+        if(await inVideoMode()){ log(`reused video chat: "${title.slice(0,30)}"`); return true; }
+      }
     }
   }catch(e){ log('openVideoChat note', e.message.slice(0,40)); }
   return false;
 }
+// `node make-video.mjs --chats` -> just print where videos rendered, then exit
+if (process.argv[2]==='--chats'){ const t=await listChats(); console.log(JSON.stringify(t,null,2)); await browser.close(); process.exit(0); }
 
 async function enterVideoMode(){
   if (await inVideoMode()) { log('video mode persisted'); }
