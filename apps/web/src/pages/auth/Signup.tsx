@@ -261,9 +261,9 @@ export default function Signup() {
         {/* Terms */}
         <p className="text-xs text-muted-foreground text-center">
           By creating an account, you agree to our{' '}
-          <a href="#" className="underline hover:text-foreground transition-colors">Terms of Service</a>
+          <Link to="/terms" className="underline hover:text-foreground transition-colors">Terms of Service</Link>
           {' '}and{' '}
-          <a href="#" className="underline hover:text-foreground transition-colors">Privacy Policy</a>.
+          <Link to="/privacy" className="underline hover:text-foreground transition-colors">Privacy Policy</Link>.
         </p>
 
         {/* Sign In Link */}

@@ -28,6 +28,7 @@ import { wahaWebhookRoute } from "./routes/waha/webhook.js";
 import { telegramWebhookRoute } from "./routes/webhooks/telegram.js";
 import { fbWebhookRoute, warnIfFbPagesUnverified } from "./routes/webhooks/fb.js";
 import { fbOauthStartRoute, fbOauthCallbackRoute } from "./routes/fb-oauth.js";
+import { fbDataDeletionRoute } from "./routes/fb-data-deletion.js";
 import { woocommerceWebhookRoute } from "./routes/webhooks/woocommerce.js";
 import { startScheduler, stopScheduler } from "./jobs/scheduler.js";
 import { registerSoulJobs } from "./services/soul/index.js";
@@ -203,6 +204,9 @@ app.route("/api/webhooks/woocommerce", woocommerceWebhookRoute);
 
 // --- Facebook OAuth callback (browser redirect from Meta; signed-state auth) ---
 app.route("/api/fb/oauth/callback", fbOauthCallbackRoute);
+
+// --- Facebook Data Deletion Request Callback (machine caller; signed_request HMAC) ---
+app.route("/api/fb/data-deletion", fbDataDeletionRoute);
 
 // --- Public demo-lead capture (unauthenticated marketing form) ---------------
 // Mounted on the public app BEFORE the authed api router. Writes to

@@ -26,6 +26,9 @@ import { setRealtimeRecover } from "@/integrations/supabase/shim/realtime";
 const PublicLanding = lazy(() => import("@/pages/Landing"));
 const Login = lazy(() => import("./pages/auth/Login"));
 const Signup = lazy(() => import("./pages/auth/Signup"));
+const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
+const TermsOfService = lazy(() => import("./pages/legal/TermsOfService"));
+const DataDeletion = lazy(() => import("./pages/legal/DataDeletion"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Instances = lazy(() => import("./pages/Instances"));
@@ -227,6 +230,11 @@ const App = () => (
                           <Route path="/auth/login" element={<Login />} />
                           <Route path="/auth/signup" element={<Signup />} />
                           <Route path="/invite/:token" element={<AcceptInvitation />} />
+
+                          {/* Public legal/compliance pages — must render logged-out (Meta App Review) */}
+                          <Route path="/privacy" element={<PrivacyPolicy />} />
+                          <Route path="/terms" element={<TermsOfService />} />
+                          <Route path="/data-deletion" element={<DataDeletion />} />
 
                           {/* Special routes without DashboardLayout */}
                           <Route
