@@ -8,7 +8,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { safeFormatDate } from '@/lib/date';
 
 interface PaymentHistoryProps {
   payments: Payment[];
@@ -79,7 +79,7 @@ export function PaymentHistory({ payments, loading }: PaymentHistoryProps) {
         {payments.map((payment) => (
           <TableRow key={payment.id}>
             <TableCell className="font-medium">
-              {format(new Date(payment.created_at), 'MMM d, yyyy')}
+              {safeFormatDate(payment.created_at, 'MMM d, yyyy')}
             </TableCell>
             <TableCell>{getMethodLabel(payment.payment_method, (payment as any).payment_gateway)}</TableCell>
             <TableCell className="font-mono text-sm">

@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { safeFormatDate } from '@/lib/date';
 import { Receipt } from 'lucide-react';
 import { Payment } from '@/hooks/usePayments';
 import {
@@ -100,7 +100,7 @@ export function InvoiceTable({ payments, loading, onEmptyAction }: InvoiceTableP
             {payments.map((payment) => (
               <TableRow key={payment.id}>
                 <TableCell className="whitespace-nowrap font-medium">
-                  {format(new Date(payment.created_at), 'MMM d, yyyy')}
+                  {safeFormatDate(payment.created_at, 'MMM d, yyyy')}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {methodLabel(payment.payment_method, (payment as unknown as { payment_gateway?: string }).payment_gateway)}
@@ -135,7 +135,7 @@ export function InvoiceTable({ payments, loading, onEmptyAction }: InvoiceTableP
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {methodLabel(payment.payment_method, (payment as unknown as { payment_gateway?: string }).payment_gateway)}
                   {' · '}
-                  {format(new Date(payment.created_at), 'MMM d, yyyy')}
+                  {safeFormatDate(payment.created_at, 'MMM d, yyyy')}
                 </p>
               </div>
               <StatusBadge status={payment.status} />

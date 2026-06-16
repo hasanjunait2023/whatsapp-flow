@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Receipt, CheckCircle2, Clock, XCircle } from 'lucide-react';
-import { format } from 'date-fns';
+import { safeFormatDate } from '@/lib/date';
 
 export function SubscriptionOrdersCard() {
   const { orders, loading } = useTenantSubscriptionOrders();
@@ -100,7 +100,7 @@ export function SubscriptionOrdersCard() {
                   {order.plan_name || 'Unknown Plan'} • {order.billing_cycle === 'yearly' ? 'Yearly' : 'Monthly'}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {format(new Date(order.created_at), 'MMM d, yyyy \'at\' h:mm a')}
+                  {safeFormatDate(order.created_at, 'MMM d, yyyy \'at\' h:mm a')}
                 </p>
               </div>
               <div className="text-right">

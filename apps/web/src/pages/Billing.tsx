@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { format } from 'date-fns';
+import { safeFormatDate } from '@/lib/date';
 import { MessageSquare, CalendarClock, Receipt, Columns3, History, ListOrdered } from 'lucide-react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Plan } from '@/hooks/usePlans';
@@ -100,7 +100,7 @@ export default function Billing() {
       new Date(subscription.current_period_end) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
 
   const renewalSubtitle = renewalDate
-    ? `Renews ${format(new Date(renewalDate), 'MMM d, yyyy')}`
+    ? `Renews ${safeFormatDate(renewalDate, 'MMM d, yyyy')}`
     : 'Manage your subscription and payments';
 
   return (
@@ -164,7 +164,7 @@ export default function Billing() {
                 value={daysLeft}
                 icon={CalendarClock}
                 tone="info"
-                trendLabel={renewalDate ? `until ${format(new Date(renewalDate), 'MMM d')}` : undefined}
+                trendLabel={renewalDate ? `until ${safeFormatDate(renewalDate, 'MMM d')}` : undefined}
                 loading={subLoading}
               />
             </m.div>

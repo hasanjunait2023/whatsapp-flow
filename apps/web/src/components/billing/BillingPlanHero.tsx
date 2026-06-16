@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { safeFormatDate } from '@/lib/date';
 import { Sparkles, ArrowUpRight, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -86,7 +86,7 @@ export function BillingPlanHero({
             </p>
             {renewalDate && (
               <p className="mt-1.5 text-xs text-primary-foreground/80">
-                Renews {format(new Date(renewalDate), 'MMMM d, yyyy')}
+                Renews {safeFormatDate(renewalDate, 'MMMM d, yyyy')}
               </p>
             )}
           </div>

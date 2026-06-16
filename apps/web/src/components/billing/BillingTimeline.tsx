@@ -10,7 +10,7 @@ import {
   Sparkles,
   CalendarClock
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { safeFormatDate } from '@/lib/date';
 import { cn } from '@/lib/utils';
 
 export function BillingTimeline() {
@@ -149,7 +149,7 @@ export function BillingTimeline() {
                         {event.description}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {format(new Date(event.date), 'MMM d, yyyy')}
+                        {safeFormatDate(event.date, 'MMM d, yyyy')}
                         {event.metadata?.transactionId && (
                           <span className="ml-2 font-mono">
                             #{event.metadata.transactionId.slice(-6)}

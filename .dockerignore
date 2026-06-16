@@ -8,6 +8,10 @@
 # Local data + SQLite (the image starts from a FRESH DB on a mounted volume)
 data/
 **/data/
+# ...but the SSG content source lives under a dir literally named data/
+# (apps/web/src/content/data/{compare,learn}.tsx). Keep it in the build context.
+!apps/web/src/content/data
+!apps/web/src/content/data/**
 *.db
 *.db-shm
 *.db-wal
@@ -22,7 +26,6 @@ data/
 .git
 .github
 .claude
-supabase
 
 # Logs + editor
 *.log

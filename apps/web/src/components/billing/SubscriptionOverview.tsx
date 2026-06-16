@@ -14,7 +14,7 @@ import {
   Sparkles,
   ArrowUpRight
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { safeFormatDate } from '@/lib/date';
 
 interface SubscriptionOverviewProps {
   onUpgradeClick?: () => void;
@@ -82,7 +82,7 @@ export function SubscriptionOverview({ onUpgradeClick, onRenewClick }: Subscript
   }
 
   const memberSince = currentTenant?.created_at 
-    ? format(new Date(currentTenant.created_at), 'MMMM d, yyyy')
+    ? safeFormatDate(currentTenant.created_at, 'MMMM d, yyyy')
     : null;
 
   const billingCycle = subscription?.current_period_end && subscription?.current_period_start
@@ -92,7 +92,7 @@ export function SubscriptionOverview({ onUpgradeClick, onRenewClick }: Subscript
     : 'Monthly';
 
   const nextPaymentDate = subscription?.current_period_end
-    ? format(new Date(subscription.current_period_end), 'MMMM d, yyyy')
+    ? safeFormatDate(subscription.current_period_end, 'MMMM d, yyyy')
     : null;
 
   const nextPaymentAmount = billingCycle === 'Yearly' 

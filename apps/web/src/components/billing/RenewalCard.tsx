@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CalendarClock, AlertTriangle, CheckCircle2, Clock, CreditCard, Loader2 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
+import { differenceInDays } from 'date-fns';
+import { safeFormatDate } from '@/lib/date';
 import { toast } from 'sonner';
 
 interface RenewalCardProps {
@@ -134,8 +135,8 @@ export function RenewalCard({ onRenewClick }: RenewalCardProps) {
         {/* Period progress */}
         <div className="space-y-2">
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{format(periodStart, 'MMM d')}</span>
-            <span>{format(periodEnd, 'MMM d, yyyy')}</span>
+            <span>{safeFormatDate(subscription.current_period_start, 'MMM d')}</span>
+            <span>{safeFormatDate(subscription.current_period_end, 'MMM d, yyyy')}</span>
           </div>
           <Progress 
             value={periodProgress} 
