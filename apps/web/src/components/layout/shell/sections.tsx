@@ -6,19 +6,25 @@ import {
   Receipt,
   Building2,
   Settings,
-  Facebook,
   UsersRound,
   Users,
   Zap,
   Package,
-  Warehouse,
-  AlertTriangle,
   CreditCard,
   FileBarChart,
   MessagesSquare,
   Kanban,
   BarChart3,
-  ShieldCheck,
+  Bot,
+  Wrench,
+  Workflow,
+  Smartphone,
+  Activity,
+  Bell,
+  Megaphone,
+  ScrollText,
+  Radio,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
 import type { ModuleKey } from './permissions';
@@ -129,7 +135,7 @@ export const TENANT_SECTIONS: Section[] = [
     titleKey: 'sections.team',
     label: 'Team',
     root: '/team',
-    icon: Building2,
+    icon: Users,
     routes: [
       { titleKey: 'teamWork.team', label: 'Team', href: '/team', perm: 'team' },
       { titleKey: 'teamWork.teamChat', label: 'Chat', href: '/internal-chat', perm: 'internal_chat' },
@@ -151,16 +157,16 @@ export const TENANT_SECTIONS: Section[] = [
  * Nothing here duplicates a top pill; these are the "re-housed" tools.
  */
 export const TENANT_RAIL: RailItem[] = [
-  { titleKey: 'main.waFunctions', label: 'WhatsApp Functions', href: '/whatsapp-functions', icon: <Zap className="h-5 w-5" />, perm: 'inbox' },
+  { titleKey: 'main.waFunctions', label: 'WhatsApp Functions', href: '/whatsapp-functions', icon: <Wrench className="h-5 w-5" />, perm: 'inbox' },
   { titleKey: 'tools.automation', label: 'Automation', href: '/automation', icon: <Zap className="h-5 w-5" />, perm: 'automation' },
-  { titleKey: 'tools.workflows', label: 'Workflows', href: '/workflows', icon: <Kanban className="h-5 w-5" />, perm: 'workflows' },
-  { titleKey: 'tools.aiAgent', label: 'AI Agent', href: '/ai-agent', icon: <Building2 className="h-5 w-5" />, perm: 'ai_agent' },
+  { titleKey: 'tools.workflows', label: 'Workflows', href: '/workflows', icon: <Workflow className="h-5 w-5" />, perm: 'workflows' },
+  { titleKey: 'tools.aiAgent', label: 'AI Agent', href: '/ai-agent', icon: <Bot className="h-5 w-5" />, perm: 'ai_agent' },
   { titleKey: 'tools.analytics', label: 'Analytics', href: '/analytics', icon: <BarChart3 className="h-5 w-5" />, perm: 'analytics' },
   { titleKey: 'tools.segmentation', label: 'Segmentation', href: '/segmentation', icon: <UsersRound className="h-5 w-5" /> },
   { titleKey: 'teamWork.serviceBoards', label: 'Service Boards', href: '/service/boards', icon: <Kanban className="h-5 w-5" />, perm: 'service_boards' },
-  { titleKey: 'main.instances', label: 'Instances', href: '/instances', icon: <Package className="h-5 w-5" /> },
-  { titleKey: 'main.numberHealth', label: 'Number Health', href: '/number-health', icon: <ShieldCheck className="h-5 w-5" />, perm: 'inbox' },
-  { titleKey: 'main.notifications', label: 'Notifications', href: '/notifications', icon: <MessagesSquare className="h-5 w-5" /> },
+  { titleKey: 'main.instances', label: 'Instances', href: '/instances', icon: <Smartphone className="h-5 w-5" /> },
+  { titleKey: 'main.numberHealth', label: 'Number Health', href: '/number-health', icon: <Activity className="h-5 w-5" />, perm: 'inbox' },
+  { titleKey: 'main.notifications', label: 'Notifications', href: '/notifications', icon: <Bell className="h-5 w-5" /> },
 ];
 
 // ---------------------------------------------------------------------------
@@ -228,7 +234,7 @@ export const ADMIN_SECTIONS: Section[] = [
     titleKey: 'admin.marketing',
     label: 'Marketing',
     root: '/admin/leads',
-    icon: BarChart3,
+    icon: TrendingUp,
     adminPerm: 'leads',
     routes: [
       { titleKey: 'admin.leads', label: 'Leads', href: '/admin/leads', adminPerm: 'leads' },
@@ -255,11 +261,11 @@ export const ADMIN_RAIL: RailItem[] = [
   { titleKey: 'admin.team', label: 'Team', href: '/admin/team', icon: <Users className="h-5 w-5" />, adminPerm: 'team' },
   { titleKey: 'admin.reports', label: 'Reports', href: '/admin/reports', icon: <FileBarChart className="h-5 w-5" />, adminPerm: 'reports' },
   { titleKey: 'admin.accounts', label: 'Accounts', href: '/admin/accounts', icon: <Receipt className="h-5 w-5" />, adminPerm: 'accounts' },
-  { titleKey: 'admin.auditLogs', label: 'Audit Logs', href: '/admin/audit-logs', icon: <AlertTriangle className="h-5 w-5" />, adminPerm: 'audit_logs' },
-  { titleKey: 'admin.communication', label: 'Communication', href: '/admin/communication', icon: <Facebook className="h-5 w-5" />, adminPerm: 'communication' },
-  { titleKey: 'admin.waFunctions', label: 'WA Functions', href: '/admin/whatsapp-functions', icon: <Zap className="h-5 w-5" />, adminPerm: 'communication' },
+  { titleKey: 'admin.auditLogs', label: 'Audit Logs', href: '/admin/audit-logs', icon: <ScrollText className="h-5 w-5" />, adminPerm: 'audit_logs' },
+  { titleKey: 'admin.communication', label: 'Communication', href: '/admin/communication', icon: <Radio className="h-5 w-5" />, adminPerm: 'communication' },
+  { titleKey: 'admin.waFunctions', label: 'WA Functions', href: '/admin/whatsapp-functions', icon: <Wrench className="h-5 w-5" />, adminPerm: 'communication' },
   { titleKey: 'admin.inbox', label: 'Inbox', href: '/admin/inbox', icon: <Inbox className="h-5 w-5" />, adminPerm: 'communication' },
-  { titleKey: 'admin.serviceBoards', label: 'Service Boards', href: '/admin/service-boards', icon: <Warehouse className="h-5 w-5" />, adminPerm: 'support' },
+  { titleKey: 'admin.serviceBoards', label: 'Service Boards', href: '/admin/service-boards', icon: <Kanban className="h-5 w-5" />, adminPerm: 'support' },
 ];
 
 /**

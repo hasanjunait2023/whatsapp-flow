@@ -282,6 +282,10 @@ body[data-scroll-locked] {
 
   /* Smooth theme transitions */
   html {
+    /* Global UI density: 15px base (≈6% zoom-out vs the 16px default). The whole
+       design system is rem-based, so this scales type + spacing uniformly while px
+       breakpoints stay fixed (layout doesn't reflow). */
+    font-size: 15px;
     transition: color 0.2s ease, background-color 0.2s ease;
   }
 
