@@ -11,7 +11,6 @@ by **Ecomex**.
 apps/web/        # Vite React SPA (dashboard, inbox, landing, admin)
 apps/server/     # Hono + Drizzle (PostgreSQL) + better-auth backend
 packages/shared/ # API contract types shared by web and server
-supabase/        # legacy reference only (the original edge functions; superseded by apps/server)
 docs/            # architecture & scaling docs (see below)
 deploy/          # VPS deploy runbook + scripts
 ```
