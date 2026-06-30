@@ -116,8 +116,8 @@ function DashboardLayoutInner({ children, hideMobileNav }: DashboardLayoutProps)
           small cream gutter; full-bleed on mobile. */}
       <div className="h-screen bg-background md:p-3 lg:p-4">
         <div className="flex h-full flex-col overflow-hidden bg-card md:rounded-card md:border md:border-border md:shadow-elevation-1">
-          {/* Sticky glass top bar (§1.2) */}
-          <header className="glass sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border px-3 sm:px-4 md:rounded-t-card">
+          {/* Sticky glass top bar (§1.2) — desktop only; mobile uses MobileHeader below. */}
+          <header className="glass sticky top-0 z-30 hidden md:flex h-16 items-center gap-3 border-b border-border px-3 sm:px-4 md:rounded-t-card">
             <BrandMark to="/dashboard" />
 
             <div className="flex flex-1 justify-center">

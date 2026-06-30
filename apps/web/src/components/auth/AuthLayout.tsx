@@ -10,7 +10,7 @@ interface AuthLayoutProps {
 
 export function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Left Side - Branding & Features */}
       <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] relative overflow-hidden">
         {/* Animated Background */}
@@ -77,9 +77,9 @@ export function AuthLayout({ children }: AuthLayoutProps) {
       </div>
       
       {/* Right Side - Auth Form */}
-      <div className="flex-1 flex flex-col bg-background">
-        {/* Top Bar */}
-        <div className="flex items-center justify-between p-4 lg:p-6">
+      <div className="flex-1 flex flex-col bg-background min-h-screen lg:min-h-0">
+        {/* Top Bar — sticky so it stays visible while the form scrolls. */}
+        <div className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-background/95 backdrop-blur-sm p-4 lg:p-6 safe-top">
           <div className="lg:hidden">
             <AppLogo size="md" />
           </div>
@@ -89,14 +89,14 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         </div>
         
         {/* Form Container */}
-        <div className="flex-1 flex items-center justify-center p-4 lg:p-8">
+        <div className="flex-1 flex items-center justify-center p-4 lg:p-8 overflow-auto">
           <div className="w-full max-w-md">
             {children}
           </div>
         </div>
         
         {/* Bottom Footer */}
-        <div className="p-4 lg:p-6 text-center">
+        <div className="p-4 lg:p-6 text-center border-t border-border bg-background">
           <p className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} What A App by Ecomex. All rights reserved.
           </p>

@@ -20,6 +20,9 @@ dist-ssr
 
 # Local data / SQLite
 data/
+# Allow SSG content data (page content, not runtime data)
+!apps/web/src/content/data/
+!apps/web/src/content/data/**
 *.db
 *.db-shm
 *.db-wal
