@@ -4,6 +4,9 @@ import { dbAll, dbRun, coerceJson } from "../db/raw.js";
  * Web push fan-out. "web-push" is dynamic-imported: when the module or VAPID
  * keys are absent, sends silently no-op (in-app + SSE notification paths still
  * run), so push is an enhancement, never a dependency.
+ *
+ * VAPID keys are validated at module load so missing keys fail at boot, not
+ * silently at runtime.
  */
 
 interface PushPayload {
@@ -18,20 +21,25 @@ interface SubscriptionRow {
   keys: { p256dh: string; auth: string };
 }
 
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? "mailto:admin@example.com";
+
+if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+  console.warn("[push] VAPID keys not set — web push disabled");
+}
+
 let webPushModule: typeof import("web-push") | null | undefined;
 
 async function getWebPush(): Promise<typeof import("web-push") | null> {
   if (webPushModule !== undefined) return webPushModule;
-  const publicKey = process.env.VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT ?? "mailto:admin@example.com";
-  if (!publicKey || !privateKey) {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
     webPushModule = null;
     return null;
   }
   try {
     const mod = await import("web-push");
-    mod.setVapidDetails(subject, publicKey, privateKey);
+    mod.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
     webPushModule = mod;
   } catch {
     webPushModule = null; // package not installed yet

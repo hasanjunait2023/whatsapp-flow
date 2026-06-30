@@ -52,8 +52,8 @@ export async function generateDueRecurringExpenses(
   );
 
   let generated = 0;
-  for (const r of due) {
-    await dbTx(async (tx) => {
+  await dbTx(async (tx) => {
+    for (const r of due) {
       await tx.run(
         `INSERT INTO tenant_expenses
        (id, tenant_id, amount, category_id, currency, description, expense_date, payment_method, notes)
@@ -74,8 +74,8 @@ export async function generateDueRecurringExpenses(
         now.toISOString(),
         r.id,
       );
-    });
-    generated += 1;
-  }
+      generated += 1;
+    }
+  });
   return { generated };
 }

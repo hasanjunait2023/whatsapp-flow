@@ -1,4 +1,4 @@
-import { dbGet, dbRun } from "../db/raw.js";
+import { dbGet, dbRun, dbTx } from "../db/raw.js";
 import { emitChange } from "../realtime/emitter.js";
 import { UDDOKTAPAY_API_KEY, UDDOKTAPAY_BASE_URL, AUTH_BASE_URL } from "../lib/env.js";
 import type { FnContext, FnResult } from "./waha/session.js";
@@ -199,26 +199,31 @@ export async function uddoktapayVerify(raw: Record<string, unknown>, ctx: FnCont
   const isCompleted = verifyData.status === "COMPLETED";
   const txId = verifyData.transaction_id ?? verifyData.sender_number ?? null;
 
-  await dbRun(
-    `UPDATE payments
-         SET status = ?, verified_at = ?, transaction_id = ?, gateway_response = ?, notes = ?
-       WHERE id = ?`,
-    isCompleted ? "verified" : "pending",
-    isCompleted ? new Date().toISOString() : null,
-    txId,
-    JSON.stringify(verifyData),
-    `${payment.notes ?? ""} | Gateway: ${verifyData.payment_method ?? "unknown"} | Status: ${verifyData.status}`,
-    payment.id,
-  );
-
-  if (isCompleted && payment.subscription_id) {
-    await dbRun(
-      "UPDATE subscription_orders SET status = 'paid', verified_at = ?, transaction_id = ? WHERE id = ?",
-      new Date().toISOString(),
-      verifyData.transaction_id ?? null,
-      payment.subscription_id,
+  // Both updates (payments + subscription_orders) must succeed atomically.
+  // A crash between them previously left the payment 'verified' but the
+  // subscription order 'pending'. Wrap in a single tx.
+  await dbTx(async (tx) => {
+    await tx.run(
+      `UPDATE payments
+           SET status = ?, verified_at = ?, transaction_id = ?, gateway_response = ?, notes = ?
+         WHERE id = ?`,
+      isCompleted ? "verified" : "pending",
+      isCompleted ? new Date().toISOString() : null,
+      txId,
+      JSON.stringify(verifyData),
+      `${payment.notes ?? ""} | Gateway: ${verifyData.payment_method ?? "unknown"} | Status: ${verifyData.status}`,
+      payment.id,
     );
-  }
+
+    if (isCompleted && payment.subscription_id) {
+      await tx.run(
+        "UPDATE subscription_orders SET status = 'paid', verified_at = ?, transaction_id = ? WHERE id = ?",
+        new Date().toISOString(),
+        verifyData.transaction_id ?? null,
+        payment.subscription_id,
+      );
+    }
+  });
   emitChange("payments", payment.tenant_id, {});
 
   return ok({

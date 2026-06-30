@@ -283,11 +283,26 @@ const generateOrderNumber: RpcHandler = async (args, ctx) => {
   const tenantId = (args.p_tenant_id as string) ?? ctx.tenantId;
   if (!tenantId) return fail("No active tenant");
   if (!ctx.isAdmin && tenantId !== ctx.tenantId) return fail("Forbidden tenant");
-  const row = (await dbGet(
-    "SELECT COUNT(*)::int AS n FROM orders WHERE tenant_id = ?",
+
+  // Race-safe: a per-tenant counter row is bumped under a row lock inside a tx.
+  // Seeding is idempotent (ON CONFLICT DO NOTHING).
+  await dbRun(
+    "INSERT INTO order_counters (tenant_id, next_order_number) VALUES (?, 1) ON CONFLICT (tenant_id) DO NOTHING",
     tenantId,
-  )) as { n: number };
-  const seq = (row.n + 1).toString().padStart(6, "0");
+  );
+  const seqRow = (await dbTx(async (tx) => {
+    const cur = (await tx.get(
+      "SELECT next_order_number FROM order_counters WHERE tenant_id = ? FOR UPDATE",
+      tenantId,
+    )) as { next_order_number: number } | undefined;
+    if (!cur) throw new Error("order_counters seed vanished mid-transaction");
+    await tx.run(
+      "UPDATE order_counters SET next_order_number = next_order_number + 1 WHERE tenant_id = ?",
+      tenantId,
+    );
+    return cur;
+  })) as { next_order_number: number };
+  const seq = seqRow.next_order_number.toString().padStart(6, "0");
   return ok(`ORD-${seq}`);
 };
 
@@ -433,48 +448,73 @@ const adjustProductStock: RpcHandler = async (args, ctx) => {
   }
   if (!ctx.isAdmin && tenantId !== ctx.tenantId) return fail("Forbidden tenant");
 
-  const product = (await dbGet(
-    "SELECT stock_quantity, track_inventory, tenant_id FROM products WHERE id = ? LIMIT 1",
-    productId,
-  )) as ProductStockRow | undefined;
-  if (!product) return fail("Product not found");
-  if (!ctx.isAdmin && product.tenant_id !== ctx.tenantId) return fail("Forbidden product");
-
-  const current = product.stock_quantity ?? 0;
-  let next: number;
-  let movementType: "in" | "out";
-  let movementQty: number;
-  if (adjustmentType === "add") {
-    next = current + quantity;
-    movementType = "in";
-    movementQty = quantity;
-  } else if (adjustmentType === "remove") {
-    next = Math.max(0, current - quantity);
-    movementType = "out";
-    movementQty = -quantity;
-  } else if (adjustmentType === "set") {
-    next = quantity;
-    if (quantity >= current) {
-      movementType = "in";
-      movementQty = quantity - current;
-    } else {
-      movementType = "out";
-      movementQty = current - quantity;
-    }
-  } else {
-    return fail(`Invalid adjustment type: ${adjustmentType}`);
-  }
-
+  // Race-safe: SELECT ... FOR UPDATE inside a tx pins the product row so the
+  // computed "next" value is the authoritative value at commit time.
   const userId = (args.p_user_id as string | null) ?? ctx.userId ?? null;
-  await dbRun(
-    "UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ?",
-    next,
-    new Date().toISOString(),
+  const result = await dbTx(async (tx) => {
+    const product = (await tx.get(
+      "SELECT stock_quantity, track_inventory, tenant_id FROM products WHERE id = ? AND tenant_id = ? FOR UPDATE",
+      productId,
+      tenantId,
+    )) as ProductStockRow | undefined;
+    if (!product) return { ok: false as const, error: "Product not found or wrong tenant" };
+
+    const current = product.stock_quantity ?? 0;
+    let next: number;
+    let movementType: "in" | "out";
+    let movementQty: number;
+    if (adjustmentType === "add") {
+      next = current + quantity;
+      movementType = "in";
+      movementQty = quantity;
+    } else if (adjustmentType === "remove") {
+      next = Math.max(0, current - quantity);
+      movementType = "out";
+      movementQty = -quantity;
+    } else if (adjustmentType === "set") {
+      next = quantity;
+      if (quantity >= current) {
+        movementType = "in";
+        movementQty = quantity - current;
+      } else {
+        movementType = "out";
+        movementQty = current - quantity;
+      }
+    } else {
+      return { ok: false as const, error: `Invalid adjustment type: ${adjustmentType}` };
+    }
+
+    await tx.run(
+      "UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ?",
+      next,
+      new Date().toISOString(),
+      productId,
+    );
+    return {
+      ok: true as const,
+      next,
+      movementType,
+      movementQty,
+      current,
+    };
+  });
+
+  if (!result.ok) return fail(result.error);
+  await recordMovement(
+    tenantId,
     productId,
+    result.movementType,
+    result.movementQty,
+    result.current,
+    result.next,
+    reason,
+    "manual",
+    null,
+    notes,
+    userId,
   );
-  await recordMovement(tenantId, productId, movementType, movementQty, current, next, reason, "manual", null, notes, userId);
   emitChange("products", tenantId, { id: productId });
-  return ok(next);
+  return ok(result.next);
 };
 
 const HANDLERS: Record<string, RpcHandler> = {

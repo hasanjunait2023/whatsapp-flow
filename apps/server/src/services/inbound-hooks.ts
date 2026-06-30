@@ -19,8 +19,11 @@ export interface InboundMessageEvent {
 type InboundHook = (event: InboundMessageEvent) => void | Promise<void>;
 
 const hooks: InboundHook[] = [];
+const registeredHooks = new Set<InboundHook>();
 
 export function onInboundMessagePersisted(hook: InboundHook): void {
+  if (registeredHooks.has(hook)) return;
+  registeredHooks.add(hook);
   hooks.push(hook);
 }
 

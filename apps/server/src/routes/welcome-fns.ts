@@ -97,7 +97,7 @@ export async function testWelcomeMessage(raw: Record<string, unknown>, ctx: FnCo
 
 /** admin-test-welcome-message: admin-only test notification to a target tenant. */
 export async function adminTestWelcomeMessage(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
-  if (!ctx.isAdmin) return ok({ success: false, error: "Admin privileges required" });
+  if (!ctx.isAdmin) return { data: null, error: { code: "FORBIDDEN", message: "Admin privileges required" } };
   const body = raw as TestWelcomeBody;
   if (!body.tenant_id) return ok({ success: false, error: "tenant_id is required" });
   if (!body.message) return ok({ success: false, error: "Message is required" });
@@ -124,7 +124,7 @@ interface ExternalOrderRow {
 
 /** resend-welcome-notification: admin re-sends onboarding creds (in-app). */
 export async function resendWelcomeNotification(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
-  if (!ctx.isAdmin) return ok({ success: false, error: "Admin privileges required" });
+  if (!ctx.isAdmin) return { data: null, error: { code: "FORBIDDEN", message: "Admin privileges required" } };
   const body = raw as ResendBody;
   if (!body.order_id) return ok({ success: false, error: "order_id is required" });
 

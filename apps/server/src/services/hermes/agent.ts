@@ -42,12 +42,26 @@ async function conversationHistory(contactId: string): Promise<LlmMessage[]> {
   }));
 }
 
+const ALLOWED_MODELS = new Set([
+  "gpt-4o",
+  "gpt-4o-mini",
+  "gpt-4-turbo",
+  "claude-3-5-sonnet-20241022",
+  "claude-3-5-haiku-20241022",
+  "gemini-2.0-flash",
+  "gemini-1.5-pro",
+  "deepseek-chat",
+  "deepseek-v4-flash",
+]);
+
 async function getModelOverride(tenantId: string): Promise<string | null> {
   const row = (await dbGet(
     `SELECT model_override FROM agent_configs WHERE tenant_id = ? AND agent = 'hermes' LIMIT 1`,
     tenantId,
   )) as { model_override: string | null } | undefined;
-  return row?.model_override ?? null;
+  const override = row?.model_override ?? null;
+  if (override && !ALLOWED_MODELS.has(override)) return null;
+  return override;
 }
 
 export interface RunOptions {

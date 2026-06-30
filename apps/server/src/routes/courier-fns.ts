@@ -319,8 +319,15 @@ export const COURIER_HANDLERS: Record<string, FnHandler> = {
   "courier-book-parcel": async (body, ctx) => {
     if (!ctx.tenantId) return fail("No active tenant");
     if (Array.isArray(body.parcels)) {
+      // Cap the batch size so a single request can't hammer the courier API
+      // or amplify DB writes. Anything larger should be chunked client-side.
+      const MAX_PARCELS_PER_REQUEST = 100;
+      const parcels = body.parcels as BookInput[];
+      if (parcels.length > MAX_PARCELS_PER_REQUEST) {
+        return fail(`At most ${MAX_PARCELS_PER_REQUEST} parcels per request (got ${parcels.length})`);
+      }
       const results = [];
-      for (const p of body.parcels as BookInput[]) {
+      for (const p of parcels) {
         results.push(await bookOne(ctx.tenantId, p));
       }
       return ok({ results });

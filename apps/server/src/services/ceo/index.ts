@@ -1,4 +1,4 @@
-import { dbAll, dbRun } from "../../db/raw.js";
+import { dbAll, dbGet, dbRun } from "../../db/raw.js";
 import { emitChange } from "../../realtime/emitter.js";
 import { enqueueJob, registerJobHandler } from "../../jobs/queue.js";
 import { generateCeoReport, deliverReport, gatherSnapshot, type ReportType } from "./report.js";
@@ -49,6 +49,16 @@ async function runCeoJob(payload: unknown): Promise<void> {
       throw err;
     }
   } else {
+    // Idempotency: skip if a report for today already exists
+    const today = new Date().toISOString().slice(0, 10);
+    const existing = (await dbGet(
+      `SELECT id FROM ceo_reports WHERE tenant_id = ? AND type = ? AND created_at >= ? AND status = 'generated' LIMIT 1`,
+      tenantId,
+      type,
+      today,
+    )) as { id: string } | undefined;
+    if (existing) return;
+
     await generateCeoReport(tenantId, type);
   }
 

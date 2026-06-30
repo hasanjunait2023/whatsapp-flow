@@ -170,5 +170,13 @@ export async function processDueJobs(): Promise<number> {
       }
     }
   }
+
+  // Prune done/failed rows older than 7 days
+  const pruneCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  await dbRun(
+    `DELETE FROM job_queue WHERE status IN ('done', 'failed') AND updated_at <= ?`,
+    pruneCutoff,
+  );
+
   return processed;
 }

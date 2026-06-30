@@ -241,51 +241,43 @@ app.post("/api/public/demo-lead", async (c) => {
 
   const now = new Date().toISOString();
 
-  // Upsert on email so a repeat submission updates the existing lead instead of
-  // duplicating it (and keeps a single funnel enrollment downstream). A fresh
-  // capture starts at status 'new'; a re-submit refreshes contact fields without
-  // clobbering a lead that has already progressed past 'new'.
-  const existing = (await dbGet(
+  // Race-safe upsert: a single INSERT ... ON CONFLICT closes the
+  // select-then-insert/update race that previously produced duplicate leads
+  // under concurrent submissions for the same email. The unique index on
+  // marketing_leads.email (added in migration 0008) is the conflict target.
+  const leadId = crypto.randomUUID();
+  await dbRun(
+    `INSERT INTO marketing_leads
+       (id, full_name, email, whatsapp_number, business_name, source, status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (email) DO UPDATE
+       SET full_name = EXCLUDED.full_name,
+           whatsapp_number = EXCLUDED.whatsapp_number,
+           business_name = EXCLUDED.business_name,
+           updated_at = EXCLUDED.updated_at
+       WHERE marketing_leads.status = 'new'`, // don't clobber a lead that progressed past 'new'
+    leadId,
+    fullName,
+    email,
+    whatsappNumber,
+    businessName,
+    "demo_request",
+    "new",
+    now,
+    now,
+  );
+  // Re-fetch id (in case the conflict path took an existing row's id)
+  const lead = (await dbGet(
     `SELECT id FROM marketing_leads WHERE email = ? LIMIT 1`,
     email,
   )) as { id: string } | undefined;
-
-  let leadId: string;
-  if (existing) {
-    leadId = existing.id;
-    await dbRun(
-      `UPDATE marketing_leads
-          SET full_name = ?, whatsapp_number = ?, business_name = ?, updated_at = ?
-        WHERE id = ?`,
-      fullName,
-      whatsappNumber,
-      businessName,
-      now,
-      leadId,
-    );
-  } else {
-    leadId = crypto.randomUUID();
-    await dbRun(
-      `INSERT INTO marketing_leads
-         (id, full_name, email, whatsapp_number, business_name, source, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      leadId,
-      fullName,
-      email,
-      whatsappNumber,
-      businessName,
-      "demo_request",
-      "new",
-      now,
-      now,
-    );
-  }
+  const finalLeadId = lead?.id ?? leadId;
 
   // Auto-enroll into the value-first nurture funnel. No-ops if the campaign
   // isn't seeded or the lead is already enrolled. Best-effort: a funnel failure
   // must never fail the lead capture itself.
   try {
-    await enrollLeadInFunnel(leadId);
+    await enrollLeadInFunnel(finalLeadId);
   } catch (err) {
     logger.error("funnel_enroll_failed", {
       msg_preview: err instanceof Error ? err.message : String(err),

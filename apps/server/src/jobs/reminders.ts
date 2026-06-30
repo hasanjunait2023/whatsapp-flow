@@ -43,7 +43,13 @@ function statusForType(type: string): string | null {
 async function subscriptionsForReminder(setting: ReminderSetting): Promise<SubscriptionRow[]> {
   const offsets: number[] = Array.isArray(setting.days_offset)
     ? setting.days_offset
-    : (JSON.parse(setting.days_offset || "[]") as number[]);
+    : (() => {
+        try {
+          return JSON.parse(setting.days_offset || "[]") as number[];
+        } catch {
+          return [];
+        }
+      })();
   const status = statusForType(setting.reminder_type);
   if (!status) return [];
 

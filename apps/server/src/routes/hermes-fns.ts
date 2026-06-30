@@ -20,9 +20,17 @@ export const HERMES_HANDLERS: Record<string, FnHandler> = {
   "hermes-test": async (body, ctx) => {
     if (!ctx.tenantId) return { data: null, error: { message: "No active tenant" } };
     const raw = (body as TestBody).messages ?? [];
+    // Cap the playground conversation length so a single request can't OOM the
+    // LLM call or blow up the token budget. The real agent run is short-lived
+    // anyway (ad-hoc) — anything past this is almost certainly a misuse.
+    const MAX_HERMES_TEST_MESSAGES = 50;
+    if (raw.length > MAX_HERMES_TEST_MESSAGES) {
+      return { data: null, error: { message: `At most ${MAX_HERMES_TEST_MESSAGES} messages per request (got ${raw.length})` } };
+    }
     const messages: LlmMessage[] = raw
       .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+      .slice(0, MAX_HERMES_TEST_MESSAGES)
+      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content.slice(0, 32_000) }));
     if (messages.length === 0) {
       return { data: null, error: { message: "messages array is required" } };
     }

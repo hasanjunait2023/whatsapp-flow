@@ -38,6 +38,15 @@ interface CachedToken {
   expiresAt: number;
 }
 const tokenCache = new Map<string, CachedToken>();
+const TOKEN_TTL_MS = 55 * 60 * 1000; // 55 min — tokens last 60 min
+
+// Periodic TTL eviction: clear expired entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of tokenCache) {
+    if (now >= val.expiresAt) tokenCache.delete(key);
+  }
+}, 5 * 60 * 1000).unref();
 
 function base(creds: PathaoCreds): string {
   return (creds.baseUrl || PROD_BASE).replace(/\/+$/, "");
@@ -69,7 +78,7 @@ async function getToken(creds: PathaoCreds, nowMs: number): Promise<string> {
   }
   tokenCache.set(cacheKey, {
     token: body.access_token,
-    expiresAt: nowMs + (body.expires_in ?? 3600) * 1000,
+    expiresAt: nowMs + Math.min((body.expires_in ?? 3600) * 1000, TOKEN_TTL_MS),
   });
   return body.access_token;
 }

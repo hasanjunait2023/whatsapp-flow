@@ -134,11 +134,19 @@ export const INTERNAL_CHAT_HANDLERS: Record<string, FnHandler> = {
     const err = await requireMember(roomId, ctx);
     if (err) return fail(err);
 
+    // Paginate: last 100 messages by default, with optional cursor for "load more".
+    const limit = Math.min(Math.max(typeof body.limit === "number" ? body.limit : 100, 1), 500);
+    const beforeId = typeof body.before_id === "string" ? body.before_id : null;
+
     const messages = (await dbAll(
       `SELECT id, room_id, sender_id, content, content_type, media_url, media_filename,
-                reply_to_id, mentions, created_at, edited_at, is_deleted
-           FROM internal_messages WHERE room_id = ? ORDER BY created_at ASC`,
-      roomId,
+              reply_to_id, mentions, created_at, edited_at, is_deleted
+         FROM internal_messages
+        WHERE room_id = ?
+          ${beforeId ? "AND created_at < (SELECT created_at FROM internal_messages WHERE id = ?)" : ""}
+        ORDER BY created_at DESC
+        LIMIT ?`,
+      beforeId ? [roomId, beforeId, limit] : [roomId, limit],
     )) as Array<Record<string, unknown> & { sender_id: string; reply_to_id: string | null }>;
 
     const profiles = await profilesFor(messages.map((m) => m.sender_id));

@@ -22,8 +22,16 @@ import type { FnContext, FnResult } from "./waha/session.js";
 const ok = (data: unknown): FnResult => ({ data, error: null });
 
 // --- Admin session aliases ---------------------------------------------------
-const adminWasenderCreate = SESSION_HANDLERS["wasender-create-session"];
-const adminWasenderConnect = SESSION_HANDLERS["wasender-connect-session"];
+// The aliases are intentionally admin-only (despite the inner fns not gating on
+// isAdmin). A non-admin caller gets a proper 403 via fail(code="FORBIDDEN").
+const adminWasenderCreate: typeof SESSION_HANDLERS[string] = async (raw, ctx) => {
+  if (!ctx.isAdmin) return { data: null, error: { code: "FORBIDDEN", message: "Admin only" } };
+  return SESSION_HANDLERS["wasender-create-session"](raw, ctx);
+};
+const adminWasenderConnect: typeof SESSION_HANDLERS[string] = async (raw, ctx) => {
+  if (!ctx.isAdmin) return { data: null, error: { code: "FORBIDDEN", message: "Admin only" } };
+  return SESSION_HANDLERS["wasender-connect-session"](raw, ctx);
+};
 
 // --- forward-message ---------------------------------------------------------
 interface ForwardBody {
@@ -220,7 +228,7 @@ interface CreateAdminBody {
 }
 
 export async function createAdminUser(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
-  if (!ctx.isAdmin) return ok({ error: "Admin privileges required" });
+  if (!ctx.isAdmin) return { data: null, error: { code: "FORBIDDEN", message: "Admin privileges required" } };
   const body = raw as CreateAdminBody;
   let userId = body.user_id ?? null;
   if (!userId && body.email) {
@@ -285,15 +293,36 @@ export async function generateInvoice(raw: Record<string, unknown>, ctx: FnConte
   }
 
   // Invoice number from invoice_settings prefix + running counter.
-  const settings = (await dbGet(
-    "SELECT invoice_prefix, next_invoice_number FROM invoice_settings WHERE tenant_id = ? LIMIT 1",
+  // Race-safe: bump-and-fetch in a single SQL with UPDATE ... RETURNING.
+  const seedRow = (await dbGet(
+    "INSERT INTO invoice_settings (tenant_id, invoice_prefix, next_invoice_number) VALUES (?, 'INV-', 2) ON CONFLICT (tenant_id) DO NOTHING RETURNING next_invoice_number",
     order.tenant_id,
-  )) as { invoice_prefix: string | null; next_invoice_number: number | null } | undefined;
-  const prefix = settings?.invoice_prefix ?? "INV-";
-  const seq = settings?.next_invoice_number ?? 1;
+  )) as { next_invoice_number: number } | undefined;
+
+  const seqRow = (await dbTx(async (tx) => {
+    // SELECT FOR UPDATE pins the row so concurrent calls serialise on it
+    const cur = (await tx.get(
+      "SELECT next_invoice_number FROM invoice_settings WHERE tenant_id = ? FOR UPDATE",
+      order.tenant_id,
+    )) as { next_invoice_number: number } | undefined;
+    if (!cur) throw new Error("invoice_settings seed vanished mid-transaction");
+    await tx.run(
+      "UPDATE invoice_settings SET next_invoice_number = next_invoice_number + 1 WHERE tenant_id = ?",
+      order.tenant_id,
+    );
+    return cur;
+  })) as { next_invoice_number: number };
+
+  // Discard seedRow result; we only care that the row exists.
+  void seedRow;
+
+  const prefix = "INV-";
+  const seq = seqRow.next_invoice_number;
   const invoiceNumber = `${prefix}${String(seq).padStart(5, "0")}`;
 
   const invoiceId = crypto.randomUUID();
+  // The counter has already been bumped (with row lock) above; here we just
+  // insert the invoice row. No further UPDATE is needed.
   await dbTx(async (tx) => {
     await tx.run(
       "INSERT INTO invoices (id, tenant_id, order_id, invoice_number, total, created_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -304,13 +333,6 @@ export async function generateInvoice(raw: Record<string, unknown>, ctx: FnConte
       order.total,
       new Date().toISOString(),
     );
-    if (settings) {
-      await tx.run(
-        "UPDATE invoice_settings SET next_invoice_number = ? WHERE tenant_id = ?",
-        seq + 1,
-        order.tenant_id,
-      );
-    }
   });
   emitChange("invoices", order.tenant_id, { order_id: order.id });
 

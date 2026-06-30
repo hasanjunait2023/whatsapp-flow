@@ -19,9 +19,13 @@ export interface WooCreds {
 
 /** True for IPv4/IPv6 addresses that must never be reached from a webhook fetch. */
 function isPrivateAddress(ip: string): boolean {
-  const v = isIP(ip);
+  // Convert IPv6-mapped IPv4 (::ffff:x.x.x.x or ::ffff:xxxx:xxxx) to plain IPv4
+  const ipv4Mapped = ip.startsWith("::ffff:");
+  const checkIp = ipv4Mapped ? ip.slice(7) : ip;
+
+  const v = isIP(checkIp);
   if (v === 4) {
-    const [a, b] = ip.split(".").map(Number);
+    const [a, b] = checkIp.split(".").map(Number);
     if (a === 10 || a === 127 || a === 0) return true;
     if (a === 172 && b >= 16 && b <= 31) return true;
     if (a === 192 && b === 168) return true;
@@ -29,14 +33,24 @@ function isPrivateAddress(ip: string): boolean {
     if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
     return false;
   }
-  const lower = ip.toLowerCase();
+  // If it was an IPv6-mapped address but the stripped part isn't valid IPv4,
+  // try parsing the last 4 bytes as hex (e.g. ::ffff:7f00:1 → 127.0.0.1)
+  if (ipv4Mapped) {
+    const hexParts = checkIp.split(":");
+    if (hexParts.length === 2) {
+      const combined = parseInt(hexParts[0], 16) * 65536 + parseInt(hexParts[1], 16);
+      const ipv4 = `${(combined >>> 24) & 0xff}.${(combined >>> 16) & 0xff}.${(combined >>> 8) & 0xff}.${combined & 0xff}`;
+      return isPrivateAddress(ipv4);
+    }
+  }
+  const lower = checkIp.toLowerCase();
   return (
     lower === "::1" ||
     lower === "::" ||
     lower.startsWith("fc") ||
     lower.startsWith("fd") || // ULA fc00::/7
     lower.startsWith("fe80") || // link-local
-    lower.startsWith("::ffff:") // IPv4-mapped — re-checked below
+    false
   );
 }
 
@@ -57,8 +71,7 @@ async function assertSafeStoreUrl(storeUrl: string): Promise<void> {
   const addrs = isIP(host) ? [{ address: host }] : await lookup(host, { all: true }).catch(() => []);
   if (addrs.length === 0) throw new Error("store URL host did not resolve");
   for (const a of addrs) {
-    const addr = a.address.startsWith("::ffff:") ? a.address.slice(7) : a.address;
-    if (isPrivateAddress(addr)) throw new Error("store URL resolves to a private address");
+    if (isPrivateAddress(a.address)) throw new Error("store URL resolves to a private address");
   }
 }
 

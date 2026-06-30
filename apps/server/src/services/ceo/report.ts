@@ -74,6 +74,16 @@ function periodFor(type: ReportType): number {
 }
 
 export async function generateCeoReport(tenantId: string, type: ReportType): Promise<string> {
+  // Idempotency: skip if a report for today already exists
+  const today = new Date().toISOString().slice(0, 10);
+  const existing = (await dbGet(
+    `SELECT id FROM ceo_reports WHERE tenant_id = ? AND type = ? AND created_at >= ? AND status = 'generated' LIMIT 1`,
+    tenantId,
+    type,
+    today,
+  )) as { id: string } | undefined;
+  if (existing) return existing.id;
+
   const reportId = crypto.randomUUID();
   await dbRun(
     `INSERT INTO ceo_reports (id, tenant_id, type, status) VALUES (?, ?, ?, 'generating')`,
