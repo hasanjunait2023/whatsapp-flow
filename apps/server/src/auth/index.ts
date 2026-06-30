@@ -5,7 +5,7 @@ import { APIError } from "better-auth/api";
 import { db } from "../db/index.js";
 import { dbGet } from "../db/raw.js";
 import { authSchema } from "../db/auth-schema.js";
-import { AUTH_BASE_URL, IS_PRODUCTION, getAuthSecret } from "../lib/env.js";
+import { AUTH_BASE_URL, AUTH_TRUSTED_ORIGINS, IS_PRODUCTION, getAuthSecret } from "../lib/env.js";
 import { verifyBcrypt, isBcryptHash } from "./password.js";
 
 /**
@@ -56,6 +56,12 @@ async function hasCredentialAccount(userId: string): Promise<boolean> {
 
 export const auth = betterAuth({
   baseURL: AUTH_BASE_URL,
+  // Trusted origins for browser CORS / Origin header checks. better-auth
+  // defaults to baseURL only, which rejects every cross-origin browser hit
+  // (e.g. the app served from whatapp.junno.qzz.io behind Cloudflare).
+  // AUTH_TRUSTED_ORIGINS is a comma-separated list from env. baseURL is always
+  // included as a fallback for local-dev and loopback server-to-server calls.
+  trustedOrigins: AUTH_TRUSTED_ORIGINS,
   secret: getAuthSecret(),
   database: drizzleAdapter(db, {
     provider: "pg",

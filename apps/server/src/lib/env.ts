@@ -58,6 +58,26 @@ export function getAuthSecret(): string {
 /** Base URL the auth server is reachable at (same-origin in production). */
 export const AUTH_BASE_URL = process.env.AUTH_BASE_URL ?? `http://localhost:${PORT}`;
 
+/**
+ * Comma-separated list of browser origins allowed to call /api/auth/*. Set via
+ * AUTH_TRUSTED_ORIGINS env var. Defaults to AUTH_BASE_URL so the local-dev
+ * origin (and server-to-server loopback) is always permitted.
+ *
+ * Production MUST set this explicitly so the value matches every domain the
+ * app is served from (e.g. `AUTH_TRUSTED_ORIGINS=https://whatapp.junno.qzz.io,https://junno.qzz.io`).
+ */
+export const AUTH_TRUSTED_ORIGINS: string[] = (() => {
+  const fromEnv = process.env.AUTH_TRUSTED_ORIGINS
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean) ?? [];
+  // Always permit AUTH_BASE_URL (loopback / server-to-server) so healthchecks
+  // and the production origin itself both pass without the env list having to
+  // include them.
+  const set = new Set<string>([AUTH_BASE_URL, ...fromEnv]);
+  return Array.from(set);
+})();
+
 // --- WAHA (WhatsApp HTTP API) -----------------------------------------------
 
 /** Base URL of the WAHA REST API (pilot: http://127.0.0.1:3999, prod: http://waha:3000). */

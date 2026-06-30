@@ -1,0 +1,13 @@
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+dist/
+build/
+.next/
+graphify-out/
+*.jsonl
+*.log
+.git/
+.env
+.env.local
