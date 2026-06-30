@@ -1,0 +1,876 @@
+/*
+ * What A App — Global Theme System v2
+ * ────────────────────────────────────────────────────────────────────────────
+ * Layered design tokens covering:
+ *   1. Three non-cookie-cutter palettes (A: Indigo+Coral, B: Teal+Lava, C: Violet+Amber)
+ *   2. Light + dark variants for each palette
+ *   3. Motion library (durations, easings, spring)
+ *   4. Glass / 3D primitives (depth + light + refraction)
+ *   5. Typography scale + line-heights
+ *   6. Spacing scale (8pt grid)
+ *   7. Mobile app-quality patterns
+ *   8. Long-term team comfort (reduced-motion, focus, density)
+ *
+ * Boss 2026-07-01 directive: match brand, motion everywhere, 3D glass feel,
+ * perfect mobile + desktop, optimize for long-term team use.
+ *
+ * Activation: pick palette A/B/C via `data-palette` on `<html>` or `.lp` root.
+ * Default (no attr) = Palette C (Violet+Amber) — keeps current brand continuity.
+ * ────────────────────────────────────────────────────────────────────────────
+ */
+
+:root,
+.lp {
+  /* ─────────────────────────────────────────────────────────────────────
+   * 1. FONT STACK — Inter + Hind Siliguri (Latin + Bengali UI)
+   * ─────────────────────────────────────────────────────────────────────*/
+  --font-sans: "Inter", "Hind Siliguri", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-bn: "Hind Siliguri", "Inter", sans-serif;
+  --font-display: "Inter", "Hind Siliguri", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace;
+
+  /* ─────────────────────────────────────────────────────────────────────
+   * 2. TYPE SCALE — fluid clamp() based, rem-based, A11y-friendly
+   * ─────────────────────────────────────────────────────────────────────*/
+  --text-xs: 0.75rem;       /* 12px */
+  --text-sm: 0.875rem;      /* 14px */
+  --text-base: 1rem;        /* 16px */
+  --text-lg: 1.125rem;      /* 18px */
+  --text-xl: 1.25rem;       /* 20px */
+  --text-2xl: 1.5rem;       /* 24px */
+  --text-3xl: 1.875rem;     /* 30px */
+  --text-4xl: 2.25rem;      /* 36px */
+  --text-5xl: 3rem;         /* 48px */
+  --text-6xl: clamp(2.5rem, 1.4rem + 5.2vw, 5rem);    /* 40-80px fluid */
+  --text-h2: clamp(1.75rem, 1.1rem + 2.8vw, 3rem);    /* 28-48px fluid */
+  --text-h3: clamp(1.125rem, 1rem + 0.6vw, 1.375rem); /* 18-22px fluid */
+  --text-lead: clamp(1.0625rem, 0.95rem + 0.6vw, 1.25rem);
+
+  /* Line heights */
+  --lh-tight: 1.15;
+  --lh-snug: 1.3;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.625;
+  --lh-loose: 1.8;
+
+  /* Letter spacing */
+  --ls-tighter: -0.04em;
+  --ls-tight: -0.02em;
+  --ls-normal: 0;
+  --ls-wide: 0.02em;
+  --ls-wider: 0.05em;
+  --ls-widest: 0.1em;
+
+  /* ─────────────────────────────────────────────────────────────────────
+   * 3. SPACING — 8pt grid + half-steps for fine tuning
+   * ─────────────────────────────────────────────────────────────────────*/
+  --space-0: 0;
+  --space-px: 1px;
+  --space-0_5: 0.125rem;    /* 2px */
+  --space-1: 0.25rem;       /* 4px */
+  --space-1_5: 0.375rem;    /* 6px */
+  --space-2: 0.5rem;        /* 8px */
+  --space-3: 0.75rem;       /* 12px */
+  --space-4: 1rem;          /* 16px */
+  --space-5: 1.25rem;       /* 20px */
+  --space-6: 1.5rem;        /* 24px */
+  --space-7: 1.75rem;       /* 28px */
+  --space-8: 2rem;          /* 32px */
+  --space-10: 2.5rem;       /* 40px */
+  --space-12: 3rem;         /* 48px */
+  --space-16: 4rem;         /* 64px */
+  --space-20: 5rem;         /* 80px */
+  --space-24: 6rem;         /* 96px */
+  --space-section: clamp(4rem, 3rem + 6vw, 7.5rem);
+
+  /* ─────────────────────────────────────────────────────────────────────
+   * 4. RADIUS — brand radius scale
+   * ─────────────────────────────────────────────────────────────────────*/
+  --r-none: 0;
+  --r-sm: 0.5rem;           /* 8px */
+  --r-md: 0.75rem;          /* 12px — buttons, inputs */
+  --r-lg: 1rem;             /* 16px — base */
+  --r-xl: 1.25rem;          /* 20px — cards, stat cards, modals */
+  --r-2xl: 1.75rem;         /* 28px — feature blocks, hero cards */
+  --r-3xl: 2rem;            /* 32px — oversize surfaces */
+  --r-pill: 9999px;
+  --r-circle: 50%;
+
+  /* ─────────────────────────────────────────────────────────────────────
+   * 5. MOTION LIBRARY — durations, easings, spring
+   * ─────────────────────────────────────────────────────────────────────*/
+  --dur-instant: 100ms;
+  --dur-fast: 150ms;
+  --dur: 250ms;
+  --dur-slow: 450ms;
+  --dur-stage: 700ms;
+  --dur-cinematic: 1200ms;
+
+  /* Easings — standard CSS easing curves */
+  --ease-linear: cubic-bezier(0, 0, 1, 1);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);          /* default "ease-out-expo" feel */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* gentle overshoot for delightful micro-moments */
+  --ease-spring-strong: cubic-bezier(0.18, 0.89, 0.32, 1.28);
+
+  /* Stagger — for entrance choreography */
+  --stagger-1: 50ms;
+  --stagger-2: 100ms;
+  --stagger-3: 150ms;
+  --stagger-4: 200ms;
+  --stagger-5: 250ms;
+
+  /* ─────────────────────────────────────────────────────────────────────
+   * 6. ELEVATION — soft, warm, layered shadows
+   * ─────────────────────────────────────────────────────────────────────*/
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --elevation-2: 0 2px 4px rgba(0, 0, 0, 0.04), 0 8px 16px -4px rgba(0, 0, 0, 0.08);
+  --elevation-3: 0 4px 8px rgba(0, 0, 0, 0.05), 0 16px 32px -8px rgba(0, 0, 0, 0.12);
+  --elevation-4: 0 8px 16px rgba(0, 0, 0, 0.06), 0 24px 48px -12px rgba(0, 0, 0, 0.15);
+
+  /* ─────────────────────────────────────────────────────────────────────
+   * 7. GLASS / 3D PRIMITIVES — depth + light + refraction
+   * ─────────────────────────────────────────────────────────────────────*/
+  --glass-blur: 16px;
+  --glass-saturate: 140%;
+  --glass-border-width: 1px;
+  --glass-shine: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 50%);
+  --glass-tint-light: rgba(255, 255, 255, 0.72);
+  --glass-tint-dark: rgba(255, 255, 255, 0.04);
+  --glass-depth:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 8px 24px -8px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.45);
+  --glass-depth-strong:
+    0 0 0 1px rgba(255, 255, 255, 0.10),
+    0 16px 40px -12px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.55);
+  --glass-depth-hover:
+    0 0 0 1px rgba(255, 255, 255, 0.10),
+    0 24px 56px -16px rgba(0, 0, 0, 0.30),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.60);
+
+  /* ─────────────────────────────────────────────────────────────────────
+   * 8. Z-INDEX SCALE — predictable layering
+   * ─────────────────────────────────────────────────────────────────────*/
+  --z-base: 0;
+  --z-raised: 10;
+  --z-sticky: 100;
+  --z-overlay: 500;
+  --z-modal: 1000;
+  --z-popover: 1100;
+  --z-toast: 1200;
+  --z-tooltip: 1300;
+  --z-max: 9999;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * PALETTE A — INDIGO + CORAL (twilight fintech)
+ * Mercury + Raycast inspired. Distinctive indigo + warm coral CTA.
+ * ════════════════════════════════════════════════════════════════════════*/
+[data-palette="A"] {
+  --palette-name: "Indigo + Coral";
+
+  /* LIGHT — Palette A */
+  --lp-bg: #f6f6fb;
+  --lp-bg-1: #ecebf4;
+  --lp-surface: #ffffff;
+  --lp-surface-2: #f3f2f9;
+  --lp-surface-glass: rgba(255, 255, 255, 0.72);
+  --lp-elevated: #f0eefb;
+
+  --lp-text: #1a1a2e;
+  --lp-text-muted: #56566a;
+  --lp-text-dim: #7c7c92;
+  --lp-text-dim-rgb: 124 124 146;
+
+  --lp-border: rgba(20, 20, 50, 0.10);
+  --lp-border-strong: rgba(20, 20, 50, 0.18);
+  --lp-border-accent: rgba(79, 70, 229, 0.45);
+
+  /* Primary = indigo (brand identity) */
+  --lp-primary: #4f46e5;
+  --lp-primary-hover: #4338ca;
+  --lp-primary-rgb: 79 70 229;
+  --lp-primary-text: #4f46e5;
+  --lp-primary-text-strong: #3730a3;
+  --lp-on-primary: #ffffff;
+
+  /* CTA = coral (action / accent) */
+  --lp-cta: #ff6b5a;
+  --lp-cta-hover: #ff5240;
+  --lp-cta-rgb: 255 107 90;
+  --lp-on-cta: #ffffff;
+
+  /* Glows */
+  --lp-glow-primary: rgba(79, 70, 229, 0.32);
+  --lp-glow-cta: rgba(255, 107, 90, 0.40);
+
+  /* Status */
+  --lp-success: #10b981;
+  --lp-success-rgb: 16 185 129;
+  --lp-warning: #f59e0b;
+  --lp-danger: #dc2626;
+
+  /* WhatsApp / channel brand */
+  --lp-wa: #25d366;
+  --lp-wa-rgb: 37 211 102;
+  --lp-wa-text: #047857;
+  --lp-on-wa: #04130a;
+}
+
+[data-palette="A"].dark,
+[data-palette="A"][data-theme="dark"] {
+  /* DARK — Palette A */
+  --lp-bg: #08080f;
+  --lp-bg-1: #0d0d18;
+  --lp-surface: #11111c;
+  --lp-surface-2: #16162a;
+  --lp-surface-glass: rgba(17, 17, 28, 0.72);
+  --lp-elevated: #1a1a2e;
+
+  --lp-text: #f0f0f8;
+  --lp-text-muted: #a4a4ba;
+  --lp-text-dim: #75758a;
+  --lp-text-dim-rgb: 117 117 138;
+
+  --lp-border: rgba(255, 255, 255, 0.08);
+  --lp-border-strong: rgba(255, 255, 255, 0.16);
+  --lp-border-accent: rgba(129, 140, 248, 0.55);
+
+  --lp-primary: #818cf8;
+  --lp-primary-hover: #a5b4fc;
+  --lp-primary-rgb: 129 140 248;
+  --lp-primary-text: #a5b4fc;
+  --lp-primary-text-strong: #c7d2fe;
+  --lp-on-primary: #0a0a1a;
+
+  --lp-cta: #ff7a6a;
+  --lp-cta-hover: #ff8c7d;
+  --lp-cta-rgb: 255 122 106;
+  --lp-on-cta: #1a0500;
+
+  --lp-glow-primary: rgba(129, 140, 248, 0.45);
+  --lp-glow-cta: rgba(255, 122, 106, 0.50);
+
+  --lp-success: #34d399;
+  --lp-warning: #fbbf24;
+  --lp-danger: #f87171;
+
+  --lp-wa: #25d366;
+  --lp-wa-rgb: 37 211 102;
+  --lp-wa-text: #34d399;
+  --lp-on-wa: #04130a;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * PALETTE B — TEAL + LAVA (BD-modern, bKash-adjacent)
+ * Wise + Vercel inspired. Familiar to BD sellers (bKash-adjacent teal),
+ * premium commerce (deep teal + lava CTA).
+ * ════════════════════════════════════════════════════════════════════════*/
+[data-palette="B"] {
+  --palette-name: "Teal + Lava";
+
+  /* LIGHT — Palette B */
+  --lp-bg: #f4f7f7;
+  --lp-bg-1: #e6eded;
+  --lp-surface: #ffffff;
+  --lp-surface-2: #f0f5f5;
+  --lp-surface-glass: rgba(255, 255, 255, 0.72);
+  --lp-elevated: #e6f5f5;
+
+  --lp-text: #0e1f24;
+  --lp-text-muted: #566b73;
+  --lp-text-dim: #7a8d94;
+  --lp-text-dim-rgb: 122 141 148;
+
+  --lp-border: rgba(14, 31, 36, 0.10);
+  --lp-border-strong: rgba(14, 31, 36, 0.18);
+  --lp-border-accent: rgba(13, 110, 110, 0.45);
+
+  --lp-primary: #0d6e6e;
+  --lp-primary-hover: #0a5757;
+  --lp-primary-rgb: 13 110 110;
+  --lp-primary-text: #0d6e6e;
+  --lp-primary-text-strong: #064040;
+  --lp-on-primary: #ffffff;
+
+  --lp-cta: #e85d04;
+  --lp-cta-hover: #cf4f00;
+  --lp-cta-rgb: 232 93 4;
+  --lp-on-cta: #ffffff;
+
+  --lp-glow-primary: rgba(13, 110, 110, 0.30);
+  --lp-glow-cta: rgba(232, 93, 4, 0.38);
+
+  --lp-success: #10b981;
+  --lp-warning: #f59e0b;
+  --lp-danger: #dc2626;
+
+  --lp-wa: #25d366;
+  --lp-wa-rgb: 37 211 102;
+  --lp-wa-text: #047857;
+  --lp-on-wa: #04130a;
+}
+
+[data-palette="B"].dark,
+[data-palette="B"][data-theme="dark"] {
+  /* DARK — Palette B */
+  --lp-bg: #06120f;
+  --lp-bg-1: #0a1a16;
+  --lp-surface: #0f201c;
+  --lp-surface-2: #142923;
+  --lp-surface-glass: rgba(15, 32, 28, 0.72);
+  --lp-elevated: #0a2820;
+
+  --lp-text: #ecf3f1;
+  --lp-text-muted: #9eb3ad;
+  --lp-text-dim: #6e827c;
+  --lp-text-dim-rgb: 110 130 124;
+
+  --lp-border: rgba(255, 255, 255, 0.08);
+  --lp-border-strong: rgba(255, 255, 255, 0.16);
+  --lp-border-accent: rgba(45, 212, 191, 0.55);
+
+  --lp-primary: #2dd4bf;
+  --lp-primary-hover: #5eead4;
+  --lp-primary-rgb: 45 212 191;
+  --lp-primary-text: #5eead4;
+  --lp-primary-text-strong: #99f6e4;
+  --lp-on-primary: #021412;
+
+  --lp-cta: #fb923c;
+  --lp-cta-hover: #fdba74;
+  --lp-cta-rgb: 251 146 60;
+  --lp-on-cta: #1a0900;
+
+  --lp-glow-primary: rgba(45, 212, 191, 0.45);
+  --lp-glow-cta: rgba(251, 146, 60, 0.50);
+
+  --lp-success: #34d399;
+  --lp-warning: #fbbf24;
+  --lp-danger: #f87171;
+
+  --lp-wa: #25d366;
+  --lp-wa-rgb: 37 211 102;
+  --lp-wa-text: #34d399;
+  --lp-on-wa: #04130a;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * PALETTE C — VIOLET + AMBER (premium creator-feel) ⭐ DEFAULT
+ * Linear + Claude inspired. Keeps current brand continuity (violet)
+ * but adds amber CTA for warmth. Most distinctive.
+ * ════════════════════════════════════════════════════════════════════════*/
+:root,
+[data-palette="C"] {
+  --palette-name: "Violet + Amber";
+
+  /* LIGHT — Palette C */
+  --lp-bg: #f6f6fb;
+  --lp-bg-1: #eae9f2;
+  --lp-surface: #ffffff;
+  --lp-surface-2: #f3f2f9;
+  --lp-surface-glass: rgba(255, 255, 255, 0.72);
+  --lp-elevated: #f6f3ff;
+
+  --lp-text: #1a1a22;
+  --lp-text-muted: #56566a;
+  --lp-text-dim: #65657e;
+  --lp-text-dim-rgb: 101 101 126;
+
+  --lp-border: rgba(20, 20, 40, 0.10);
+  --lp-border-strong: rgba(20, 20, 40, 0.18);
+  --lp-border-accent: rgba(124, 58, 237, 0.45);
+
+  /* Primary = violet (brand identity) */
+  --lp-primary: #7c3aed;
+  --lp-primary-hover: #6d28d9;
+  --lp-primary-rgb: 124 58 237;
+  --lp-primary-text: #6d28d9;
+  --lp-primary-text-strong: #5b21b6;
+  --lp-on-primary: #ffffff;
+
+  /* CTA = amber (action / accent) — NEW semantic slot */
+  --lp-cta: #f59e0b;
+  --lp-cta-hover: #d97706;
+  --lp-cta-rgb: 245 158 11;
+  --lp-on-cta: #1a0a00;
+
+  /* Glows */
+  --lp-glow-primary: rgba(124, 58, 237, 0.32);
+  --lp-glow-cta: rgba(245, 158, 11, 0.40);
+
+  /* Status */
+  --lp-success: #10b981;
+  --lp-success-rgb: 16 185 129;
+  --lp-warning: #f59e0b;
+  --lp-danger: #dc2626;
+
+  /* WhatsApp / channel brand */
+  --lp-wa: #25d366;
+  --lp-wa-rgb: 37 211 102;
+  --lp-wa-text: #047857;
+  --lp-on-wa: #04130a;
+}
+
+:root.dark,
+[data-palette="C"].dark,
+[data-palette="C"][data-theme="dark"] {
+  /* DARK — Palette C */
+  --lp-bg: #08080c;
+  --lp-bg-1: #0c0c13;
+  --lp-surface: #111119;
+  --lp-surface-2: #15151f;
+  --lp-surface-glass: rgba(17, 17, 25, 0.72);
+  --lp-elevated: #16131f;
+
+  --lp-text: #f4f4f6;
+  --lp-text-muted: #a1a1b5;
+  --lp-text-dim: #82829a;
+  --lp-text-dim-rgb: 130 130 154;
+
+  --lp-border: rgba(255, 255, 255, 0.08);
+  --lp-border-strong: rgba(255, 255, 255, 0.16);
+  --lp-border-accent: rgba(167, 139, 250, 0.55);
+
+  --lp-primary: #a78bfa;
+  --lp-primary-hover: #c4b5fd;
+  --lp-primary-rgb: 167 139 250;
+  --lp-primary-text: #a78bfa;
+  --lp-primary-text-strong: #c4b5fd;
+  --lp-on-primary: #0a0a14;
+
+  --lp-cta: #fbbf24;
+  --lp-cta-hover: #fcd34d;
+  --lp-cta-rgb: 251 191 36;
+  --lp-on-cta: #1a0a00;
+
+  --lp-glow-primary: rgba(167, 139, 250, 0.45);
+  --lp-glow-cta: rgba(251, 191, 36, 0.50);
+
+  --lp-success: #34d399;
+  --lp-warning: #fbbf24;
+  --lp-danger: #f87171;
+
+  --lp-wa: #25d366;
+  --lp-wa-rgb: 37 211 102;
+  --lp-wa-text: #34d399;
+  --lp-on-wa: #04130a;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * GLASS PRIMITIVES — apply to any surface for 3D frosted feel
+ * ════════════════════════════════════════════════════════════════════════*/
+.glass-3d {
+  background:
+    var(--glass-shine),
+    var(--lp-surface-glass);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: var(--glass-border-width) solid var(--lp-border);
+  box-shadow: var(--glass-depth);
+  transform-style: preserve-3d;
+  will-change: transform, box-shadow;
+}
+
+.glass-3d-strong {
+  background:
+    var(--glass-shine),
+    var(--lp-surface-glass);
+  backdrop-filter: blur(calc(var(--glass-blur) * 1.5)) saturate(calc(var(--glass-saturate) * 1.2));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.5)) saturate(calc(var(--glass-saturate) * 1.2));
+  border: var(--glass-border-width) solid var(--lp-border-strong);
+  box-shadow: var(--glass-depth-strong);
+  transform-style: preserve-3d;
+  will-change: transform, box-shadow;
+}
+
+/* Hoverable 3D card — lifts on hover with deeper shadow */
+.glass-3d-hover {
+  composes: glass-3d;
+  transition:
+    transform var(--dur) var(--lp-ease),
+    box-shadow var(--dur) var(--lp-ease);
+  cursor: pointer;
+}
+.glass-3d-hover:hover {
+  transform: translateY(-2px) rotateX(2deg) rotateY(-1deg);
+  box-shadow: var(--glass-depth-hover);
+}
+
+/* Sticky chrome (nav, sidebar) */
+.glass-3d-sticky {
+  background:
+    var(--glass-shine),
+    var(--lp-surface-glass);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border-bottom: 1px solid var(--lp-border);
+  will-change: backdrop-filter;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * CTA — Action color (separates brand from action)
+ * Apply to all primary action buttons: "৫ দিন ফ্রি শুরু করুন", "Get Started"
+ * ════════════════════════════════════════════════════════════════════════*/
+.btn-cta {
+  background: rgb(var(--lp-cta-rgb));
+  color: var(--lp-on-cta);
+  border: 1px solid transparent;
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--r-pill);
+  font-weight: 600;
+  font-size: vartext-base;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  transition:
+    transform var(--dur-fast) var(--lp-ease),
+    box-shadow var(--dur) var(--lp-ease),
+    background-color var(--dur-fast) var(--lp-ease);
+  box-shadow: 0 4px 14px -3px var(--lp-glow-cta);
+  will-change: transform;
+}
+.btn-cta:hover {
+  background: var(--lp-cta-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -4px var(--lp-glow-cta);
+}
+.btn-cta:active {
+  transform: translateY(0);
+}
+.btn-cta:focus-visible {
+  outline: 2px solid rgb(var(--lp-cta-rgb));
+  outline-offset: 2px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * MOTION UTILITIES — entrance, micro-interactions, ambient
+ * All respect prefers-reduced-motion via the global guard at the bottom.
+ * ════════════════════════════════════════════════════════════════════════*/
+
+/* Entrance — fade-up (sections sliding into view) */
+@keyframes lp-fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.lp-fade-up {
+  animation: lp-fade-up var(--dur-slow) var(--lp-ease) forwards;
+}
+
+/* Entrance — fade-in (cross-fade) */
+@keyframes lp-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.lp-fade-in {
+  animation: lp-fade-in var(--dur) var(--lp-ease) forwards;
+}
+
+/* Pulse glow — CTA breathing */
+@keyframes lp-pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 var(--lp-glow-cta); }
+  50%      { box-shadow: 0 0 0 12px transparent; }
+}
+.lp-pulse-glow {
+  animation: lp-pulse-glow 3s var(--lp-ease-inout) infinite;
+}
+
+/* Shimmer glow — skeleton + decorative loading */
+@keyframes lp-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.lp-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(var(--lp-primary-rgb) / 0.10) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: lp-shimmer 2.5s var(--lp-ease-linear) infinite;
+}
+
+/* Float — gentle vertical drift for decorative elements */
+@keyframes lp-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+.lp-float {
+  animation: lp-float 6s var(--lp-ease-inout) infinite;
+}
+
+/* Orbit — slow rotation for decorative backdrops */
+@keyframes lp-orbit {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.lp-orbit-slow {
+  animation: lp-orbit 30s var(--lp-ease-linear) infinite;
+}
+.lp-orbit-reverse {
+  animation: lp-orbit 40s var(--lp-ease-linear) infinite reverse;
+}
+
+/* Scale in — modal/sheet entrance */
+@keyframes lp-scale-in {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.lp-scale-in {
+  animation: lp-scale-in var(--dur) var(--lp-ease-spring) forwards;
+}
+
+/* Slide in right — drawer/menu */
+@keyframes lp-slide-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+.lp-slide-in-right {
+  animation: lp-slide-in-right var(--dur-slow) var(--lp-ease) forwards;
+}
+
+/* Slide in up — bottom sheet */
+@keyframes lp-slide-in-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.lp-slide-in-up {
+  animation: lp-slide-in-up var(--dur-slow) var(--lp-ease) forwards;
+}
+
+/* Stagger — entrance choreography for lists */
+.lp-stagger > * {
+  opacity: 0;
+  animation: lp-fade-up var(--dur-slow) var(--lp-ease) forwards;
+}
+.lp-stagger > *:nth-child(1) { animation-delay: 50ms; }
+.lp-stagger > *:nth-child(2) { animation-delay: 100ms; }
+.lp-stagger > *:nth-child(3) { animation-delay: 150ms; }
+.lp-stagger > *:nth-child(4) { animation-delay: 200ms; }
+.lp-stagger > *:nth-child(5) { animation-delay: 250ms; }
+.lp-stagger > *:nth-child(6) { animation-delay: 300ms; }
+.lp-stagger > *:nth-child(7) { animation-delay: 350ms; }
+.lp-stagger > *:nth-child(8) { animation-delay: 400ms; }
+.lp-stagger > *:nth-child(9) { animation-delay: 450ms; }
+.lp-stagger > *:nth-child(10) { animation-delay: 500ms; }
+
+/* ════════════════════════════════════════════════════════════════════════
+ * MOBILE APP-QUALITY PATTERNS
+ * ════════════════════════════════════════════════════════════════════════*/
+
+/* Safe area for notched devices */
+.safe-top { padding-top: env(safe-area-inset-top, 0px); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.safe-left { padding-left: env(safe-area-inset-left, 0px); }
+.safe-right { padding-right: env(safe-area-inset-right, 0px); }
+
+/* Touch optimization — disable tap highlight + delay */
+.touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 44×44px minimum touch target (WCAG 2.5.5 AAA, 2.5.8 AA) */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Sticky CTA bar at bottom (mobile only) */
+@media (max-width: 767px) {
+  .lp-sticky-cta {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--z-overlay);
+    padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+    background: var(--lp-surface-glass);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border-top: 1px solid var(--lp-border);
+    box-shadow: var(--elevation-3);
+  }
+  .lp-sticky-cta .btn-cta {
+    width: 100%;
+    justify-content: center;
+  }
+  /* Add padding to main content to avoid overlap with sticky bar */
+  .lp-with-sticky-cta {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Hide on mobile (only on small screens) */
+@media (max-width: 767px) {
+  .lp-mobile-hidden { display: none !important; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * LONG-TERM TEAM COMFORT
+ * ════════════════════════════════════════════════════════════════════════*/
+
+/* Reduced motion — global guard */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .lp-float,
+  .lp-pulse-glow,
+  .lp-orbit-slow,
+  .lp-orbit-reverse,
+  .lp-shimmer {
+    animation: none !important;
+  }
+}
+
+/* Focus ring — always visible for keyboard nav */
+:focus-visible {
+  outline: 2px solid rgb(var(--lp-primary-rgb));
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* Density toggle — 3 levels persisted via localStorage */
+:root[data-density="compact"] {
+  font-size: 14px;
+  --space-section: clamp(2.5rem, 2rem + 3vw, 4.5rem);
+}
+:root[data-density="default"] {
+  font-size: 15px;
+  --space-section: clamp(4rem, 3rem + 6vw, 7.5rem);
+}
+:root[data-density="spacious"] {
+  font-size: 16px;
+  --space-section: clamp(5rem, 4rem + 8vw, 9rem);
+}
+
+/* Smooth theme transitions */
+.lp,
+.lp * {
+  transition:
+    background-color var(--dur) var(--lp-ease),
+    color var(--dur) var(--lp-ease),
+    border-color var(--dur) var(--lp-ease);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * TYPOGRAPHY — semantic classes
+ * ════════════════════════════════════════════════════════════════════════*/
+
+.lp-display {
+  font-family: var(--font-display);
+  font-size: var(--text-6xl);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-tighter);
+  font-weight: 700;
+}
+
+.lp-h1 {
+  font-family: var(--font-display);
+  font-size: var(--text-5xl);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-tight);
+  font-weight: 700;
+}
+
+.lp-h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-h2);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--ls-tight);
+  font-weight: 700;
+}
+
+.lp-h3 {
+  font-family: var(--font-display);
+  font-size: var(--text-h3);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--ls-normal);
+  font-weight: 600;
+}
+
+.lp-lead {
+  font-family: var(--font-sans);
+  font-size: var(--text-lead);
+  line-height: var(--lh-relaxed);
+  letter-spacing: var(--ls-normal);
+  font-weight: 400;
+}
+
+.lp-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--lh-normal);
+  letter-spacing: var(--ls-normal);
+  font-weight: 400;
+}
+
+.lp-caption {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--lh-normal);
+  letter-spacing: var(--ls-wide);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.lp-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-bn {
+  font-family: var(--font-bn);
+}
+
+/* Tabular numerals — for stats, prices, counts */
+.lp-num,
+.lp-stat-value {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * TEXT GRADIENT — for hero headlines
+ * ════════════════════════════════════════════════════════════════════════*/
+.lp-text-gradient {
+  background: linear-gradient(135deg, var(--lp-primary) 0%, var(--lp-cta) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * SCROLLBAR — themed
+ * ════════════════════════════════════════════════════════════════════════*/
+.lp ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.lp ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.lp ::-webkit-scrollbar-thumb {
+  background: var(--lp-border-strong);
+  border-radius: var(--r-pill);
+}
+.lp ::-webkit-scrollbar-thumb:hover {
+  background: var(--lp-text-dim);
+}

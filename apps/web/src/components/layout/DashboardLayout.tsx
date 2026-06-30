@@ -130,12 +130,16 @@ function DashboardLayoutInner({ children, hideMobileNav }: DashboardLayoutProps)
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2">
-              {/* Search — no command palette is wired yet, so this is a labelled
-                  placeholder (DESIGN.md §1.2 allows a no-op when none present). */}
+              {/* Cmd+K command palette — wired globally via @/components/CommandPalette */}
               <Button
                 variant="ghost"
                 size="icon"
                 aria-label={t('actions.search', { defaultValue: 'Search' })}
+                onClick={() => {
+                  // Dispatch a synthetic Cmd/Ctrl+K to open the palette.
+                  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true }));
+                  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+                }}
                 className="hidden sm:inline-flex text-muted-foreground"
               >
                 <Search className="h-5 w-5" />

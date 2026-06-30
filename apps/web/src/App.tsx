@@ -14,6 +14,7 @@ import { ErrorReportProvider, useErrorReporter } from "@/contexts/ErrorReportCon
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { FloatingWhatsAppButton } from "@/components/FloatingWhatsAppButton";
+import { CommandPalette } from "@/components/CommandPalette";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import DashboardLayoutWrapper from "@/components/layout/DashboardLayoutWrapper";
 import AdminLayoutWrapper from "@/components/layout/AdminLayoutWrapper";
@@ -221,6 +222,7 @@ const App = () => (
                       <BrowserRouter>
                         <ImpersonationBanner />
                         <FloatingWhatsAppButton />
+                        <CommandPalette />
                         <Suspense fallback={<PageFallback />}>
                         <Routes>
                           {/* Public routes */}

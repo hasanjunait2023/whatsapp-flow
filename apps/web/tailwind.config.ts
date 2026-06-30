@@ -160,6 +160,41 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+
+        // Theme v2 motion library keyframes — added 2026-07-01
+        "lp-fade-up": {
+          from: { opacity: "0", transform: "translateY(16px)" },
+          to:   { opacity: "1", transform: "translateY(0)" },
+        },
+        "lp-fade-in": {
+          from: { opacity: "0" },
+          to:   { opacity: "1" },
+        },
+        "lp-pulse-glow": {
+          "0%, 100%": { boxShadow: "0 0 0 0 var(--lp-glow-cta)" },
+          "50%":      { boxShadow: "0 0 0 12px transparent" },
+        },
+        "lp-shimmer": {
+          "0%":   { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-200% 0" },
+        },
+        "lp-orbit": {
+          from: { transform: "rotate(0deg)" },
+          to:   { transform: "rotate(360deg)" },
+        },
+        "lp-scale-in": {
+          from: { opacity: "0", transform: "scale(0.95) translateY(8px)" },
+          to:   { opacity: "1", transform: "scale(1) translateY(0)" },
+        },
+        "lp-slide-in-right": {
+          from: { transform: "translateX(100%)" },
+          to:   { transform: "translateX(0)" },
+        },
+        "lp-slide-in-up": {
+          from: { transform: "translateY(100%)" },
+          to:   { transform: "translateY(0)" },
+        },
+
         "fade-in": {
           from: { opacity: "0", transform: "translateY(8px)" },
           to: { opacity: "1", transform: "translateY(0)" },
@@ -228,6 +263,17 @@ export default {
         "shake": "shake 0.5s ease-in-out",
         "pulse-ring": "pulse-ring 2s ease-in-out infinite",
         "float": "float 3s ease-in-out infinite",
+
+        // Theme v2 motion library — added 2026-07-01
+        "lp-fade-up": "lp-fade-up var(--dur-slow) var(--lp-ease) forwards",
+        "lp-fade-in": "lp-fade-in var(--dur) var(--lp-ease) forwards",
+        "lp-pulse-glow": "lp-pulse-glow 3s var(--lp-ease-inout) infinite",
+        "lp-shimmer": "lp-shimmer 2.5s linear infinite",
+        "lp-orbit-slow": "lp-orbit 30s linear infinite",
+        "lp-orbit-reverse": "lp-orbit 40s linear infinite reverse",
+        "lp-scale-in": "lp-scale-in var(--dur) var(--lp-ease-spring) forwards",
+        "lp-slide-in-right": "lp-slide-in-right var(--dur-slow) var(--lp-ease) forwards",
+        "lp-slide-in-up": "lp-slide-in-up var(--dur-slow) var(--lp-ease) forwards",
       },
     },
   },

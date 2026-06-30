@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-palette="C" data-density="default">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -21,6 +21,15 @@
           document.documentElement.setAttribute("data-lp-theme", t);
         } catch (e) {
           document.documentElement.setAttribute("data-lp-theme", "dark");
+        }
+        // Density preference (compact / default / spacious) — applied before
+        // first paint to avoid font-size reflow on hydration.
+        try {
+          var d = localStorage.getItem("ecomex-density");
+          if (d !== "compact" && d !== "default" && d !== "spacious") d = "default";
+          document.documentElement.setAttribute("data-density", d);
+        } catch (e) {
+          document.documentElement.setAttribute("data-density", "default");
         }
       })();
     </script>
