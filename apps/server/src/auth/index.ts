@@ -130,8 +130,14 @@ export const auth = betterAuth({
   advanced: {
     cookiePrefix: "wf",
     useSecureCookies: IS_PRODUCTION,
+    // Pin cookies to the apex domain so the browser accepts them on every
+    // subdomain of ecomex.cloud (Vercel serves whatapp.ecomex.cloud from a
+    // different origin than the backend — without a parent-domain cookie the
+    // session cookies set by the backend are silently dropped by the browser).
+    // The leading dot is required for subdomain sharing.
     defaultCookieAttributes: {
       sameSite: "lax",
+      domain: IS_PRODUCTION ? ".ecomex.cloud" : undefined,
     },
   },
   plugins: [organization()],
