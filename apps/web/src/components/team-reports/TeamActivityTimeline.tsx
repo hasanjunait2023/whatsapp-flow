@@ -32,7 +32,7 @@ const activityConfig: Record<string, { icon: React.ElementType; color: string; l
   },
   order_updated: { 
     icon: ShoppingCart, 
-    color: 'text-orange-500 bg-orange-500/10', 
+    color: 'text-violet-500 bg-violet-500/10', 
     label: 'Updated an order' 
   },
   contact_assigned: { 

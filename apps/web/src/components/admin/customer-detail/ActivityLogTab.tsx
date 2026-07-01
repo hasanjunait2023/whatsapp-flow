@@ -59,7 +59,7 @@ const getCategoryColor = (category: string | null) => {
     case 'marketing':
       return 'text-purple-500 bg-purple-500/10';
     case 'support':
-      return 'text-orange-500 bg-orange-500/10';
+      return 'text-violet-500 bg-violet-500/10';
     case 'engagement':
       return 'text-blue-500 bg-blue-500/10';
     case 'conversion':

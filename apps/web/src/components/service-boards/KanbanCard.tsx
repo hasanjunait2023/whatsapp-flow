@@ -43,7 +43,7 @@ export function KanbanCard({ card, labels, onClick, isDragging }: KanbanCardProp
 
   const priorityColors = {
     urgent: 'border-l-red-500',
-    high: 'border-l-orange-500',
+    high: 'border-l-violet-500',
     medium: 'border-l-blue-500',
     low: 'border-l-gray-400',
   };

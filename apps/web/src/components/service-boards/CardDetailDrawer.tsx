@@ -80,7 +80,7 @@ export function CardDetailDrawer({
   const priorityOptions = [
     { value: 'low', label: 'Low', color: 'bg-gray-400' },
     { value: 'medium', label: 'Medium', color: 'bg-blue-500' },
-    { value: 'high', label: 'High', color: 'bg-orange-500' },
+    { value: 'high', label: 'High', color: 'bg-violet-500' },
     { value: 'urgent', label: 'Urgent', color: 'bg-red-500' },
   ];
 

@@ -49,7 +49,7 @@ export const EVENT_ICONS: Record<string, { icon: string; color: string }> = {
   // Group Events
   group_joined: { icon: 'UsersRound', color: 'text-green-500' },
   group_invite_sent: { icon: 'UserPlus', color: 'text-blue-500' },
-  group_left: { icon: 'UserMinus', color: 'text-orange-500' },
+  group_left: { icon: 'UserMinus', color: 'text-violet-500' },
 };
 
 export const CATEGORY_COLORS: Record<EventCategory, string> = {

@@ -48,7 +48,7 @@ const activityColors: Record<string, string> = {
   order_updated: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30',
   contact_assigned: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30',
   complaint_resolved: 'bg-red-100 text-red-600 dark:bg-red-900/30',
-  parcel_booked: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30',
+  parcel_booked: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30',
 };
 
 export function TenantAuditLogViewer() {

@@ -208,7 +208,7 @@ export function PaymentDialog({ open, onOpenChange, plan, onSubmit, orderType = 
                     }`}
                   >
                     <RadioGroupItem value="nagad" id="nagad" className="sr-only" />
-                    <div className="h-10 w-10 rounded-full bg-orange-500 flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-full bg-violet-500 flex items-center justify-center">
                       <Smartphone className="h-5 w-5 text-white" />
                     </div>
                     <span className="text-sm font-medium">Nagad</span>

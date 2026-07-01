@@ -44,7 +44,7 @@ const categories: LeaderboardCategory[] = [
   {
     title: 'Fastest Responders',
     icon: Clock,
-    iconColor: 'text-orange-500',
+    iconColor: 'text-violet-500',
     getScore: (m) => m.avgResponseTimeMinutes,
     formatScore: (s) => `${s.toFixed(1)} min`,
     sortDesc: false,

@@ -32,7 +32,7 @@ const getPriorityBadge = (priority: string) => {
     case 'urgent':
       return <Badge variant="destructive">Urgent</Badge>;
     case 'high':
-      return <Badge className="bg-orange-500">High</Badge>;
+      return <Badge className="bg-violet-500">High</Badge>;
     case 'medium':
       return <Badge variant="outline">Medium</Badge>;
     case 'low':

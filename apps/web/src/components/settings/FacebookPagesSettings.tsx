@@ -570,10 +570,10 @@ export function FacebookPagesSettings() {
       </Card>
 
       {/* App Live Section */}
-      <Card className="border-orange-200 dark:border-orange-800">
+      <Card className="border-violet-200 dark:border-violet-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Rocket className="h-5 w-5 text-orange-500" />
+            <Rocket className="h-5 w-5 text-violet-500" />
             App Live করুন (Production)
           </CardTitle>
           <CardDescription>
@@ -581,23 +581,23 @@ export function FacebookPagesSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-950/30">
-            <AlertTriangle className="h-4 w-4 text-orange-500" />
-            <AlertDescription className="text-orange-800 dark:text-orange-200">
+          <Alert className="border-violet-200 bg-violet-50 dark:bg-violet-950/30">
+            <AlertTriangle className="h-4 w-4 text-violet-500" />
+            <AlertDescription className="text-violet-800 dark:text-violet-200">
               ⚠️ App Live করতে গেলে Meta আপনার কাছে <strong>Privacy Policy URL</strong> চাইবে। 
               নীচের ডকুমেন্ট ব্যবহার করে আপনার Privacy Policy তৈরি করুন।
             </AlertDescription>
           </Alert>
 
-          <div className="flex items-center justify-between p-4 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800">
+          <div className="flex items-center justify-between p-4 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800">
             <div className="flex items-center gap-3">
-              <FileText className="h-5 w-5 text-orange-600" />
+              <FileText className="h-5 w-5 text-violet-600" />
               <div>
-                <p className="font-medium text-orange-900 dark:text-orange-100">Privacy Policy Template</p>
-                <p className="text-sm text-orange-700 dark:text-orange-300">এটি কপি করে আপনার ওয়েবসাইটে রাখুন</p>
+                <p className="font-medium text-violet-900 dark:text-violet-100">Privacy Policy Template</p>
+                <p className="text-sm text-violet-700 dark:text-violet-300">এটি কপি করে আপনার ওয়েবসাইটে রাখুন</p>
               </div>
             </div>
-            <Button asChild variant="outline" className="border-orange-300">
+            <Button asChild variant="outline" className="border-violet-300">
               <a href={privacyPolicyDocsUrl} target="_blank" rel="noopener noreferrer">
                 ডকুমেন্ট দেখুন <ExternalLink className="h-4 w-4 ml-2" />
               </a>

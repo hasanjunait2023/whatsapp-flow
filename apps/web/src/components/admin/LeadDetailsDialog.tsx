@@ -16,7 +16,7 @@ interface LeadDetailsDialogProps {
 
 const statusColors: Record<string, string> = {
   warm: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
-  hot: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+  hot: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
   contacted: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
   converted: 'bg-green-500/10 text-green-600 border-green-500/20',
   lost: 'bg-red-500/10 text-red-600 border-red-500/20',

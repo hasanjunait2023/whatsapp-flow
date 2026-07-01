@@ -46,7 +46,7 @@ export function MemberDetailSheet({ member, open, onOpenChange }: MemberDetailSh
       icon: ShoppingCart, 
       label: 'Orders Created', 
       value: member.ordersCreated,
-      color: 'text-orange-500' 
+      color: 'text-violet-500' 
     },
     { 
       icon: TrendingUp, 

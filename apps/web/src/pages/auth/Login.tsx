@@ -111,8 +111,8 @@ export default function Login() {
           size="lg"
           className={cn(
             "w-full relative overflow-hidden group",
-            "border-2 border-amber-500/50 bg-gradient-to-r from-amber-500/10 to-orange-500/10",
-            "hover:from-amber-500/20 hover:to-orange-500/20",
+            "border-2 border-amber-500/50 bg-gradient-to-r from-amber-500/10 to-violet-500/10",
+            "hover:from-amber-500/20 hover:to-violet-500/20",
             "text-amber-600 dark:text-amber-400 font-semibold"
           )}
           onClick={() => setDemoDialogOpen(true)}

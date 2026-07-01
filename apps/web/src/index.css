@@ -2,34 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-/* WhatsCRM Design System - Premium Dashboard Theme */
+/* WhatsCRM Design System - Violet Linear-Grade Theme */
 
 @layer base {
   :root {
-    /* ---------- LIGHT (default) — Direction A "Warm Light Fintech" ---------- */
+    /* ---------- LIGHT (default) — Violet Modern Theme (cool neutrals) ---------- */
     /* Canvas & surfaces */
-    --background: 40 30% 94%;       /* #F5F2EC cream */
-    --foreground: 40 6% 10%;        /* #1A1A18 ink */
-    --card: 42 36% 98%;             /* #FCFAF6 */
-    --card-foreground: 40 6% 10%;
-    --popover: 42 36% 98%;
-    --popover-foreground: 40 6% 10%;
+    --background: 240 20% 98%;       /* #F5F2EC cream */
+    --foreground: 240 10% 8%;        /* #1A1A18 ink */
+    --card: 0 0% 100%;             /* #FCFAF6 */
+    --card-foreground: 240 10% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 8%;
 
-    /* Accent = warm orange (primary) */
-    --primary: 12 86% 56%;          /* #F0552B */
+    /* Accent = Violet (Palette C — distinctive, Linear/Notion-grade) */
+    --primary: 262 83% 58%;         /* #7c3aed violet-600 */
     --primary-foreground: 0 0% 100%;
-    --brand: 12 86% 56%;
+    --brand: 262 83% 58%;
     --brand-foreground: 0 0% 100%;
-    --brand-light: 16 80% 94%;      /* accent-soft */
+    --brand-light: 262 90% 96%;     /* accent-soft violet tint */
 
-    /* Secondary = near-black (Finexy's dark buttons) */
-    --secondary: 40 6% 14%;         /* #26241F near-black */
+    /* Secondary = near-black */
+    --secondary: 240 10% 12%;         /* #26241F near-black */
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 38 22% 90%;            /* surface-2 #F0EBE2 */
-    --muted-foreground: 36 8% 45%;  /* ink-muted #7A736A */
-    --accent: 16 80% 94%;           /* soft orange tint surface */
-    --accent-foreground: 12 77% 40%;
+    --muted: 240 16% 94%;            /* surface-2 #F0EBE2 */
+    --muted-foreground: 240 6% 45%;  /* ink-muted #7A736A */
+    --accent: 262 90% 96%;          /* soft violet tint surface */
+    --accent-foreground: 262 83% 38%;
 
     /* Status — solid */
     --success: 142 67% 37%;
@@ -46,7 +46,7 @@
     --warning-soft: 38 75% 91%;
     --info-soft: 216 70% 93%;
     --destructive-soft: 6 75% 93%;
-    --muted-soft: 38 24% 91%;
+    --muted-soft: 240 16% 95%;
 
     /* Channel brand (NEW) */
     --whatsapp: 145 63% 49%;        /* #25D366 */
@@ -55,31 +55,31 @@
     --facebook: 214 89% 52%;        /* #1877F2 */
     --instagram: 329 70% 52%;
 
-    --border: 38 25% 86%;           /* #E6DFD3 */
-    --input: 38 25% 86%;
-    --ring: 12 86% 56%;
+    --border: 240 14% 90%;           /* #E6DFD3 */
+    --input: 240 14% 90%;
+    --ring: 262 83% 58%;
     --radius: 1rem;                 /* 16px base; cards override to 20px */
 
     /* Sidebar (icon rail) */
-    --sidebar-background: 42 36% 98%;
-    --sidebar-foreground: 40 6% 18%;
-    --sidebar-primary: 12 86% 56%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 240 10% 14%;
+    --sidebar-primary: 262 83% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 16 80% 94%;   /* active item tint */
-    --sidebar-accent-foreground: 12 77% 40%;
-    --sidebar-border: 38 25% 88%;
-    --sidebar-ring: 12 86% 56%;
-    --sidebar-muted: 36 8% 50%;
+    --sidebar-accent: 262 90% 96%;   /* active item tint */
+    --sidebar-accent-foreground: 262 83% 38%;
+    --sidebar-border: 240 14% 92%;
+    --sidebar-ring: 262 83% 58%;
+    --sidebar-muted: 240 6% 50%;
 
-    /* Charts — orange + ink primary, then status hues */
-    --chart-1: 12 86% 56%;          /* orange */
-    --chart-2: 40 6% 18%;           /* near-black */
+    /* Charts — violet + ink primary, then status hues */
+    --chart-1: 262 83% 58%;          /* violet */
+    --chart-2: 240 10% 18%;           /* near-black */
     --chart-3: 216 69% 51%;         /* info blue */
     --chart-4: 142 67% 37%;         /* success green */
-    --chart-5: 35 83% 50%;          /* amber */
+    --chart-5: 38 92% 50%;          /* amber */
 
     /* Elevation shadow channel (warm, not pure black) — see §3 */
-    --shadow-color: 36 30% 20%;
+    --shadow-color: 240 20% 20%;
     --elevation-1: 0 1px 2px hsl(var(--shadow-color) / 0.04),
                    0 1px 3px hsl(var(--shadow-color) / 0.06);
     --elevation-2: 0 2px 4px hsl(var(--shadow-color) / 0.04),
@@ -89,32 +89,32 @@
     --elevation-accent: 0 6px 20px -6px hsl(var(--primary) / 0.35);
 
     /* Glass (NEW) — see §3 */
-    --glass-bg: 42 36% 98% / 0.72;
-    --glass-border: 40 20% 100% / 0.55;
+    --glass-bg: 0 0% 100% / 0.72;
+    --glass-border: 0 0% 100% / 0.55;
   }
 
   .dark {
     /* ---------- DARK (night shift) ---------- */
-    --background: 40 16% 8%;        /* #16140F warm charcoal */
-    --foreground: 40 30% 94%;       /* #F4F1EA */
-    --card: 38 14% 11%;             /* #1E1B16 */
+    --background: 240 16% 6%;        /* #16140F warm charcoal */
+    --foreground: 240 14% 94%;       /* #F4F1EA */
+    --card: 240 12% 9%;             /* #1E1B16 */
     --card-foreground: 40 30% 94%;
     --popover: 38 14% 11%;
     --popover-foreground: 40 30% 94%;
 
-    --primary: 14 95% 66%;          /* #FB7B57 brighter orange */
+    --primary: 262 90% 70%;          /* #a78bfa violet-400 brighter for dark */
     --primary-foreground: 40 16% 8%;
-    --brand: 14 95% 66%;
+    --brand: 262 90% 70%;
     --brand-foreground: 40 16% 8%;
-    --brand-light: 16 40% 18%;
+    --brand-light: 262 40% 22%;
 
-    --secondary: 38 10% 18%;        /* raised dark */
+    --secondary: 240 10% 14%;        /* raised dark */
     --secondary-foreground: 40 30% 94%;
 
-    --muted: 38 12% 15%;
+    --muted: 240 10% 14%;
     --muted-foreground: 38 10% 62%;
-    --accent: 16 40% 18%;
-    --accent-foreground: 14 95% 78%;
+    --accent: 262 40% 22%;
+    --accent-foreground: 262 90% 82%;
 
     --success: 142 55% 48%;
     --success-foreground: 40 16% 8%;
@@ -137,25 +137,25 @@
     --facebook: 214 80% 60%;
     --instagram: 329 65% 60%;
 
-    --border: 38 12% 20%;
+    --border: 240 10% 18%;
     --input: 38 12% 20%;
-    --ring: 14 95% 66%;
+    --ring: 262 90% 70%;
 
-    --sidebar-background: 40 16% 6%;
+    --sidebar-background: 240 16% 4%;
     --sidebar-foreground: 40 30% 94%;
-    --sidebar-primary: 14 95% 66%;
+    --sidebar-primary: 262 90% 70%;
     --sidebar-primary-foreground: 40 16% 8%;
-    --sidebar-accent: 16 40% 16%;
-    --sidebar-accent-foreground: 14 95% 78%;
-    --sidebar-border: 38 12% 16%;
-    --sidebar-ring: 14 95% 66%;
-    --sidebar-muted: 38 10% 58%;
+    --sidebar-accent: 262 40% 22%;
+    --sidebar-accent-foreground: 262 90% 82%;
+    --sidebar-border: 240 10% 14%;
+    --sidebar-ring: 262 90% 70%;
+    --sidebar-muted: 240 10% 58%;
 
-    --chart-1: 14 95% 66%;
+    --chart-1: 262 90% 70%;
     --chart-2: 40 20% 80%;
     --chart-3: 216 65% 62%;
     --chart-4: 142 55% 52%;
-    --chart-5: 38 75% 58%;
+    --chart-5: 38 92% 60%;
 
     --shadow-color: 0 0% 0%;
     --elevation-accent: 0 6px 20px -6px hsl(var(--primary) / 0.35);

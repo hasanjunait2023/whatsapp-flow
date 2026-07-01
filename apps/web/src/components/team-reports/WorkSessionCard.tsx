@@ -95,7 +95,7 @@ export function WorkSessionCard({ session, className }: WorkSessionCardProps) {
             </div>
           </div>
           <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-            <Coffee className="h-4 w-4 text-orange-500" />
+            <Coffee className="h-4 w-4 text-violet-500" />
             <div>
               <p className="text-xs text-muted-foreground">Breaks</p>
               <p className="text-sm font-medium">

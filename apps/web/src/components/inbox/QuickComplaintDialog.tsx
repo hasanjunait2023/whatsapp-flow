@@ -39,7 +39,7 @@ const CATEGORIES: { value: ComplaintCategory; label: string }[] = [
 const PRIORITIES: { value: ComplaintPriority; label: string; color: string }[] = [
   { value: 'low', label: 'Low', color: 'bg-blue-100 text-blue-700' },
   { value: 'medium', label: 'Medium', color: 'bg-yellow-100 text-yellow-700' },
-  { value: 'high', label: 'High', color: 'bg-orange-100 text-orange-700' },
+  { value: 'high', label: 'High', color: 'bg-violet-100 text-violet-700' },
   { value: 'critical', label: 'Critical', color: 'bg-red-100 text-red-700' },
 ];
 

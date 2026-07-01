@@ -64,7 +64,7 @@ const notificationConfig: Record<string, { icon: React.ReactNode; color: string;
   },
   instance_deleted: {
     icon: <Trash2 className="h-4 w-4" />,
-    color: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30',
+    color: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30',
     route: '/instances',
   },
   instance_banned: {

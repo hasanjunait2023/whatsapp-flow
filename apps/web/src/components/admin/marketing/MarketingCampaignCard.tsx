@@ -50,7 +50,7 @@ const TYPE_LABELS: Record<string, { label: string; icon: typeof Target; color: s
   win_back: {
     label: 'উইন-ব্যাক',
     icon: Target,
-    color: 'text-orange-500 bg-orange-500/10',
+    color: 'text-violet-500 bg-violet-500/10',
   },
   announcement: {
     label: 'ঘোষণা',

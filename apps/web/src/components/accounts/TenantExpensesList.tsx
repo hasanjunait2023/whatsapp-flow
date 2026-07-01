@@ -43,7 +43,7 @@ const getCategoryBadgeColor = (color: string | null) => {
     blue: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
     yellow: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
     purple: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-    orange: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+    orange: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400',
     gray: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
   };
   return colorMap[color || 'gray'] || colorMap.gray;

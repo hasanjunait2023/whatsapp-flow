@@ -250,7 +250,7 @@ export function CashFlowReport({ data, loading, startDate, endDate }: CashFlowRe
                       <td className={`px-4 py-3 text-right font-medium ${row.net >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                         {row.net >= 0 ? '+' : ''}{formatCurrency(row.net)}
                       </td>
-                      <td className={`px-4 py-3 text-right font-medium ${row.balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                      <td className={`px-4 py-3 text-right font-medium ${row.balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-violet-600 dark:text-violet-400'}`}>
                         {formatCurrency(row.balance)}
                       </td>
                     </tr>

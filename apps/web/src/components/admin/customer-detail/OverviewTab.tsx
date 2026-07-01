@@ -63,7 +63,7 @@ export function OverviewTab({ details }: OverviewTabProps) {
           value={details.order_count}
           description="total"
           icon={ShoppingCart}
-          iconColor="text-orange-500"
+          iconColor="text-violet-500"
         />
         <StatCard
           title="Contacts"

@@ -58,7 +58,7 @@ const TIER_CONFIG = {
   platinum: { label: 'Platinum', icon: Sparkles, color: 'text-purple-500', bg: 'bg-purple-100' },
   gold: { label: 'Gold', icon: Medal, color: 'text-yellow-500', bg: 'bg-yellow-100' },
   silver: { label: 'Silver', icon: Award, color: 'text-gray-400', bg: 'bg-gray-100' },
-  bronze: { label: 'Bronze', icon: Star, color: 'text-orange-500', bg: 'bg-orange-100' },
+  bronze: { label: 'Bronze', icon: Star, color: 'text-violet-500', bg: 'bg-violet-100' },
   new: { label: 'New', icon: Star, color: 'text-blue-500', bg: 'bg-blue-100' },
 };
 
