@@ -25,6 +25,11 @@ import { setRealtimeRecover } from "@/integrations/supabase/shim/realtime";
 // Route-level code splitting: page modules load on demand instead of being
 // pulled into the initial bundle.
 const PublicLanding = lazy(() => import("@/pages/Landing"));
+const MarketingPricing = lazy(() => import("@/pages/marketing/Pricing"));
+const MarketingFeatures = lazy(() => import("@/pages/marketing/Features"));
+const MarketingAbout = lazy(() => import("@/pages/marketing/About"));
+const MarketingContact = lazy(() => import("@/pages/marketing/Contact"));
+const MarketingBlog = lazy(() => import("@/pages/marketing/Blog"));
 const Login = lazy(() => import("./pages/auth/Login"));
 const Signup = lazy(() => import("./pages/auth/Signup"));
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
@@ -241,6 +246,11 @@ const App = () => (
                           <Route path="/privacy" element={<PrivacyPolicy />} />
                           <Route path="/terms" element={<TermsOfService />} />
                           <Route path="/data-deletion" element={<DataDeletion />} />
+                          <Route path="/pricing" element={<MarketingPricing />} />
+                          <Route path="/features" element={<MarketingFeatures />} />
+                          <Route path="/about" element={<MarketingAbout />} />
+                          <Route path="/contact" element={<MarketingContact />} />
+                          <Route path="/blog" element={<MarketingBlog />} />
 
                           {/* Special routes without DashboardLayout */}
                           <Route
