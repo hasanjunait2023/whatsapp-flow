@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <!-- Primary violet gradient (matches brand palette) -->
+    <linearGradient id="violetGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="50%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+
+    <!-- Lighter gradient for ribbon layers -->
+    <linearGradient id="violetLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c4b5fd"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+
+    <!-- Highlight gradient -->
+    <linearGradient id="highlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Deep shadow gradient -->
+    <linearGradient id="deepShadow" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#5b21b6" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- 3D shadow filter -->
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+      <feOffset dx="0" dy="4" result="offsetblur"/>
+      <feFlood flood-color="#5b21b6" flood-opacity="0.4"/>
+      <feComposite in2="offsetblur" operator="in"/>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Glow filter for arrow accent -->
+    <filter id="arrowGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- The main icon path (from potrace, normalized) -->
+    <symbol id="ecomex-mark" viewBox="0 0 545 557">
+      <path d="M8050 8279 c-12 -8 -10 -9 7 -4 21 6 23 -1 10 -35 -3 -8 -11 -33 -17
+-55 -7 -22 -37 -86 -68 -142 -46 -84 -58 -99 -64 -83 -10 28 -22 25 -51 -13
+-39 -52 -94 -113 -184 -207 -82 -85 -105 -95 -58 -26 13 20 20 36 15 36 -5 0
+-16 -10 -24 -22 l-16 -22 0 23 c0 14 7 25 20 28 15 4 20 14 20 42 0 21 -3 41
+-7 45 -11 10 -31 156 -22 150 4 -2 20 11 35 31 14 19 34 35 44 35 9 0 19 3 23
+6 8 8 -3 34 -15 34 -5 0 -6 -5 -2 -12 5 -7 3 -8 -6 -3 -10 6 -9 11 4 21 16 12
+16 13 -1 17 -11 4 -9 5 7 4 14 -1 26 -8 26 -14 3 -26 5 -28 15 -11 5 9 15 15
+22 12 7 -2 28 9 47 25 l35 30 -55 -4 c-30 -2 -89 -16 -130 -32 -41 -17 -110
+-42 -152 -57 -43 -16 -75 -32 -72 -37 3 -5 -1 -6 -9 -4 -7 3 -110 -31 -228
+-76 -118 -44 -222 -83 -231 -86 -10 -3 -18 -9 -18 -13 0 -4 60 -43 133 -86 72
+-43 134 -79 136 -81 3 -2 -5 -13 -16 -26 -32 -35 -358 -466 -441 -582 -210
+-296 -277 -403 -510 -815 -188 -333 -240 -419 -299 -487 -48 -57 -178 -148
+-226 -159 -23 -5 -26 -8 -16 -16 10 -7 5 -8 -14 -3 -17 3 -26 2 -23 -4 7 -11
+-25 -25 -33 -13 -3 5 -55 5 -116 1 l-110 -7 103 2 c82 1 98 -1 78 -10 -15 -5
+-24 -13 -20 -16 10 -11 -68 -30 -148 -35 -43 -3 -76 -9 -73 -13 9 -14 -100
+-89 -112 -76 -3 3 -15 -1 -27 -9 -11 -8 -28 -15 -37 -15 -10 0 -19 -4 -21 -10
+-4 -13 -131 -30 -175 -23 -26 4 -34 3 -29 -5 12 -20 -8 -13 -27 8 -20 24 -47
+26 -47 5 0 -8 -3 -15 -6 -15 -11 0 -33 28 -27 34 4 3 -1 6 -11 6 -9 0 -14 5
+-11 10 3 6 3 10 -2 11 -36 3 -60 12 -73 28 -8 10 -23 23 -34 28 -15 9 -11 11
+25 19 36 7 18 9 -101 15 -80 3 -148 7 -152 8 -17 3 -6 20 15 24 15 3 11 5 -12
+6 -65 2 -19 16 72 22 57 3 -11 6 -175 7 l-268 2 0 23 c0 12 18 153 40 312 22
+160 47 342 56 405 32 247 55 310 138 392 61 60 114 88 233 125 l88 27 495 6
+c550 8 538 6 686 79 89 45 188 128 262 224 53 68 355 667 343 680 -4 4 -592 6
+-1307 4 -1442 -4 -1349 1 -1514 -71 -171 -74 -300 -196 -385 -363 -48 -94 -67
+-178 -115 -495 -23 -150 -52 -340 -65 -423 -13 -82 -45 -292 -70 -465 -26
+-173 -67 -448 -91 -610 -25 -162 -83 -560 -129 -885 -46 -324 -89 -619 -95
+-655 -48 -304 -50 -480 -8 -625 59 -202 199 -365 394 -460 194 -95 196 -95
+1294 -95 1032 0 1010 -1 1145 64 142 67 182 107 430 425 44 57 110 140 148
+186 67 83 83 110 50 84 -16 -13 -17 -12 -4 3 7 10 17 16 21 13 4 -2 28 22 54
+55 45 59 55 77 36 65 -6 -3 -7 1 -3 10 4 12 8 13 13 5 5 -8 15 -2 30 17 l22
+28 -1119 5 c-1066 5 -1120 6 -1153 24 -110 58 -146 145 -129 314 21 207 50
+375 73 421 43 84 97 128 201 167 47 18 105 19 1005 24 l955 5 72 27 c138 50
+231 121 308 238 26 38 118 231 206 427 371 830 397 878 796 1473 183 273 295
+436 311 452 5 5 65 -24 135 -66 l127 -75 0 273 c0 459 -12 906 -24 906 -6 0
+-18 -5 -26 -11z m-146 -328 c3 -5 -1 -11 -9 -14 -9 -4 -12 -1 -8 9 6 16 10 17
+17 5z m-409 -389 c-3 -3 -11 0 -18 7 -9 10 -8 11 6 5 10 -3 15 -9 12 -12z
+m-1487 -3961 c-87 -3 -229 -3 -315 0 -115 4 -72 5 157 5 229 0 272 -1 158 -5z"/>
+      <path d="M8010 8259 c0 -5 5 -7 10 -4 6 3 10 8 10 11 0 2 -4 4 -10 4 -5 0 -10
+-5 -10 -11z"/>
+      <path d="M7955 8246 c-16 -7 -45 -18 -63 -25 -18 -7 -31 -15 -28 -18 4 -4 27
+5 116 45 34 15 12 13 -25 -2z"/>
+      <path d="M7965 8220 c-3 -5 -1 -10 4 -10 6 0 11 5 11 10 0 6 -2 10 -4 10 -3 0
+-8 -4 -11 -10z"/>
+      <path d="M7805 8185 c-25 -12 -26 -14 -5 -9 14 4 29 10 35 15 12 12 5 11 -30
+-6z"/>
+      <path d="M7880 8190 c-8 -5 -10 -10 -5 -10 6 0 17 5 25 10 8 5 11 10 5 10 -5
+0 -17 -5 -25 -10z"/>
+      <path d="M5528 5553 c6 -2 18 -2 25 0 6 3 1 5 -13 5 -14 0 -19 -2 -12 -5z"/>
+    </symbol>
+  </defs>
+
+  <!-- Background (optional, for app icons) -->
+
+  <!-- Use the ecomex mark scaled to fit -->
+  <g id="brand-mark-group" transform="translate(20, 30) scale(0.30)">
+    <!-- Shadow layer (offset down for depth) -->
+    <g transform="translate(0, 12)" opacity="0.35">
+      <use href="#ecomex-mark" fill="#5b21b6"/>
+    </g>
+
+    <!-- Deep back ribbon (darker violet) -->
+    <g class="ribbon-back">
+      <use href="#ecomex-mark" fill="url(#deepShadow)"/>
+    </g>
+
+    <!-- Main icon fill -->
+    <g class="ribbon-main">
+      <use href="#ecomex-mark" fill="url(#violetGradient)" filter="url(#dropShadow)"/>
+    </g>
+
+    <!-- Inner highlight layer (creates the ribbon-fold light) -->
+    <g class="ribbon-highlight" opacity="0.4">
+      <use href="#ecomex-mark" fill="url(#highlight)"/>
+    </g>
+
+    <!-- Light reflection on top edge -->
+    <g class="ribbon-shine" opacity="0.5">
+      <use href="#ecomex-mark" fill="url(#violetLight)"/>
+    </g>
+  </g>
+
+  <!-- Optional: glow accent for arrow tip (right-upper area) -->
+  <circle class="arrow-accent" cx="148" cy="35" r="6" fill="#ffffff" opacity="0.7" filter="url(#arrowGlow)"/>
+</svg>

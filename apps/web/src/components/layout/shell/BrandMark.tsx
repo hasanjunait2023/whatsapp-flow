@@ -1,29 +1,34 @@
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { APP_NAME } from '@/config/branding';
-import logoImage from '@/assets/logo.png';
 
 interface BrandMarkProps {
   to: string;
-  /** Suffix appended after the product name (e.g. "Admin"). */
   suffix?: string;
   variant?: 'tenant' | 'admin';
+  withMotion?: boolean;
 }
 
 /**
- * Brand cluster (DESIGN.md §1.2 left): orange rounded-square favicon glyph + product
- * name (near-black, semibold). Clicking → the panel root.
+ * Brand cluster for sidebar: rounded-square violet badge + product name.
+ * 2026-07-01 brand refresh — uses official icon-square.svg.
  */
-export function BrandMark({ to, suffix, variant = 'tenant' }: BrandMarkProps) {
+export function BrandMark({ to, suffix, variant = 'tenant', withMotion = true }: BrandMarkProps) {
   const isAdmin = variant === 'admin';
   return (
     <Link
       to={to}
       className="flex items-center gap-2.5 rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
-      <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-control bg-primary">
-        <img src={logoImage} alt="" className="h-5 w-5 object-contain" />
-      </span>
+      <img
+        src="/brand/icon-square.svg"
+        alt=""
+        className={cn(
+          "h-8 w-8 object-contain rounded-[18%]",
+          "shadow-[0_4px_12px_rgba(124,58,237,0.35)]",
+          withMotion && "ecx-motion"
+        )}
+      />
       <span
         className={cn(
           'hidden truncate text-[15px] font-semibold sm:inline',

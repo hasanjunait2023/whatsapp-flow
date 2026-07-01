@@ -1,0 +1,203 @@
+/**
+ * Ecomex Brand CSS — v2 (2026-07-01)
+ * Uses Boss's official rounded-square violet badge + ribbon-fold icon.
+ * Motion language:
+ *  - Image reveals with shimmer on mount (mask sweep)
+ *  - Hover: lift + glow expand
+ *  - Continuous: subtle pulse on arrow tip (where present)
+ *  - Respect reduced-motion via @media
+ */
+
+:root {
+  --ecx-violet-50:  #f5f3ff;
+  --ecx-violet-100: #ede9fe;
+  --ecx-violet-200: #ddd6fe;
+  --ecx-violet-300: #c4b5fd;
+  --ecx-violet-400: #a78bfa;
+  --ecx-violet-500: #8b5cf6;
+  --ecx-violet-600: #7c3aed;
+  --ecx-violet-700: #6d28d9;
+  --ecx-violet-800: #5b21b6;
+  --ecx-violet-900: #4c1d95;
+  --ecx-violet-950: #1e1b4b;
+
+  --ecx-shadow-sm: 0 1px 2px rgba(91, 33, 182, 0.08);
+  --ecx-shadow-md: 0 6px 20px rgba(91, 33, 182, 0.16), 0 2px 6px rgba(124, 58, 237, 0.08);
+  --ecx-shadow-lg: 0 16px 48px rgba(91, 33, 182, 0.22), 0 4px 12px rgba(124, 58, 237, 0.12);
+  --ecx-shadow-glow: 0 0 32px rgba(167, 139, 250, 0.45), 0 8px 24px rgba(124, 58, 237, 0.18);
+
+  --ecx-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ecx-ease-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ecx-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* ============================================================
+   LOGO — base + variants
+   ============================================================ */
+.ecx-logo {
+  display: inline-block;
+  vertical-align: middle;
+  user-select: none;
+  -webkit-user-drag: none;
+  transition:
+    transform 320ms var(--ecx-ease-out),
+    filter 320ms var(--ecx-ease-out);
+}
+
+/* ============================================================
+   HOVER — interactive feedback
+   ============================================================ */
+.ecx-logo:hover {
+  transform: translateY(-2px) scale(1.04);
+  filter: drop-shadow(0 8px 24px rgba(124, 58, 237, 0.4));
+}
+
+/* Mount animation — rise + slight scale + settle */
+.ecx-motion {
+  animation: ecx-logo-mount 700ms var(--ecx-ease-back) 80ms both;
+}
+
+@keyframes ecx-logo-mount {
+  0%   { opacity: 0; transform: translateY(12px) scale(0.92) rotate(-3deg); }
+  60%  { opacity: 1; transform: translateY(0) scale(1.03) rotate(1deg); }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+}
+
+/* ============================================================
+   HERO PANEL — for login/signup hero
+   ============================================================ */
+.ecx-hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 60% 50% at 30% 30%, rgba(167, 139, 250, 0.22), transparent 60%),
+    radial-gradient(ellipse 50% 60% at 70% 80%, rgba(124, 58, 237, 0.18), transparent 65%),
+    linear-gradient(180deg, var(--ecx-violet-950) 0%, var(--ecx-violet-900) 100%);
+}
+
+.ecx-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(167, 139, 250, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(167, 139, 250, 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 90%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 90%);
+  pointer-events: none;
+}
+
+.ecx-hero__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.55;
+  animation: ecx-float 8s ease-in-out infinite;
+  pointer-events: none;
+}
+.ecx-hero__orb--1 {
+  top: -10%; left: -5%; width: 320px; height: 320px;
+  background: var(--ecx-violet-500);
+  animation-delay: 0s;
+}
+.ecx-hero__orb--2 {
+  bottom: -15%; right: -5%; width: 400px; height: 400px;
+  background: var(--ecx-violet-700);
+  animation-delay: -3s;
+}
+
+@keyframes ecx-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(20px, -30px) scale(1.08); }
+}
+
+/* ============================================================
+   REVEAL MASK — shimmer sweep on mount
+   ============================================================ */
+.ecx-reveal {
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+}
+.ecx-reveal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 70%);
+  transform: translateX(-100%);
+  animation: ecx-shimmer 1800ms var(--ecx-ease-in-out) 600ms 1;
+  pointer-events: none;
+}
+@keyframes ecx-shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ============================================================
+   BUTTONS — primary brand CTA
+   ============================================================ */
+.ecx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-weight: 600;
+  border-radius: 12px;
+  border: 0;
+  cursor: pointer;
+  transition:
+    transform 200ms var(--ecx-ease-out),
+    box-shadow 240ms var(--ecx-ease-out),
+    background 240ms var(--ecx-ease-out);
+}
+.ecx-btn-primary {
+  background: linear-gradient(135deg, var(--ecx-violet-500) 0%, var(--ecx-violet-700) 100%);
+  color: white;
+  box-shadow: var(--ecx-shadow-md);
+}
+.ecx-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--ecx-shadow-lg);
+}
+.ecx-btn-primary:active {
+  transform: translateY(0);
+}
+
+/* ============================================================
+   TEXT — brand wordmark utility
+   ============================================================ */
+.ecx-wordmark {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  background: linear-gradient(90deg, var(--ecx-violet-950) 0%, var(--ecx-violet-800) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  display: inline-block;
+}
+.ecx-wordmark--light {
+  background: linear-gradient(90deg, #ffffff 0%, var(--ecx-violet-300) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* ============================================================
+   ACCESSIBILITY — respect reduced motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .ecx-motion,
+  .ecx-hero__orb,
+  .ecx-reveal::after,
+  .ecx-logo {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

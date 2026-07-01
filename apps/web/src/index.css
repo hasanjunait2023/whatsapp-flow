@@ -629,3 +629,6 @@ body[data-scroll-locked] {
     }
   }
 }
+
+/* Ecomex brand kit — violet palette, ribbon-fold masking, motion */
+@import './brand/brand.css';

@@ -1,34 +1,33 @@
 import { cn } from '@/lib/utils';
-import logoImage from '@/assets/logo.png';
 
 interface AppLogoProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
-  showText?: boolean;
+  withMotion?: boolean;
 }
 
 /**
- * AppLogo is the legacy raw-PNG renderer, used by Nav / Footer on light
- * surfaces. After the BrandedLogo treatment, callers who want motion
- * should use <BrandedLogo theme="light" /> instead — AppLogo is kept as
- * a static fallback for places where motion would be distracting
- * (e.g. inside a tight button or a list of footer links).
+ * Ecomex logo mark — rounded-square violet badge with ribbon-fold icon.
+ * Uses /brand/icon-square.svg (Boss's official spec, 2026-07-01).
  */
-export function AppLogo({ className, size = 'md', showText = false }: AppLogoProps) {
+export function AppLogo({ className, size = 'md', withMotion = false }: AppLogoProps) {
   const sizeClasses = {
-    sm: 'h-6',
-    md: 'h-8',
-    lg: 'h-10',
-    xl: 'h-12'
+    sm: 'h-6 w-6',
+    md: 'h-8 w-8',
+    lg: 'h-10 w-10',
+    xl: 'h-12 w-12',
   };
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
-      <img
-        src={logoImage}
-        alt="What A App"
-        className={cn(sizeClasses[size], "object-contain")}
-      />
-    </div>
+    <img
+      src="/brand/icon-square.svg"
+      alt="Ecomex"
+      className={cn(
+        sizeClasses[size],
+        "object-contain rounded-[18%]",
+        withMotion && "ecx-motion",
+        className
+      )}
+    />
   );
 }

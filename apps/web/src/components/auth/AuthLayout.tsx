@@ -1,110 +1,67 @@
 import { ReactNode } from 'react';
-import { AppLogo } from '@/components/AppLogo';
 import { BrandedLogo } from '@/components/BrandedLogo';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ProductShowcase } from './ProductShowcase';
 
-interface AuthLayoutProps {
-  children: ReactNode;
-}
-
-
+/**
+ * AuthLayout — left brand hero + right form area.
+ * 2026-07-01 brand refresh: violet gradient hero + ribbon-fold logo with shimmer reveal.
+ */
 export function AuthLayout({ children }: AuthLayoutProps) {
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Left Side - Branding & Features */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] relative overflow-hidden">
-        {/* Animated Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-primary/80" />
-        
-        {/* Animated Circles */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -left-40 w-80 h-80 bg-white/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute top-1/4 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl animate-pulse delay-1000" />
-          <div className="absolute bottom-0 left-1/4 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse delay-500" />
+      {/* LEFT — Brand Hero */}
+      <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] relative overflow-hidden ecx-hero">
+        {/* Floating orbs (motion) */}
+        <div className="ecx-hero__orb ecx-hero__orb--1" />
+        <div className="ecx-hero__orb ecx-hero__orb--2" />
+
+        {/* Brand cluster at top */}
+        <div className="relative z-10 flex items-center justify-between p-8 lg:p-12">
+          <BrandedLogo theme="dark" size="lg" />
+          <LanguageSwitcher />
         </div>
-        
-        {/* Grid Pattern Overlay */}
-        <div 
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        />
-        
-        {/* Content */}
-        <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16 w-full">
-          {/* Logo — dark theme: keeps the original brightness-0 invert so the PNG
-              reads as white-on-transparent on the violet panel, then wraps it
-              in a soft violet pulse glow that breathes every 3.2s. */}
-          <div className="[&_img]:brightness-0 [&_img]:invert">
-            <BrandedLogo theme="dark" size="xl" />
+
+        {/* Center brand mark with masked reveal */}
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-8 text-center">
+          <div className="ecx-reveal mb-8">
+            <img
+              src="/brand/icon-square-512.png"
+              alt="Ecomex"
+              className="ecx-motion w-40 h-40 mx-auto rounded-[20%] shadow-[0_20px_60px_rgba(124,58,237,0.5)]"
+            />
           </div>
-          
-          {/* Hero Text */}
-          <div className="space-y-8">
-            <div className="space-y-4">
-              <h1 className="text-4xl xl:text-5xl font-bold text-white leading-tight">
-                Automate Your
-                <br />
-                <span className="text-white/90">E-commerce Business</span>
-              </h1>
-              <p className="text-lg text-white/80 max-w-md">
-                The all-in-one WhatsApp business platform for managing orders, 
-                customers, and team communications.
-              </p>
-            </div>
-            
-            {/* Live product showcase */}
-            <ProductShowcase />
-          </div>
-          
-          {/* Footer Stats */}
-          <div className="flex items-center gap-8">
-            <div>
-              <p className="text-3xl font-bold text-white">500+</p>
-              <p className="text-sm text-white/70">Active Businesses</p>
-            </div>
-            <div className="w-px h-12 bg-white/20" />
-            <div>
-              <p className="text-3xl font-bold text-white">1M+</p>
-              <p className="text-sm text-white/70">Messages/Month</p>
-            </div>
-            <div className="w-px h-12 bg-white/20" />
-            <div>
-              <p className="text-3xl font-bold text-white">99.9%</p>
-              <p className="text-sm text-white/70">Uptime</p>
-            </div>
-          </div>
+          <h1 className="ecx-wordmark ecx-wordmark--light text-5xl lg:text-6xl font-extrabold mb-4 tracking-tight">
+            Ecomex
+          </h1>
+          <p className="text-violet-200 text-lg lg:text-xl font-medium tracking-wide uppercase opacity-80">
+            Automation
+          </p>
+          <p className="mt-6 text-violet-100/70 text-base max-w-md leading-relaxed">
+            Connect your WhatsApp Business number, automate conversations at scale, and grow revenue.
+          </p>
+        </div>
+
+        {/* Bottom social proof area */}
+        <div className="relative z-10 px-8 pb-8 text-center text-violet-200/60 text-xs">
+          <span>Trusted by 2,000+ businesses worldwide</span>
         </div>
       </div>
-      
-      {/* Right Side - Auth Form */}
-      <div className="flex-1 flex flex-col bg-background min-h-screen lg:min-h-0">
-        {/* Top Bar — sticky so it stays visible while the form scrolls. */}
-        <div className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-background/95 backdrop-blur-sm p-4 lg:p-6 safe-top">
-          <div className="lg:hidden">
-            <BrandedLogo theme="light" size="md" />
+
+      {/* RIGHT — Form area */}
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-background">
+        <div className="w-full max-w-md">
+          {/* Mobile-only logo */}
+          <div className="lg:hidden mb-8 text-center">
+            <BrandedLogo theme="light" size="md" className="mx-auto" />
           </div>
-          <div className="ml-auto">
-            <LanguageSwitcher showLabel />
-          </div>
-        </div>
-        
-        {/* Form Container */}
-        <div className="flex-1 flex items-center justify-center p-4 lg:p-8 overflow-auto">
-          <div className="w-full max-w-md">
-            {children}
-          </div>
-        </div>
-        
-        {/* Bottom Footer */}
-        <div className="p-4 lg:p-6 text-center border-t border-border bg-background">
-          <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} What A App by Ecomex. All rights reserved.
-          </p>
+          {children}
         </div>
       </div>
     </div>
   );
+}
+
+interface AuthLayoutProps {
+  children: ReactNode;
 }
