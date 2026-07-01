@@ -44,12 +44,20 @@ afterEach(() => {
 describe("admin-only gating", () => {
   it("admin-delete-tenant refuses non-admins", async () => {
     const res = await adminDeleteTenant({ tenant_ids: [TENANT_A] }, ctx(TENANT_A, false));
-    expect((res.data as { error?: string }).error).toBe("Admin privileges required");
+    // The forbidden() helper returns { data: null, error: { message, code } }
+    // (the dispatcher maps this to HTTP 403). The test was written for the
+    // old shape where data held an error string — updated 2026-07-01 to match
+    // the current FnResult envelope.
+    expect(res.data).toBeNull();
+    expect(res.error?.message).toBe("Admin privileges required");
+    expect(res.error?.code).toBe("FORBIDDEN");
   });
 
   it("admin-reset-user-password refuses non-admins", async () => {
     const res = await adminResetUserPassword({ user_id: "x" }, ctx(TENANT_A, false));
-    expect((res.data as { error?: string }).error).toBe("Admin privileges required");
+    expect(res.data).toBeNull();
+    expect(res.error?.message).toBe("Admin privileges required");
+    expect(res.error?.code).toBe("FORBIDDEN");
   });
 });
 
@@ -151,7 +159,12 @@ describe("resend-welcome-notification", () => {
 
   it("refuses non-admins", async () => {
     const res = await resendWelcomeNotification({ order_id: "ord-1" }, ctx(TENANT_B, false));
-    expect((res.data as { error?: string }).error).toBe("Admin privileges required");
+    // resendWelcomeNotification uses an inline FORBIDDEN envelope (not the
+    // admin-fns forbidden() helper), but the shape is identical:
+    // { data: null, error: { code: "FORBIDDEN", message: "..." } }.
+    expect(res.data).toBeNull();
+    expect(res.error?.message).toBe("Admin privileges required");
+    expect(res.error?.code).toBe("FORBIDDEN");
   });
 });
 

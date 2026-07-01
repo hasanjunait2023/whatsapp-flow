@@ -294,8 +294,11 @@ export async function generateInvoice(raw: Record<string, unknown>, ctx: FnConte
 
   // Invoice number from invoice_settings prefix + running counter.
   // Race-safe: bump-and-fetch in a single SQL with UPDATE ... RETURNING.
+  // id is generated client-side because $defaultFn only fires for Drizzle inserts,
+  // not raw SQL (raw SQL bypasses the defaultFn hook and would otherwise insert NULL id).
   const seedRow = (await dbGet(
-    "INSERT INTO invoice_settings (tenant_id, invoice_prefix, next_invoice_number) VALUES (?, 'INV-', 2) ON CONFLICT (tenant_id) DO NOTHING RETURNING next_invoice_number",
+    "INSERT INTO invoice_settings (id, tenant_id, invoice_prefix, next_invoice_number) VALUES (?, ?, 'INV-', 2) ON CONFLICT (tenant_id) DO NOTHING RETURNING next_invoice_number",
+    crypto.randomUUID(),
     order.tenant_id,
   )) as { next_invoice_number: number } | undefined;
 

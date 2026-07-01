@@ -69,7 +69,11 @@ function verifyHmac(raw: string, signature: string | undefined, secret: string |
   }
   // Prefer the instance's per-instance secret; fall back to the legacy/global
   // key so sessions provisioned before per-instance secrets still verify.
-  const key = secret ?? WAHA_WEBHOOK_HMAC_SECRET;
+  // Use `||` not `??`: the DB column defaults to "" (empty string, not null),
+  // and `??` only falls through on null/undefined — `"" ?? "x"` evaluates to
+  // `""`, which would cause every webhook to fail. With `||` the empty-string
+  // default correctly falls through to the global secret.
+  const key = secret || WAHA_WEBHOOK_HMAC_SECRET;
   if (!key) {
     return false; // required but misconfigured (no key) → reject all
   }
