@@ -1,0 +1,70 @@
+# Prometheus config for the whatsapp-flow stack.
+#
+# Scrapes (all from inside the docker compose network):
+#   - whatsapp-flow_app_1 /metrics (custom: requests, errors, queue depth, pgbouncer stats)
+#   - whatsapp-flow-pgbouncer internal stats (exposed via edoburu pgBouncer included
+#     stats endpoint on port 6432 — enabled because we set stats_users above; we'll
+#     use the special "pgbouncer" user approach via the auth_file or a separate
+#     stats_users file).
+#   - WhatsApp-flow container's own node-exporter (CPU, RAM, disk of the VPS box).
+#
+# Retention: 15 days. Long enough for weekly trends without unbounded disk growth.
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  # External labels — appear on every metric; helps Grafana distinguish
+  # whatsapp-flow dashboards from any other project's stack sharing the cluster.
+  external_labels:
+    stack: whatsapp-flow
+    env: production
+
+scrape_configs:
+  # ---------------------------------------------------------------------
+  # 1. Custom app metrics — exposed by apps/server on /metrics.
+  # Provides: HTTP request counts + latencies, error counts, queue depth,
+  # active WebSocket/SSE connections, pgbouncer pool snapshots.
+  # ---------------------------------------------------------------------
+  - job_name: whatsapp-flow-app
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          # app is reachable at service name `app` on port 3500 (loopback inside container).
+          - app:3500
+        labels:
+          component: api
+
+  # ---------------------------------------------------------------------
+  # 2. PgBouncer stats — exposed by edoburu/pgbouncer's bundled stats
+  # endpoint. We hit the special "pgbouncer" pseudo-user which always
+  # returns SHOW STATS without needing auth_query — the stats endpoint
+  # is a separate code path from auth.
+  # ---------------------------------------------------------------------
+  - job_name: whatsapp-flow-pgbouncer
+    static_configs:
+      - targets:
+          - pgbouncer:6432
+        labels:
+          component: pooler
+
+  # ---------------------------------------------------------------------
+  # 3. Postgres connection saturation — pulled directly from our Postgres
+  # container via the standard prometheus pg-exporter. Distinct from
+  # PgBouncer stats — this lets us alert when pg.total_connections is
+  # climbing toward max_connections even if PgBouncer is masking it.
+  # ---------------------------------------------------------------------
+  - job_name: whatsapp-flow-postgres
+    static_configs:
+      - targets:
+          - postgres_exporter:9187
+        labels:
+          component: database
+
+  # ---------------------------------------------------------------------
+  # 4. Host metrics (CPU, RAM, disk, network) — for the VPS box itself.
+  # ---------------------------------------------------------------------
+  - job_name: whatsapp-flow-node
+    static_configs:
+      - targets:
+          - node-exporter:9100
+        labels:
+          component: host

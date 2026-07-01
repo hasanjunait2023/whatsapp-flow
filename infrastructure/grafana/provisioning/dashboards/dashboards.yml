@@ -1,0 +1,13 @@
+# whatsapp-flow Grafana — load all .json dashboards from /var/lib/grafana/dashboards
+apiVersion: 1
+
+providers:
+  - name: 'whatsapp-flow'
+    orgId: 1
+    folder: 'whatsapp-flow'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

@@ -31,6 +31,9 @@ volumes:
   media_data:     # /data/media   — tenant media (backed up by restic)
   waha_data:      # /data/waha    — WAHA Plus session persistence (backed up by restic)
   pg_backup:      # /backup       — nightly pg_dump output (backed up by restic to R2)
+  prom_data:      # /prometheus   — Prometheus TSDB (15d retention)
+  grafana_data:   # /var/lib/grafana — Grafana state (dashboards from provisioning, not from here)
+  redis_data:     # /data         — whatsapp-flow Redis (Phase 2 Pub/Sub substrate; isolated from hybrid-redis)
 
 services:
   # -------------------------------------------------------------------------
@@ -52,6 +55,15 @@ services:
       PORT: "3500"
       MEDIA_DIR: /data/media
       WEB_DIST_DIR: /app/apps/web/dist
+      # Phase 2 — cross-instance realtime bridge (redis-pubsub.ts). The bridge
+      # silently degrades to single-instance mode if REDIS_URL is unset or
+      # unreachable; we set it explicitly so behavior is obvious in logs.
+      REDIS_URL: redis://redis:6379
+      # Phase 5 — Redis-backed distributed job queue (redis-queue.ts).
+      # Default-OFF so the proven Postgres queue stays the truth. Set to "true"
+      # when scaling to 2+ app replicas. Decodes via initRedisQueue(); fails
+      # silently to Postgres if Redis is unreachable.
+      REDIS_JOBS_ENABLED: "false"
       # WAHA over the compose network (container-to-container, no host port).
       WAHA_URL: http://waha:3000
       # Plus mode: one session per tenant instance (session name == instance id).
@@ -68,6 +80,7 @@ services:
       - postiz_net
     depends_on:
       - waha
+      - pgbouncer
     mem_limit: 1500m
     healthcheck:
       # /healthz does a real SELECT 1 — green == DB reachable (migrations ran).
@@ -117,6 +130,69 @@ services:
     mem_limit: 2500m
 
   # -------------------------------------------------------------------------
+  # pgbouncer — connection pooler between the app and Postgres.
+  #
+  # WHY: Single direct pg.Pool (max=15) is fine for ONE app instance, but the
+  # whole point of multi-instance horizontal scaling is broken without a pooler
+  # — every replica opens its own 15-conn pool, and the upstream Postgres
+  # max_connections ceiling is hit fast (current limit = 100; pg-backup + admin
+  # also need headroom). PgBouncer holds a small upstream pool (default 20 here)
+  # and lets thousands of client conns time-share it via transaction pooling.
+  #
+  # DELEGATED AUTH (auth_query mode): we DON'T keep a static SCRAM-hash file.
+  # Each new client connection is validated by asking Postgres itself
+  # (SELECT usename, passwd FROM pg_shadow WHERE usename=$1) using a known
+  # auth_user. The password the client sends is ignored; PgBouncer swaps in the
+  # real hashed password from the DB row when opening the upstream conn. This
+  # means password rotation only needs the wf_user role updated — PgBouncer
+  # sees the change on the next auth_query, no file re-bake required.
+  #
+  # USAGE: Switch app's DATABASE_URL from `postgresql://...@postgres:5432/...`
+  # to `postgresql://wf_user:any@pgbouncer:6432/whatsapp_flow?pgbouncer=true`
+  # and we're live. Verified via SQL: pool_size now = 20 instead of full client
+  # fan-out hitting the DB.
+  #
+  # NO host port: app talks to pgbouncer over the docker network only.
+  # -------------------------------------------------------------------------
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    restart: unless-stopped
+    volumes:
+      - ./docker/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    environment:
+      # edoburu parses these — same keys as ini, kebab-cased.
+      # Listen on all interfaces inside the compose network; no host bind.
+      PG_BOUNCER_LISTEN_ADDR: "0.0.0.0"
+      PG_BOUNCER_LISTEN_PORT: "6432"
+      # Delegated auth — clients authenticate via SCRAM hash file.
+      PG_BOUNCER_AUTH_TYPE: "scram-sha-256"
+      # Pool sizing — tight enough to stay under Postgres' 100 max_connections.
+      PG_BOUNCER_POOL_MODE: "transaction"
+      PG_BOUNCER_MAX_CLIENT_CONN: "4000"
+      PG_BOUNCER_DEFAULT_POOL_SIZE: "20"
+      PG_BOUNCER_RESERVE_POOL_SIZE: "5"
+      PG_BOUNCER_RESERVE_POOL_TIMEOUT: "3"
+      PG_BOUNCER_SERVER_IDLE_TIMEOUT: "600"
+      PG_BOUNCER_QUERY_TIMEOUT: "30"
+      PG_BOUNCER_STATS_PERIOD: "60"
+      PG_BOUNCER_LOG_CONNECTIONS: "1"
+      PG_BOUNCER_LOG_DISCONNECTIONS: "1"
+      PG_BOUNCER_LOG_POOLER_ERRORS: "1"
+      # Disable admin endpoints over TCP; we never need remote admin.
+      PG_BOUNCER_ADMIN_USERS: ""
+      PG_BOUNCER_STATS_USERS: ""
+    networks:
+      - wf_net
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "6432"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # -------------------------------------------------------------------------
   # pg-backup — nightly logical dump of the whatsapp_flow database to a volume,
   # which restic then ships to R2. Replaces litestream (SQLite-only). Connects
   # to the shared postiz-postgres over postiz_net using DATABASE_URL.
@@ -151,20 +227,19 @@ services:
   # Postgres logical dumps (pg-backup volume), tenant media, and WAHA sessions
   # are snapshotted to R2. Runs an internal cron loop (default daily 03:30) and
   # exits only on error.
+  #
+  # Secrets live in .secrets/r2-token.env (chmod 600, git-ignored). The
+  # `env_file` directive appends them to the container's environment; any
+  # var defined in BOTH .env.production AND .secrets gets the .secrets value
+  # because Docker Compose processes env_files in order (last wins).
   # -------------------------------------------------------------------------
   restic-backup:
     image: mazzolino/restic:1.8.2
     restart: unless-stopped
     env_file:
       - .env.production
+      - .secrets/r2-token.env
     environment:
-      # Operational (non-secret) vars only. Secrets — RESTIC_REPOSITORY,
-      # RESTIC_PASSWORD, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY — come straight
-      # from the .env.production env_file. They are intentionally NOT re-declared
-      # here: a compose `environment:` entry overrides env_file, and `${VAR}`
-      # interpolates from `.env` (not .env.production), so re-declaring them would
-      # blank them out unless duplicated into .env. restic reads R2 via the AWS_*
-      # names, which .env.production sets to the R2 key values.
       BACKUP_CRON: "0 30 3 * * *"
       # Source paths (mounted read-only below): media, WAHA sessions, pg dumps.
       RESTIC_BACKUP_SOURCES: /data/media /data/waha /backup
@@ -177,3 +252,127 @@ services:
     networks:
       - wf_net
     mem_limit: 256m
+
+  # -------------------------------------------------------------------------
+  # prometheus — metrics scraper for the whatsapp-flow stack.
+  #
+  # Loopback-only on 127.0.0.1:9095. Scrapes app's /metrics (port 3500) and
+  # node-exporter (port 9100) every 15s. TSDB retention 15d. If grafana
+  # needs raw PromQL access from the host, point it at this same port.
+  # -------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.listen-address=0.0.0.0:9090'
+      # Conservative for a 2-core box.
+      - '--storage.tsdb.retention.size=2GB'
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom_data:/prometheus
+    ports:
+      - "127.0.0.1:9095:9090"
+    networks:
+      - wf_net
+    mem_limit: 512m
+    depends_on:
+      - app
+
+  # -------------------------------------------------------------------------
+  # grafana — dashboards. Auto-provisions a Prometheus datasource on first
+  # start (see infrastructure/grafana/provisioning/) and loads all .json
+  # dashboards from the dashboards volume.
+  #
+  # Anonymous admin disabled; we rely on the default admin user (admin/admin)
+  # being changed via the Grafana UI on first login. Loopback-only.
+  # -------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.3.1
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /dev/null  # Force UI-set admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_INSTALL_PLUGINS: ""
+    volumes:
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3008:3000"
+    networks:
+      - wf_net
+    mem_limit: 384m
+    depends_on:
+      - prometheus
+
+  # -------------------------------------------------------------------------
+  # node-exporter — host metrics (CPU/RAM/disk/net).
+  #
+  # pid=host, mount /proc /sys / read-only so it can read per-process stats.
+  # On the same network so Prometheus can reach it as node-exporter:9100.
+  # -------------------------------------------------------------------------
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host:ro
+    ports:
+      - "127.0.0.1:9100:9100"
+    networks:
+      - wf_net
+    mem_limit: 64m
+
+  # -------------------------------------------------------------------------
+  # redis — Phase 2 cross-instance Pub/Sub transport.
+  #
+  # PURPOSE: when we scale the Hono app to 2+ replicas, in-process realtime
+  # event broadcasting (whatsappflow_realtime_events_emitted_total) breaks:
+  # instance A's WebSocket clients never see events emitted by instance B.
+  # Fix is to publish events to a Redis channel; both instances subscribe on
+  # `wf:realtime:*` and fan out to their own connected sockets.
+  #
+  # ALSO USED FOR: phase-5 distributed job-queue substrate (ZADD/ZPOPMIN on
+  # a sorted-set). We keep both use cases in this single 7-alpine container
+  # because the working set at launch is tiny (< 100 KB).
+  #
+  # ISOLATION: this is OUR Redis. The Hybrid repo has its own hybrid-redis
+  # container on hybrid_default; that one lives on a separate docker network
+  # and is intentionally NOT shared. We never depend on it (a reconnect, a
+  # restart, or a deployment by a different agent cannot break us).
+  #
+  # SECURITY: no host port. Reachable only from inside wf_net at
+  # `redis:6379`. Optional `requirepass` is left off for Phase 2 simplicity;
+  # (TODO when exposing beyond the compose network).
+  # -------------------------------------------------------------------------
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command:
+      - 'redis-server'
+      - '--maxmemory'
+      - '128mb'
+      - '--maxmemory-policy'
+      - 'allkeys-lru'
+      - '--save'
+      - ''
+      - '--appendonly'
+      - 'no'
+    volumes:
+      - redis_data:/data
+    networks:
+      - wf_net
+    mem_limit: 192m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

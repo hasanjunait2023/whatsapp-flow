@@ -22,6 +22,7 @@ import { fnRoute } from "./routes/fn.js";
 import { mediaRoute } from "./routes/media.js";
 import { realtimeRoute } from "./realtime/sse.js";
 import { realtimeWsEvents } from "./realtime/ws.js";
+import { initRedisBridge } from "./realtime/redis-pubsub.js";
 import { llmSettingsRoute } from "./routes/llm-settings.js";
 import { adminBillingRoute } from "./routes/admin-billing.js";
 import { wahaWebhookRoute } from "./routes/waha/webhook.js";
@@ -38,6 +39,7 @@ import { registerGrowthJobs } from "./services/growth/index.js";
 import { enrollLeadInFunnel } from "./services/growth/funnel.js";
 import { registerOptOutHandler } from "./services/opt-out.js";
 import { registerBulkSend } from "./services/bulk-send.js";
+import { trackRequest, renderMetrics } from "./lib/metrics.js";
 import { seedPlansIfEmpty } from "./services/billing/seed-plans.js";
 import {
   PORT,
@@ -139,6 +141,18 @@ app.use("/api/*", async (c, next) => {
     status: c.res.status,
     ms: Date.now() - start,
   });
+  // Increment the http_requests_total counter with the canonical "route" key
+  // (Hono's .routePath or .path; falls back to "unknown" for unmatched routes).
+  // /healthz and /metrics are excluded — they're scraped by Prometheus, not
+  // real traffic.
+  const url = c.req.path;
+  if (!url.startsWith("/metrics") && !url.startsWith("/healthz")) {
+    trackRequest(
+      c.req.method,
+      (c.req as unknown as { routePath?: string }).routePath ?? url,
+      c.res.status,
+    );
+  }
 });
 
 // --- global error handler ----------------------------------------------------
@@ -178,6 +192,19 @@ app.get("/healthz", async (c) => {
     uptime: process.uptime(),
   };
   return c.json(body, dbOk ? 200 : 503);
+});
+
+// --- prometheus metrics -----------------------------------------------------
+// Open endpoint by design: Prometheus scrapes from inside the docker network
+// only. No authentication, but only listens on 127.0.0.1:3500 from the host —
+// nginx + cloudflare never expose /metrics to the internet. If we ever scale
+// to multi-instance, every instance needs a Prometheus target so the scraper
+// does the aggregation, not us.
+app.get("/metrics", async (c) => {
+  const body = await renderMetrics();
+  return new Response(body, {
+    headers: { "Content-Type": "text/plain; version=0.0.4" },
+  });
 });
 
 // --- auth (better-auth mounts its own handler under /api/auth) ---------------
@@ -343,6 +370,12 @@ try {
 } catch (err) {
   logger.error("seed_plans_failed", { msg_preview: err instanceof Error ? err.message : String(err) });
 }
+
+// Phase 2 — cross-instance realtime bridge. Fire-and-forget so a slow or
+// unreachable Redis never delays app boot: the in-process event bus keeps
+// working, and the bridge silently degrades to single-instance mode if it
+// can't connect. See realtime/redis-pubsub.ts.
+void initRedisBridge();
 
 const server = serve({ fetch: app.fetch, port: PORT });
 // Attach the WebSocket upgrade handler to the Node http server.

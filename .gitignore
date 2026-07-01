@@ -53,3 +53,6 @@ apps/web/pw-*
 # graphify generated knowledge graph (rebuilt locally via post-commit hook)
 graphify-out/
 .vercel
+
+# Certbot credentials
+/root/.secrets/cf-certbot.ini

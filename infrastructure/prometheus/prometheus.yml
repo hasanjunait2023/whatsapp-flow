@@ -1,0 +1,44 @@
+# whatsapp-flow Prometheus — production-grade scrape config
+#
+# Each scrape target lives on the wf_net compose network. Host port 9095 is
+# loopback-only; never expose 9090 publicly.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    project: whatsapp-flow
+    env: production
+
+scrape_configs:
+  # ---------------------------------------------------------------------------
+  # whatsapp-flow app — Hono /metrics endpoint
+  # ---------------------------------------------------------------------------
+  - job_name: 'whatsapp-flow-app'
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - 'app:3500'        # docker compose service name
+        labels:
+          service: app
+          component: hono
+
+  # ---------------------------------------------------------------------------
+  # host node exporter — CPU, RAM, disk, network for the VPS itself
+  # ---------------------------------------------------------------------------
+  - job_name: 'node'
+    static_configs:
+      - targets:
+          - 'node-exporter:9100'
+        labels:
+          host: vps
+
+  # ---------------------------------------------------------------------------
+  # Postgres exporter (optional — useful once you add it; harmless to leave)
+  # ---------------------------------------------------------------------------
+  - job_name: 'postgres'
+    static_configs:
+      - targets:
+          - 'pg-exporter:9187'
+        labels:
+          service: postgres
