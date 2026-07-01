@@ -1,26 +1,26 @@
 import { Link } from 'react-router-dom';
 import { LegalLayout, LegalSection, LEGAL_CONTACT_EMAIL } from './LegalLayout';
 
-const LAST_UPDATED = '14 June 2026';
+const LAST_UPDATED = '1 July 2026';
 
 export default function PrivacyPolicy() {
   return (
     <LegalLayout title="Privacy Policy" lastUpdated={LAST_UPDATED}>
       <p>
-        This Privacy Policy explains how What A App (the &ldquo;Service&rdquo;),
-        operated by Ecomex, collects, uses, stores, and protects information when
-        you use our messaging and customer-relationship platform. By using the
-        Service you agree to the practices described here. The Service connects to
-        WhatsApp, Facebook, and Instagram so that businesses can receive and send
-        messages from a single inbox.
+        This Privacy Policy explains how Ecomex (the &ldquo;Service&rdquo;),
+        operated by Ecomex Technologies Ltd., collects, uses, stores, and protects
+        information when you use our messaging and customer-relationship platform. By
+        using the Service you agree to the practices described here. The Service
+        connects to WhatsApp, Facebook, and Instagram so that businesses can receive
+        and send messages from a single inbox.
       </p>
 
       <LegalSection title="1. Who we are">
         <p>
-          What A App is a WhatsApp, Facebook, and Instagram CRM and inbox platform
-          for businesses. Our Meta application is registered as
-          &ldquo;EcomeX Client&rdquo; and is operated by Ecomex. You can reach us
-          at{' '}
+          Ecomex is a WhatsApp, Facebook, and Instagram CRM and inbox platform for
+          businesses. Our Meta application is registered as &ldquo;Ecomex&rdquo; and
+          is operated by Ecomex Technologies Ltd., a company incorporated in
+          Bangladesh. You can reach us at{' '}
           <a
             href={`mailto:${LEGAL_CONTACT_EMAIL}`}
             className="font-medium text-primary hover:underline"
@@ -135,7 +135,7 @@ export default function PrivacyPolicy() {
           <strong>
             Facebook → Settings &amp; Privacy → Settings → Business Integrations
           </strong>
-          , locate &ldquo;EcomeX Client&rdquo;, and remove it. Once removed, the
+          , locate &ldquo;Ecomex&rdquo;, and remove it. Once removed, the
           Service can no longer access your Pages or Instagram accounts, and our
           servers stop receiving new messages from those channels.
         </p>

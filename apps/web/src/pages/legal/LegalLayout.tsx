@@ -7,7 +7,7 @@ import { AppLogo } from '@/components/AppLogo';
  * Public contact address surfaced across all legal/compliance pages.
  * Single source of truth — change here to update Privacy, Terms and Data Deletion.
  */
-export const LEGAL_CONTACT_EMAIL = 'support@whatapp.ecomex.cloud';
+export const LEGAL_CONTACT_EMAIL = 'support@ecomex.cloud';
 
 interface LegalLayoutProps {
   title: string;
@@ -26,7 +26,7 @@ export function LegalLayout({ title, lastUpdated, children }: LegalLayoutProps) 
       {/* Header */}
       <header className="border-b border-border bg-card/60 backdrop-blur-sm">
         <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <Link to="/" className="shrink-0" aria-label="What A App home">
+          <Link to="/" className="shrink-0" aria-label="Ecomex home">
             <AppLogo size="md" />
           </Link>
           <Link
@@ -63,7 +63,7 @@ export function LegalLayout({ title, lastUpdated, children }: LegalLayoutProps) 
       <footer className="border-t border-border bg-card/60">
         <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} What A App by Ecomex. All rights reserved.
+            © {new Date().getFullYear()} Ecomex. All rights reserved.
           </p>
           <nav className="flex items-center gap-4 text-xs text-muted-foreground">
             <Link to="/privacy" className="hover:text-foreground transition-colors">

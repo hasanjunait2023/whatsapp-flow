@@ -63,7 +63,7 @@ export default function DataDeletion() {
       ) : (
         <>
           <p>
-            You can request deletion of the data that What A App holds about your
+            You can request deletion of the data that Ecomex holds about your
             connected Facebook Pages and Instagram accounts at any time.
           </p>
 
@@ -80,7 +80,7 @@ export default function DataDeletion() {
                 Open <strong>Business Integrations</strong>.
               </li>
               <li>
-                Find <strong>&ldquo;EcomeX Client&rdquo;</strong> and choose{' '}
+                Find <strong>&ldquo;Ecomex&rdquo;</strong> and choose{' '}
                 <strong>Remove</strong>.
               </li>
             </ol>

@@ -1,24 +1,25 @@
 import { Link } from 'react-router-dom';
 import { LegalLayout, LegalSection, LEGAL_CONTACT_EMAIL } from './LegalLayout';
 
-const LAST_UPDATED = '14 June 2026';
+const LAST_UPDATED = '1 July 2026';
 
 export default function TermsOfService() {
   return (
     <LegalLayout title="Terms of Service" lastUpdated={LAST_UPDATED}>
       <p>
         These Terms of Service (the &ldquo;Terms&rdquo;) govern your access to and
-        use of What A App (the &ldquo;Service&rdquo;), operated by Ecomex. By
-        creating an account or using the Service, you agree to be bound by these
-        Terms. If you do not agree, do not use the Service.
+        use of Ecomex (the &ldquo;Service&rdquo;), operated by Ecomex Technologies
+        Ltd. By creating an account or using the Service, you agree to be bound by
+        these Terms. If you do not agree, do not use the Service.
       </p>
 
       <LegalSection title="1. The Service">
         <p>
-          What A App is a customer-relationship and inbox platform that lets
-          businesses receive and send messages across WhatsApp, Facebook, and
-          Instagram from a unified workspace. We may add, change, or remove features
-          over time.
+          Ecomex is a customer-relationship and inbox platform that lets businesses
+          receive and send messages across WhatsApp, Facebook, and Instagram from a
+          unified workspace. WhatsApp connectivity is provided through the official
+          WhatsApp Business API operated by Meta. We may add, change, or remove
+          features over time.
         </p>
       </LegalSection>
 
@@ -64,36 +65,40 @@ export default function TermsOfService() {
         </p>
       </LegalSection>
 
-      <LegalSection title="4. WhatsApp and Meta platform disclosure">
+      <LegalSection title="4. WhatsApp and Meta platform compliance">
         <p>
-          Some WhatsApp connectivity offered through the Service relies on
-          unofficial WhatsApp integrations rather than the official WhatsApp
-          Business API. You acknowledge and accept that:
+          WhatsApp connectivity is provided through the official WhatsApp Business
+          API on Meta&rsquo;s Cloud. You acknowledge and agree that:
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            Use of unofficial integrations may violate WhatsApp&rsquo;s terms and
-            can result in your WhatsApp number being rate-limited, restricted, or
-            banned by WhatsApp.
+            You must comply with the WhatsApp Business Messaging Policy, WhatsApp
+            Commerce Policy, and Meta Platform Terms at all times when using the
+            Service.
           </li>
           <li>
-            This ban or restriction risk rests entirely with you, the tenant, and
-            you assume full responsibility for any consequences to your numbers or
-            accounts.
+            You may only send messages to users who have opted in to receive
+            communications from your business, and you must honour opt-out requests
+            promptly.
           </li>
           <li>
-            We do not control and are not responsible for actions taken by WhatsApp,
-            Facebook, Instagram, or Meta against your numbers, Pages, or accounts.
+            Message templates must be submitted to and approved by Meta before use.
+            We provide tools and guidance to help you create compliant templates.
           </li>
           <li>
-            Connectivity, message delivery, and feature availability may change
-            without notice if Meta or WhatsApp changes its platforms or policies.
+            We do not control and are not responsible for actions taken by Meta or
+            WhatsApp against your account, including rate limits, quality-rating
+            downgrades, or restrictions resulting from your messaging patterns.
+          </li>
+          <li>
+            Connectivity, message delivery, pricing, and feature availability may
+            change if Meta or WhatsApp updates its platforms, policies, or pricing.
           </li>
         </ul>
         <p>
-          Your use of Facebook and Instagram features is also subject to
-          Meta&rsquo;s own terms and policies. You are responsible for complying with
-          them.
+          Your use of Facebook and Instagram features is also subject to Meta&rsquo;s
+          own terms and policies. You are responsible for understanding and
+          complying with them.
         </p>
       </LegalSection>
 
