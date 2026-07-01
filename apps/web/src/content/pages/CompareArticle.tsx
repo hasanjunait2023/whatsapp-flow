@@ -3,7 +3,7 @@ import { Layout } from "../components/Layout";
 import { Seo } from "../components/Seo";
 import { CtaBlock, FaqSection, PageHeader } from "../components/sections";
 import { breadcrumbList, faqPage, type JsonLd } from "../lib/jsonld";
-import type { ComparePage } from "../data/compare";
+import type { ComparePage } from "../data/types";
 
 /**
  * Renders a single /compare page from its data object: answer-first intro, the
