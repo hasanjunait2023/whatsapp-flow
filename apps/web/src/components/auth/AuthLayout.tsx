@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { AppLogo } from '@/components/AppLogo';
+import { BrandedLogo } from '@/components/BrandedLogo';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { ProductShowcase } from './ProductShowcase';
 
@@ -33,9 +34,11 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         
         {/* Content */}
         <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16 w-full">
-          {/* Logo */}
+          {/* Logo — dark theme: keeps the original brightness-0 invert so the PNG
+              reads as white-on-transparent on the violet panel, then wraps it
+              in a soft violet pulse glow that breathes every 3.2s. */}
           <div className="[&_img]:brightness-0 [&_img]:invert">
-            <AppLogo size="xl" />
+            <BrandedLogo theme="dark" size="xl" />
           </div>
           
           {/* Hero Text */}
@@ -81,7 +84,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         {/* Top Bar — sticky so it stays visible while the form scrolls. */}
         <div className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-background/95 backdrop-blur-sm p-4 lg:p-6 safe-top">
           <div className="lg:hidden">
-            <AppLogo size="md" />
+            <BrandedLogo theme="light" size="md" />
           </div>
           <div className="ml-auto">
             <LanguageSwitcher showLabel />
