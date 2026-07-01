@@ -7,7 +7,7 @@ import { AppLogo } from '@/components/AppLogo';
  * Public contact address surfaced across all legal/compliance pages.
  * Single source of truth — change here to update Privacy, Terms and Data Deletion.
  */
-export const LEGAL_CONTACT_EMAIL = 'support@whataapp.junno.qzz.io';
+export const LEGAL_CONTACT_EMAIL = 'support@whatapp.ecomex.cloud';
 
 interface LegalLayoutProps {
   title: string;

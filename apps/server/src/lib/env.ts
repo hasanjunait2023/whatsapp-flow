@@ -64,7 +64,7 @@ export const AUTH_BASE_URL = process.env.AUTH_BASE_URL ?? `http://localhost:${PO
  * origin (and server-to-server loopback) is always permitted.
  *
  * Production MUST set this explicitly so the value matches every domain the
- * app is served from (e.g. `AUTH_TRUSTED_ORIGINS=https://whatapp.junno.qzz.io,https://junno.qzz.io`).
+ * app is served from (e.g. `AUTH_TRUSTED_ORIGINS=https://whatapp.ecomex.cloud`).
  */
 export const AUTH_TRUSTED_ORIGINS: string[] = (() => {
   const fromEnv = process.env.AUTH_TRUSTED_ORIGINS

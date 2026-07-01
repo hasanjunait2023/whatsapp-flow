@@ -76,7 +76,7 @@ export const learnPages: Record<string, LearnPage> = {
       {
         question: "How do I start with What A App?",
         answer:
-          "Sign up for a 5-day free trial at whatapp.junno.qzz.io. No credit card required. You can connect your WhatsApp Business number, set up your inbox, and see how it works for your business.",
+          "Sign up for a 5-day free trial at whatapp.ecomex.cloud. No credit card required. You can connect your WhatsApp Business number, set up your inbox, and see how it works for your business.",
       },
     ],
     ctaHeadline: "Ready to organise your WhatsApp business? Start free in minutes.",

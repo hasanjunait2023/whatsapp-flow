@@ -13,12 +13,12 @@ This is the ONLY remaining gate. Code + integration are done and proven end-to-e
 
 | Requirement | URL | Status |
 |---|---|---|
-| Privacy Policy (public, mentions Meta data) | https://whataapp.junno.qzz.io/privacy | built |
-| Terms of Service (public) | https://whataapp.junno.qzz.io/terms | built |
-| Data Deletion Request **Callback** (signed POST) | https://whataapp.junno.qzz.io/api/fb/data-deletion | built |
-| Data Deletion **Instructions / status** page | https://whataapp.junno.qzz.io/data-deletion | built |
-| Webhook (verify handshake + HMAC) | https://whataapp.junno.qzz.io/api/webhooks/fb | live |
-| Valid OAuth redirect URI | https://whataapp.junno.qzz.io/api/fb/oauth/callback | whitelisted |
+| Privacy Policy (public, mentions Meta data) | https://whatapp.ecomex.cloud/privacy | built |
+| Terms of Service (public) | https://whatapp.ecomex.cloud/terms | built |
+| Data Deletion Request **Callback** (signed POST) | https://whatapp.ecomex.cloud/api/fb/data-deletion | built |
+| Data Deletion **Instructions / status** page | https://whatapp.ecomex.cloud/data-deletion | built |
+| Webhook (verify handshake + HMAC) | https://whatapp.ecomex.cloud/api/webhooks/fb | live |
+| Valid OAuth redirect URI | https://whatapp.ecomex.cloud/api/fb/oauth/callback | whitelisted |
 
 The data-deletion callback verifies Meta's `signed_request` (HMAC-SHA256 with the app
 secret), records the request (`fb_data_deletion_requests`), and returns the exact
@@ -57,7 +57,7 @@ App Dashboard → **Settings → Business verification** (or Meta Business Suite
 Security Center). Submit:
 - Legal business name + address (Ecomex)
 - Business registration document / trade license (Bangladesh)
-- A verifiable phone/email + domain (whataapp.junno.qzz.io)
+- A verifiable phone/email + domain (whatapp.ecomex.cloud)
 
 Takes a few business days. Advanced Access permissions cannot go Live without it.
 
@@ -106,15 +106,15 @@ App Dashboard → **App settings → Basic**:
 - Terms of Service URL → `/terms`
 - User Data Deletion → choose **Data Deletion Request URL** → `/api/fb/data-deletion`
   (or "Data Deletion Instructions URL" → `/data-deletion` if you prefer the manual flow)
-- App Domains: `whataapp.junno.qzz.io`
+- App Domains: `whatapp.ecomex.cloud`
 
 **Facebook Login for Business / Facebook Login → Settings:**
-- Valid OAuth Redirect URIs includes `https://whataapp.junno.qzz.io/api/fb/oauth/callback`
+- Valid OAuth Redirect URIs includes `https://whatapp.ecomex.cloud/api/fb/oauth/callback`
   (already set; Post Master's URI preserved)
 - Client OAuth Login: ON, Web OAuth Login: ON
 
 **Webhooks (Messenger + Instagram product):**
-- Callback URL `https://whataapp.junno.qzz.io/api/webhooks/fb`, verify token = our
+- Callback URL `https://whatapp.ecomex.cloud/api/webhooks/fb`, verify token = our
   `FB_WEBHOOK_VERIFY_TOKEN`
 - Subscribe fields: `messages`, `messaging_postbacks` (Messenger);
   `messages` (Instagram, if doing IG)
@@ -126,7 +126,7 @@ App Dashboard → **App settings → Basic**:
 Meta reviewers are logged-out and outside your org. The video must show a NON-developer
 user completing the real flow. Record at 1280×720+, English, no cuts mid-flow.
 
-1. Open `https://whataapp.junno.qzz.io`, sign up / log in as a normal business user.
+1. Open `https://whatapp.ecomex.cloud`, sign up / log in as a normal business user.
 2. Go to the **Facebook Inbox / Connect** screen. Click **Connect Facebook**.
 3. The Facebook login dialog appears → log in as a test business user → the **Page
    list** appears (**demonstrates `pages_show_list`**) → select a Page → grant.

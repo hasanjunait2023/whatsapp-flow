@@ -58,7 +58,7 @@ export const auth = betterAuth({
   baseURL: AUTH_BASE_URL,
   // Trusted origins for browser CORS / Origin header checks. better-auth
   // defaults to baseURL only, which rejects every cross-origin browser hit
-  // (e.g. the app served from whatapp.junno.qzz.io behind Cloudflare).
+  // (e.g. the app served from whatapp.ecomex.cloud behind Cloudflare).
   // AUTH_TRUSTED_ORIGINS is a comma-separated list from env. baseURL is always
   // included as a fallback for local-dev and loopback server-to-server calls.
   trustedOrigins: AUTH_TRUSTED_ORIGINS,

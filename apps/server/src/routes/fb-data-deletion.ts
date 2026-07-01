@@ -17,7 +17,7 @@ import { getFbAppSecret } from "../lib/env.js";
  * we never act on the request.
  */
 
-const PUBLIC_HOST = "https://whataapp.junno.qzz.io";
+const PUBLIC_HOST = "https://whatapp.ecomex.cloud";
 
 export const fbDataDeletionRoute = new Hono();
 
