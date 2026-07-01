@@ -142,7 +142,7 @@ export default function Onboarding() {
       <div className="w-full max-w-3xl">
         {/* Logo */}
         <div className="flex items-center justify-center mb-8">
-          <AppLogo size="xl" />
+          <AppLogo size="xl" withMotion />
         </div>
 
         {/* Progress indicator */}

@@ -80,7 +80,7 @@ export default function ContactPage() {
                 </div>
 
                 <div className="ecx-contact-map">
-                  <img src="/marketing/photos/dhaka-map.jpg" alt="Dhaka cityscape" className="ecx-contact-map-img" />
+                  <img loading="lazy" decoding="async" src="/marketing/photos/dhaka-map.webp" alt="Dhaka cityscape" className="ecx-contact-map-img" />
                 </div>
               </div>
 

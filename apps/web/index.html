@@ -16,6 +16,19 @@
   <!-- PWA manifest -->
   <link rel="manifest" href="/brand/manifest.webmanifest">
 
+  <!-- Performance: preconnect to image CDN (Pexels) for marketing photos.
+       Saves ~100ms TLS handshake on first image load. -->
+  <link rel="preconnect" href="https://images.pexels.com" crossorigin>
+  <link rel="dns-prefetch" href="https://images.pexels.com">
+
+  <!-- Preload the brand logo SVG (used in nav, favicon, OG).
+       Inline small file (~6KB) → near-instant paint, no flash. -->
+  <link rel="preload" as="image" href="/brand/icon-square.svg" type="image/svg+xml" fetchpriority="high">
+
+  <!-- Preload the LCP hero image for the marketing landing (above-the-fold).
+       Only used by React when present; harmless if not rendered. -->
+  <link rel="preload" as="image" href="/marketing/photos/hero-vendor.webp" type="image/webp" fetchpriority="high">
+
   <!-- Theme color (matches brand violet) -->
   <meta name="theme-color" content="#7c3aed">
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#7c3aed">

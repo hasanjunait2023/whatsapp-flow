@@ -79,7 +79,7 @@ export default function PaymentSuccess() {
       <Card className="w-full max-w-md shadow-xl border-border/50">
         <CardHeader className="text-center pb-2 space-y-4">
           <div className="flex justify-center">
-            <AppLogo className="h-12 w-auto" />
+            <AppLogo className="h-12 w-auto" withMotion />
           </div>
           
           {status === 'verifying' && (

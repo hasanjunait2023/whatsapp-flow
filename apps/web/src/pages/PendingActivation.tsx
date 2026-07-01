@@ -65,7 +65,7 @@ export default function PendingActivation() {
       <Card className="w-full max-w-md shadow-xl border-border/50">
         <CardHeader className="text-center pb-2 space-y-4">
           <div className="flex justify-center">
-            <AppLogo className="h-12 w-auto" />
+            <AppLogo className="h-12 w-auto" withMotion />
           </div>
           <div className="h-16 w-16 rounded-full bg-warning/10 flex items-center justify-center mx-auto">
             <Clock className="h-8 w-8 text-warning" />

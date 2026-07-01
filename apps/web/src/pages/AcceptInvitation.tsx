@@ -84,7 +84,7 @@ export default function AcceptInvitation() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex items-center justify-center mb-8">
-          <AppLogo size="xl" />
+          <AppLogo size="xl" withMotion />
         </div>
 
         <Card className="border-border/50 shadow-lg">

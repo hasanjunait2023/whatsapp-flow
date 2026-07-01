@@ -12,10 +12,10 @@ import "@/styles/marketing.css";
 
 export default function AboutPage() {
   const team = [
-    { name: "Junait Hasan", role: "Founder & CEO", photo: "/marketing/photos/team/junait.jpg" },
-    { name: "Sabbir Ahmed", role: "CTO", photo: "/marketing/photos/team/sabbir.jpg" },
-    { name: "Mushfika Rahman", role: "Head of Design", photo: "/marketing/photos/team/mushfika.jpg" },
-    { name: "Tareq Aziz", role: "Head of Growth", photo: "/marketing/photos/team/tareq.jpg" },
+    { name: "Junait Hasan", role: "Founder & CEO", photo: "/marketing/photos/team/junait.webp" },
+    { name: "Sabbir Ahmed", role: "CTO", photo: "/marketing/photos/team/sabbir.webp" },
+    { name: "Mushfika Rahman", role: "Head of Design", photo: "/marketing/photos/team/mushfika.webp" },
+    { name: "Tareq Aziz", role: "Head of Growth", photo: "/marketing/photos/team/tareq.webp" },
   ];
 
   return (
@@ -35,8 +35,8 @@ export default function AboutPage() {
             </div>
 
             <div className="ecx-about-hero">
-              <img
-                src="/marketing/photos/office-dhaka.jpg"
+              <img loading="lazy" decoding="async"
+                src="/marketing/photos/office-dhaka.webp"
                 alt="Ecomex team at our Dhaka office"
                 className="ecx-about-hero-img"
               />
@@ -71,7 +71,7 @@ export default function AboutPage() {
             <div className="ecx-team-grid">
               {team.map((m) => (
                 <div key={m.name} className="ecx-team-card">
-                  <img src={m.photo} alt={m.name} className="ecx-team-avatar" />
+                  <img loading="lazy" decoding="async" src={m.photo} alt={m.name} className="ecx-team-avatar" />
                   <h4>{m.name}</h4>
                   <p>{m.role}</p>
                 </div>
