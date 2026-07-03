@@ -4,18 +4,17 @@
 #
 # Multi-stage build for the pnpm monorepo:
 #   apps/web    (Vite + React SPA)   -> apps/web/dist
-#   apps/server (Hono + Node 22 + better-sqlite3 + Drizzle)
+#   apps/server (Hono + Node 22 + Drizzle + PostgreSQL)
 #
 # The server serves the built SPA (see apps/server/src/index.ts: when
 # IS_PRODUCTION and WEB_DIST_DIR exists it mounts serveStatic on /*), runs
-# Drizzle migrations on start against a FRESH SQLite DB, and exposes /healthz
+# Drizzle migrations on start against the external Postgres DB, and exposes /healthz
 # (which does `SELECT 1` against the DB — so a green healthcheck == DB reachable).
 #
 # Runtime layout inside the image:
 #   /app/apps/server/dist/src/index.js   <- server entry (node dist/src/index.js)
 #   /app/apps/server/dist/drizzle/*.sql  <- migrations, resolved by migrate.js via __dirname
 #   /app/apps/web/dist/                  <- SPA served by the server
-#   /data/sqlite/app.db                  <- persisted SQLite (WAL) (volume)
 #   /data/media/                         <- persisted tenant media (volume)
 # ---------------------------------------------------------------------------
 
@@ -67,7 +66,7 @@ RUN cp -r apps/server/drizzle apps/server/dist/drizzle
 # pnpm 9 (this repo: packageManager pnpm@9.12.0) supports `deploy --prod`
 # directly — no --legacy / inject-workspace-packages (those are pnpm 10).
 # `@whatsapp-flow/shared` is consumed type-only, so it is not a runtime dep;
-# the pruned tree carries only the server's prod deps (incl. better-sqlite3).
+# the pruned tree carries only the server's prod deps.
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm --filter server deploy --prod /app/server-deploy
 
@@ -83,8 +82,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends tini \
     && rm -rf /var/lib/apt/lists/*
 
-# Pruned prod node_modules (with the natively-built better-sqlite3) from
-# `pnpm deploy`; the compiled server (dist, incl. dist/drizzle) is taken
+# Pruned prod node_modules from `pnpm deploy`; the compiled server (dist,
+# incl. dist/drizzle) is taken
 # straight from the authoritative build output so correctness does not depend
 # on pnpm deploy's file-copy heuristics.
 COPY --from=builder /app/server-deploy/node_modules ./apps/server/node_modules

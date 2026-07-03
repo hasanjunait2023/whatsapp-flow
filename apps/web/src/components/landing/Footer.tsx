@@ -194,14 +194,11 @@ export function Footer() {
         {/* Trust / business info — placeholders for real registration details */}
         <div className="border-t border-[var(--lp-border)] py-6 text-xs text-lp-dim">
           <p>
-            {/* PLACEHOLDER: replace with real registered business details */}
-            <span title="Placeholder — confirm with operations">[Registered address, Dhaka, Bangladesh]</span>
+            <span>Dhaka, Bangladesh</span>
             {" · "}
             <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-lp-muted">
               {SUPPORT_EMAIL}
             </a>
-            {" · "}
-            <span title="Placeholder — confirm with operations">[Trade licence / BIN: ____]</span>
           </p>
         </div>
 

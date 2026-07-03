@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 type Density = 'compact' | 'default' | 'spacious';
 const STORAGE_KEY = 'ecomex-density';
@@ -29,31 +29,33 @@ function applyDensity(density: Density): void {
  *   <Button onClick={() => setDensity('compact')}>Compact</Button>
  */
 export function useDensity() {
-  const apply = useCallback((d: Density) => {
+  const [density, setDensityState] = useState<Density>(getStoredDensity);
+
+  const setDensity = useCallback((d: Density) => {
     try {
       localStorage.setItem(STORAGE_KEY, d);
     } catch {
       /* ignore — storage may be blocked */
     }
     applyDensity(d);
+    setDensityState(d);
   }, []);
 
   useEffect(() => {
-    // Re-apply on mount to handle SPA navigation + multi-tab sync.
-    applyDensity(getStoredDensity());
+    applyDensity(density);
 
-    // Cross-tab sync — listen for storage events.
+    // Cross-tab sync.
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
-        applyDensity(e.newValue as Density);
+        const val = e.newValue as Density;
+        applyDensity(val);
+        setDensityState(val);
       }
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return {
-    density: getStoredDensity(),
-    setDensity: apply,
-  };
+  return { density, setDensity };
 }

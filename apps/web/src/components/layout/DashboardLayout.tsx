@@ -40,7 +40,9 @@ import {
   Shield,
   ChevronDown,
   Search,
+  Rows3,
 } from 'lucide-react';
+import { useDensity } from '@/hooks/useDensity';
 import {
   DashboardLayoutNestingProvider,
   useIsInsideDashboardLayout,
@@ -78,6 +80,7 @@ function DashboardLayoutInner({ children, hideMobileNav }: DashboardLayoutProps)
   const { waUnreadCount, fbUnreadCount } = useSidebarUnreadCounts();
   const { canAccess, isOwnerOrManager } = useTeamPermissions();
   const { updatePresence } = usePresence();
+  const { density, setDensity } = useDensity();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -146,6 +149,23 @@ function DashboardLayoutInner({ children, hideMobileNav }: DashboardLayoutProps)
               </Button>
               <NotificationCenter />
               <ThemeToggle variant="dropdown" size="sm" />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Display density" className="text-muted-foreground">
+                    <Rows3 className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuLabel className="text-xs">Density</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {(['compact', 'default', 'spacious'] as const).map((d) => (
+                    <DropdownMenuItem key={d} onClick={() => setDensity(d)} className="capitalize">
+                      <Check className={cn('mr-2 h-3.5 w-3.5', density !== d && 'invisible')} />
+                      {d}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <div className="hidden lg:block">
                 <LanguageSwitcher variant="ghost" size="sm" showLabel />
               </div>
