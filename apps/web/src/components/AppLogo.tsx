@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import '@/brand'; // side-effect: pulls brand.css (violet tokens + .ecx-logo-reveal keyframes)
 
 interface AppLogoProps {
   className?: string;

@@ -170,6 +170,30 @@ export const authAdapter = {
     }
   },
 
+  async signInWithOAuth({ provider, options }: {
+    provider: string;
+    options?: { redirectTo?: string };
+  }): Promise<{ data: { provider: string; url: string } | null; error: Error | null }> {
+    try {
+      const callbackURL = options?.redirectTo ?? `${window.location.origin}/dashboard`;
+      const res = await fetch(`${AUTH_BASE}/sign-in/social`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, callbackURL }),
+      });
+      const data = await res.json().catch(() => null);
+      const url = data?.url as string | undefined;
+      if (url) {
+        window.location.href = url;
+        return { data: { provider, url }, error: null };
+      }
+      return { data: null, error: new Error("No redirect URL from auth server") };
+    } catch (error) {
+      return { data: null, error: error as Error };
+    }
+  },
+
   async resetPasswordForEmail(
     _email: string,
     _options?: { redirectTo?: string },
