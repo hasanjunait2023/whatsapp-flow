@@ -25,6 +25,7 @@ import {
   ScrollText,
   Radio,
   TrendingUp,
+  Link2,
   type LucideIcon,
 } from 'lucide-react';
 import type { ModuleKey } from './permissions';
@@ -164,6 +165,7 @@ export const TENANT_RAIL: RailItem[] = [
   { titleKey: 'tools.analytics', label: 'Analytics', href: '/analytics', icon: <BarChart3 className="h-5 w-5" />, perm: 'analytics' },
   { titleKey: 'tools.segmentation', label: 'Segmentation', href: '/segmentation', icon: <UsersRound className="h-5 w-5" /> },
   { titleKey: 'teamWork.serviceBoards', label: 'Service Boards', href: '/service/boards', icon: <Kanban className="h-5 w-5" />, perm: 'service_boards' },
+  { titleKey: 'main.channels', label: 'Channels', href: '/channels', icon: <Link2 className="h-5 w-5" /> },
   { titleKey: 'main.instances', label: 'Instances', href: '/instances', icon: <Smartphone className="h-5 w-5" /> },
   { titleKey: 'main.numberHealth', label: 'Number Health', href: '/number-health', icon: <Activity className="h-5 w-5" />, perm: 'inbox' },
   { titleKey: 'main.notifications', label: 'Notifications', href: '/notifications', icon: <Bell className="h-5 w-5" /> },

@@ -33,6 +33,7 @@ const MarketingBlog = lazy(() => import("@/pages/marketing/Blog"));
 const Login = lazy(() => import("./pages/auth/Login"));
 const Signup = lazy(() => import("./pages/auth/Signup"));
 const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
 const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/legal/TermsOfService"));
 const DataDeletion = lazy(() => import("./pages/legal/DataDeletion"));
@@ -96,6 +97,7 @@ const AdminServiceBoardPage = lazy(() => import("./pages/admin/AdminServiceBoard
 const AdminInternalChat = lazy(() => import("./pages/admin/AdminInternalChat"));
 const AdminWhatsAppFunctions = lazy(() => import("./pages/admin/AdminWhatsAppFunctions"));
 const AdminWhatsAppInstances = lazy(() => import("./pages/admin/AdminWhatsAppInstances"));
+const Channels = lazy(() => import("./pages/Channels"));
 
 import { useEffect } from 'react';
 import { toast } from 'sonner';
@@ -240,6 +242,7 @@ const App = () => (
                           {/* GAP #4: /login alias — some links in the app use the bare path */}
                           <Route path="/login" element={<Navigate to="/auth/login" replace />} />
                           <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+                          <Route path="/auth/reset-password" element={<ResetPassword />} />
                           <Route path="/invite/:token" element={<AcceptInvitation />} />
 
                           {/* Public legal/compliance pages — must render logged-out (Meta App Review) */}
@@ -277,6 +280,7 @@ const App = () => (
                           {/* Dashboard routes - all share DashboardLayout */}
                           <Route element={<DashboardLayoutWrapper />}>
                             <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/channels" element={<Channels />} />
                             <Route path="/instances" element={<Instances />} />
                             <Route path="/instances/onboarding" element={<InstanceOnboarding />} />
                             <Route path="/number-health" element={<NumberHealth />} />

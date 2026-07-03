@@ -200,6 +200,14 @@ export const POSTIZ_API_KEY = process.env.POSTIZ_API_KEY ?? "";
 export const ALERT_MEM_THRESHOLD = Number(process.env.ALERT_MEM_THRESHOLD ?? "0.85");
 export const ALERT_DISK_THRESHOLD = Number(process.env.ALERT_DISK_THRESHOLD ?? "0.80");
 
+// --- Email (transactional, via Resend REST API) ------------------------------
+
+/** Resend API key; empty = email sending disabled (uses console.warn fallback). */
+export const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
+
+/** From address for transactional emails (e.g. "Ecomex <noreply@ecomex.cloud>"). */
+export const EMAIL_FROM = process.env.EMAIL_FROM ?? "Ecomex <noreply@ecomex.cloud>";
+
 // --- Crypto payments (manual USDT transfer) ----------------------------------
 
 /** Platform USDT receiving addresses per network; empty = network disabled. */

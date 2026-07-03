@@ -6,6 +6,7 @@ import { db } from "../db/index.js";
 import { dbGet } from "../db/raw.js";
 import { authSchema } from "../db/auth-schema.js";
 import { AUTH_BASE_URL, AUTH_TRUSTED_ORIGINS, IS_PRODUCTION, getAuthSecret } from "../lib/env.js";
+import { sendEmail } from "../lib/email.js";
 import { verifyBcrypt, isBcryptHash } from "./password.js";
 
 /**
@@ -78,6 +79,19 @@ export const auth = betterAuth({
         const { verifyPassword } = await import("better-auth/crypto");
         return verifyPassword({ password, hash });
       },
+    },
+    sendResetPassword: async ({ user, url }) => {
+      await sendEmail({
+        to: user.email,
+        subject: "Reset your Ecomex password",
+        html: `
+          <p>Hi ${user.name ?? user.email},</p>
+          <p>Click the link below to reset your password. The link expires in 1 hour.</p>
+          <p><a href="${url}" style="background:#7c3aed;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;">Reset password</a></p>
+          <p>If you didn't request this, ignore this email.</p>
+          <p style="color:#6b7280;font-size:12px;">Ecomex &middot; Dhaka, Bangladesh</p>
+        `,
+      });
     },
   },
   ...(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET

@@ -47,7 +47,8 @@ export function FacebookPagesSettings() {
 
   const webhookUrl = `${window.location.origin}/api/webhooks/fb`;
   const verifyToken = '112233';
-  const privacyPolicyDocsUrl = 'https://docs.google.com/document/d/1iY0diu-I2r1M54Zoo0DwkokP0D5zuNi1Q5o3lfysqlE/edit?tab=t.0';
+  const privacyPolicyUrl = `${window.location.origin}/privacy`;
+  const termsUrl = `${window.location.origin}/terms`;
 
   const handleCopy = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -584,32 +585,61 @@ export function FacebookPagesSettings() {
           <Alert className="border-violet-200 bg-violet-50 dark:bg-violet-950/30">
             <AlertTriangle className="h-4 w-4 text-violet-500" />
             <AlertDescription className="text-violet-800 dark:text-violet-200">
-              ⚠️ App Live করতে গেলে Meta আপনার কাছে <strong>Privacy Policy URL</strong> চাইবে। 
-              নীচের ডকুমেন্ট ব্যবহার করে আপনার Privacy Policy তৈরি করুন।
+              ⚠️ App Live করতে গেলে Meta আপনার কাছে <strong>Privacy Policy URL</strong> এবং <strong>Terms of Service URL</strong> চাইবে।
+              নীচের লিংক দুটি আপনার Meta App এ ব্যবহার করুন।
             </AlertDescription>
           </Alert>
 
-          <div className="flex items-center justify-between p-4 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800">
-            <div className="flex items-center gap-3">
-              <FileText className="h-5 w-5 text-violet-600" />
-              <div>
-                <p className="font-medium text-violet-900 dark:text-violet-100">Privacy Policy Template</p>
-                <p className="text-sm text-violet-700 dark:text-violet-300">এটি কপি করে আপনার ওয়েবসাইটে রাখুন</p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-4 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-violet-600" />
+                <div>
+                  <p className="font-medium text-violet-900 dark:text-violet-100">Privacy Policy</p>
+                  <p className="text-sm text-violet-700 dark:text-violet-300 font-mono">{privacyPolicyUrl}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="icon" className="border-violet-300"
+                  onClick={() => handleCopy(privacyPolicyUrl, 'privacy-url')}>
+                  {copiedField === 'privacy-url' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </Button>
+                <Button asChild variant="outline" className="border-violet-300">
+                  <a href={privacyPolicyUrl} target="_blank" rel="noopener noreferrer">
+                    দেখুন <ExternalLink className="h-4 w-4 ml-2" />
+                  </a>
+                </Button>
               </div>
             </div>
-            <Button asChild variant="outline" className="border-violet-300">
-              <a href={privacyPolicyDocsUrl} target="_blank" rel="noopener noreferrer">
-                ডকুমেন্ট দেখুন <ExternalLink className="h-4 w-4 ml-2" />
-              </a>
-            </Button>
+
+            <div className="flex items-center justify-between p-4 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-violet-600" />
+                <div>
+                  <p className="font-medium text-violet-900 dark:text-violet-100">Terms of Service</p>
+                  <p className="text-sm text-violet-700 dark:text-violet-300 font-mono">{termsUrl}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="icon" className="border-violet-300"
+                  onClick={() => handleCopy(termsUrl, 'terms-url')}>
+                  {copiedField === 'terms-url' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </Button>
+                <Button asChild variant="outline" className="border-violet-300">
+                  <a href={termsUrl} target="_blank" rel="noopener noreferrer">
+                    দেখুন <ExternalLink className="h-4 w-4 ml-2" />
+                  </a>
+                </Button>
+              </div>
+            </div>
           </div>
 
           <div className="text-sm text-muted-foreground space-y-2">
             <p><strong>ধাপ:</strong></p>
             <ol className="list-decimal list-inside space-y-1 ml-2">
-              <li>উপরের ডকুমেন্ট থেকে Privacy Policy কপি করুন</li>
-              <li>আপনার ওয়েবসাইটে একটি পেজে রাখুন (যেমন: yoursite.com/privacy)</li>
-              <li>Meta App → Settings → Basic → Privacy Policy URL এ এই URL দিন</li>
+              <li>Meta App → Settings → Basic এ যান</li>
+              <li>Privacy Policy URL এ উপরের Privacy Policy লিংক দিন</li>
+              <li>Terms of Service URL এ উপরের Terms লিংক দিন</li>
               <li>App Mode → "Live" করুন</li>
             </ol>
           </div>
