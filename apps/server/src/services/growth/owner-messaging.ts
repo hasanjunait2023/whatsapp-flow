@@ -5,6 +5,7 @@ import { sendTelegramMessage, escapeTelegramMarkdown, linkedChatIds } from "../t
 import { wahaClient } from "../../waha/client.js";
 import { GROWTH_WHATSAPP_SESSION } from "../../lib/env.js";
 import { logger } from "../../lib/logger.js";
+import { sendEmail } from "../../lib/email.js";
 
 /**
  * M4 AFTER-SALES channel router. sendOwnerMessage() takes a lifecycle event for a
@@ -236,18 +237,15 @@ function orderChannels(policy: ChannelsPolicy, prefs: PrefsRow): OwnerChannel[] 
   return [pref, ...policy.channels.filter((c) => c !== pref)];
 }
 
-/**
- * STUBBED email sender (no provider in repo). Logs intent, returns false so the
- * send is recorded 'pending'. Reuses the M3 stub semantics + EMAIL_INFRA_MISSING
- * code. EMAIL-INFRA GAP: wire SMTP/Resend and return true on success.
- */
 async function emailSend(to: string | null, title: string): Promise<boolean> {
-  logger.warn("aftersales_email_stubbed", {
-    code: "EMAIL_INFRA_MISSING",
-    to_present: Boolean(to),
-    subject_preview: title.slice(0, 60),
-  });
-  return false;
+  if (!to) return false;
+  try {
+    await sendEmail({ to, subject: title, html: `<p>${title}</p>` });
+    return true;
+  } catch (err) {
+    logger.warn("aftersales_email_failed", { to_present: true, err });
+    return false;
+  }
 }
 
 /**

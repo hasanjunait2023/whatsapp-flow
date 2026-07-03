@@ -15,7 +15,9 @@
     "reports": "রিপোর্ট",
     "waFunctions": "WA ফাংশন",
     "numberHealth": "নম্বর হেলথ",
-    "accounting": "হিসাব"
+    "accounting": "হিসাব",
+    "channels": "চ্যানেল",
+    "notifications": "নোটিফিকেশন"
   },
   "tools": {
     "title": "টুলস",
@@ -30,7 +32,14 @@
     "title": "টিম ওয়ার্ক",
     "teamChat": "টিম চ্যাট",
     "team": "টিম",
-    "teamReports": "টিম রিপোর্ট"
+    "teamReports": "টিম রিপোর্ট",
+    "serviceBoards": "সার্ভিস বোর্ড"
+  },
+  "sections": {
+    "inbox": "ইনবক্স",
+    "sales": "বিক্রয়",
+    "finance": "অর্থ",
+    "team": "টিম"
   },
   "settings": {
     "title": "সেটিংস",

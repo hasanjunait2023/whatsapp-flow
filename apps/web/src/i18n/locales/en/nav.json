@@ -15,7 +15,9 @@
     "reports": "Reports",
     "waFunctions": "WA Functions",
     "numberHealth": "Number Health",
-    "accounting": "Accounting"
+    "accounting": "Accounting",
+    "channels": "Channels",
+    "notifications": "Notifications"
   },
   "tools": {
     "title": "Tools",
@@ -30,7 +32,8 @@
     "title": "Team Work",
     "teamChat": "Team Chat",
     "team": "Team",
-    "teamReports": "Team Reports"
+    "teamReports": "Team Reports",
+    "serviceBoards": "Service Boards"
   },
   "settings": {
     "title": "Settings",

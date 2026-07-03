@@ -3,6 +3,7 @@ import { registerJobHandler } from "../../jobs/queue.js";
 import { wahaClient } from "../../waha/client.js";
 import { GROWTH_WHATSAPP_SESSION } from "../../lib/env.js";
 import { logger } from "../../lib/logger.js";
+import { sendEmail } from "../../lib/email.js";
 import {
   claimApprovalForExecution,
   markApprovalExecuted,
@@ -49,22 +50,18 @@ function toChatId(whatsappNumber: string): string {
   return `${whatsappNumber.replace(/[^0-9]/g, "")}@c.us`;
 }
 
-/**
- * STUBBED email sender. No provider exists in this repo, so we cannot actually
- * deliver email. We log the intended send and report it as not-delivered so the
- * caller records the send row as 'pending' (awaiting real infra) rather than
- * 'sent'. Returns false to signal "not delivered".
- *
- * EMAIL-INFRA GAP: wire SMTP or an API provider (Resend/Postmark/SES) here and
- * return true on success. Required secret: e.g. RESEND_API_KEY (not yet defined).
- */
 async function emailSend(to: string, content: MarketingSendPayload["content"]): Promise<boolean> {
-  logger.warn("marketing_email_stubbed", {
-    code: "EMAIL_INFRA_MISSING",
-    to_present: Boolean(to),
-    subject_preview: content.subject.slice(0, 60),
-  });
-  return false;
+  try {
+    await sendEmail({
+      to,
+      subject: content.subject,
+      html: `<p>${content.body}</p><p>${content.bodyBn}</p>`,
+    });
+    return true;
+  } catch (err) {
+    logger.warn("marketing_email_failed", { to_present: Boolean(to), err });
+    return false;
+  }
 }
 
 /** Records the send attempt in admin_marketing_sends. */
