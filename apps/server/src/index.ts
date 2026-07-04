@@ -370,10 +370,14 @@ app.post("/api/public/contact-form", async (c) => {
     return c.json({ error: { message: "Message must be 10–4000 characters" } }, 400);
   }
 
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  const safeSubject = subject.replace(/[\r\n]+/g, " ").slice(0, 120);
+
   await sendEmail({
     to: "support@ecomexautomation.com",
-    subject: `[Contact] ${subject} — ${name}`,
-    html: `<p><strong>From:</strong> ${name} &lt;${email}&gt;</p><p><strong>Topic:</strong> ${subject}</p><p>${message.replace(/\n/g, "<br>")}</p>`,
+    subject: `[Contact] ${safeSubject} — ${name.replace(/[\r\n]+/g, " ").slice(0, 100)}`,
+    html: `<p><strong>From:</strong> ${esc(name)} &lt;${esc(email)}&gt;</p><p><strong>Topic:</strong> ${esc(safeSubject)}</p><p>${esc(message).replace(/\n/g, "<br>")}</p>`,
   });
 
   return c.json({ success: true });
