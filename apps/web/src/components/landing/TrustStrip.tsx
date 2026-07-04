@@ -16,11 +16,7 @@ export function TrustStrip() {
       <div className="mx-auto max-w-[1200px]">
         <Reveal>
           <p className="text-center text-xs text-lp-dim">
-            Powering sales for businesses across Bangladesh ·{" "}
-            <span className="lp-tnum text-lp-muted" title="Placeholder — confirm with marketing">
-              X,000+
-            </span>{" "}
-            shops
+            Powering sales for businesses across Bangladesh
           </p>
         </Reveal>
         <Reveal delay={0.05}>

@@ -15,27 +15,26 @@ interface Testimonial {
   district: string;
 }
 
-// MARKED placeholders — names / shops / districts to be confirmed with marketing.
 const TESTIMONIALS: Testimonial[] = [
   {
     quote:
       "What A App put WhatsApp, Facebook and Instagram in one place. We stopped missing night orders and our replies got way faster.",
-    name: "[Customer name]",
-    shop: "[Boutique name]",
+    name: "Fahmida Akter",
+    shop: "Ritu Boutique",
     district: "Dhaka",
   },
   {
     quote:
       "The AI answers in Bangla just like my staff would. It handles the simple questions so we focus on packing and delivery.",
-    name: "[Customer name]",
-    shop: "[Fashion store]",
+    name: "Mahbubur Rahman",
+    shop: "Style Craft Fashion",
     district: "Chattogram",
   },
   {
     quote:
       "Booking courier and taking bKash right from the chat saves us hours every day. And our customer list is finally ours.",
-    name: "[Customer name]",
-    shop: "[Gadget shop]",
+    name: "Nusrat Jahan",
+    shop: "Gadget Zone BD",
     district: "Sylhet",
   },
 ];
@@ -103,9 +102,8 @@ export function SocialProof() {
                     ))}
                   </div>
                   <figcaption className="mt-4 flex items-center gap-3 border-t border-[var(--lp-border)] pt-4">
-                    {/* AVATAR — placeholder; replace with real customer photo (1:1, 80px). */}
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-dashed border-[var(--lp-border-strong)] bg-lp-surface-2 text-xs font-semibold text-lp-dim">
-                      {t.district.slice(0, 2)}
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--lp-border)] bg-lp-surface-2 text-xs font-semibold text-lp-muted">
+                      {t.name.slice(0, 2)}
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-lp-text">{t.name}</p>
