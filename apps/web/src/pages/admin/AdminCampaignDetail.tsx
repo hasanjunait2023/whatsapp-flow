@@ -64,6 +64,7 @@ export default function AdminCampaignDetail() {
   
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingSequence, setEditingSequence] = useState<MarketingSequence | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<MarketingSequenceInput>>({
     week_number: 1,
     step_order: 1,
@@ -122,8 +123,8 @@ export default function AdminCampaignDetail() {
   };
 
   const handleSave = async () => {
-    if (!campaignId) return;
-    
+    if (!campaignId || isSaving) return;
+    setIsSaving(true);
     try {
       if (editingSequence) {
         await updateSequence(editingSequence.id, formData);
@@ -149,6 +150,8 @@ export default function AdminCampaignDetail() {
       refetch();
     } catch (error) {
       toast.error('সেভ করতে সমস্যা হয়েছে');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -526,9 +529,9 @@ export default function AdminCampaignDetail() {
                 <X className="h-4 w-4 mr-2" />
                 বাতিল
               </Button>
-              <Button onClick={handleSave} disabled={!formData.name}>
+              <Button onClick={handleSave} disabled={!formData.name || isSaving}>
                 <Save className="h-4 w-4 mr-2" />
-                {editingSequence ? 'আপডেট করুন' : 'যোগ করুন'}
+                {isSaving ? 'সেভ হচ্ছে...' : editingSequence ? 'আপডেট করুন' : 'যোগ করুন'}
               </Button>
             </DialogFooter>
           </DialogContent>

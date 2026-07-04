@@ -51,6 +51,7 @@ export default function Dashboard() {
     attentionItems,
     revenueHistory,
     loading,
+    error,
   } = useDashboardAnalytics();
 
   const firstName = profile?.full_name?.split(' ')[0] || 'there';
@@ -77,6 +78,12 @@ export default function Dashboard() {
         animate="show"
         className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6"
       >
+        {error && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            Failed to load analytics data. Some metrics may be unavailable.
+          </div>
+        )}
+
         {/* Slot for TourStartCard to portal into */}
         <div data-tour-card-slot />
 

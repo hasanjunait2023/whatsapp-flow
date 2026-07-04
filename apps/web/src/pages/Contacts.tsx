@@ -254,29 +254,23 @@ export default function Contacts() {
   };
 
   const handleBulkArchive = async () => {
-    try {
-      for (const id of selectedContacts) {
-        await updateContact(id, { is_archived: true });
-      }
-      toast.success(`${selectedContacts.size} contacts archived`);
-      setSelectedContacts(new Set());
-      refetch();
-    } catch (error) {
-      toast.error('Failed to archive contacts');
-    }
+    const ids = [...selectedContacts];
+    const results = await Promise.allSettled(ids.map((id) => updateContact(id, { is_archived: true })));
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    setSelectedContacts(new Set());
+    refetch();
+    if (failed > 0) toast.error(`${failed} of ${ids.length} contacts failed to archive`);
+    else toast.success(`${ids.length} contacts archived`);
   };
 
   const handleBulkBlock = async () => {
-    try {
-      for (const id of selectedContacts) {
-        await updateContact(id, { is_blocked: true });
-      }
-      toast.success(`${selectedContacts.size} contacts blocked`);
-      setSelectedContacts(new Set());
-      refetch();
-    } catch (error) {
-      toast.error('Failed to block contacts');
-    }
+    const ids = [...selectedContacts];
+    const results = await Promise.allSettled(ids.map((id) => updateContact(id, { is_blocked: true })));
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    setSelectedContacts(new Set());
+    refetch();
+    if (failed > 0) toast.error(`${failed} of ${ids.length} contacts failed to block`);
+    else toast.success(`${ids.length} contacts blocked`);
   };
 
   const handleOpenChat = (contact: Contact) => {

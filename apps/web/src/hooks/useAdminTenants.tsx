@@ -123,7 +123,6 @@ export function useAdminTenants() {
       setTenants(enrichedTenants);
     } catch (err) {
       setError(err as Error);
-      console.error('Error fetching tenants:', err);
     } finally {
       setLoading(false);
     }
@@ -210,20 +209,20 @@ export function useAdminTenants() {
   };
 
   const bulkUpdateFeatureOverrides = async (tenantIds: string[], overridesToApply: Record<string, boolean>) => {
-    // For each tenant, merge the new overrides with existing ones
-    for (const tenantId of tenantIds) {
-      const tenant = tenants.find((t) => t.id === tenantId);
-      const existingOverrides = tenant?.feature_overrides || {};
-      const mergedOverrides = { ...existingOverrides, ...overridesToApply };
-      
-      const { error } = await supabase
-        .from('subscriptions')
-        .update({ feature_overrides: mergedOverrides, updated_at: new Date().toISOString() })
-        .eq('tenant_id', tenantId);
-
-      if (error) throw error;
-    }
+    const results = await Promise.allSettled(
+      tenantIds.map((tenantId) => {
+        const tenant = tenants.find((t) => t.id === tenantId);
+        const mergedOverrides = { ...(tenant?.feature_overrides || {}), ...overridesToApply };
+        return supabase
+          .from('subscriptions')
+          .update({ feature_overrides: mergedOverrides, updated_at: new Date().toISOString() })
+          .eq('tenant_id', tenantId)
+          .then(({ error }) => { if (error) throw error; });
+      }),
+    );
     await fetchTenants();
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (failed > 0) throw new Error(`${failed} of ${tenantIds.length} feature override updates failed`);
   };
 
   const bulkResetFeatureOverrides = async (tenantIds: string[]) => {
@@ -250,7 +249,6 @@ export function useAdminTenants() {
       .eq('tenant_id', tenantId);
 
     if (error) {
-      console.error('Failed to update resource_overrides:', error.message, error.details, error.hint);
       throw error;
     }
     await fetchTenants();

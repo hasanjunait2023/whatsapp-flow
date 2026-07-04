@@ -90,7 +90,7 @@ export default function Reports() {
   const [selectedReport, setSelectedReport] = useState<ReportType>('overview');
   const [showComparison, setShowComparison] = useState(true);
 
-  const { data, loading, refetch } = useReports(startDate, endDate);
+  const { data, loading, refetch, error } = useReports(startDate, endDate);
   const { branding } = useCompanyBranding();
 
   const handleDateChange = (start: Date, end: Date) => {
@@ -167,6 +167,12 @@ export default function Reports() {
         animate="show"
         className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8 py-5 space-y-6"
       >
+        {error && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            Failed to load report data. Please try refreshing.
+          </div>
+        )}
+
         {/* Header */}
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">

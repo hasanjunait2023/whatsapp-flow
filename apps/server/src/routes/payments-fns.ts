@@ -230,18 +230,47 @@ export async function uddoktapayVerify(raw: Record<string, unknown>, ctx: FnCont
         now,
         payment.tenant_id,
       );
-      // Ensure the subscription is marked active and plan_id reflects the paid order.
+
+      // Compute new current_period_end from the order's billing_cycle. Advance from
+      // the existing end (renewal) or from now (first activation). The WHERE guard
+      // `status != 'active'` is intentionally removed so renewals also update the row.
+      let newPeriodEnd: string | null = null;
+      if (payment.subscription_id) {
+        const orderInfo = await tx.get<{ billing_cycle: string | null; current_period_end: string | null }>(
+          `SELECT so.billing_cycle, s.current_period_end
+           FROM subscription_orders so
+           LEFT JOIN subscriptions s ON s.tenant_id = ?
+           WHERE so.id = ?
+           LIMIT 1`,
+          payment.tenant_id,
+          payment.subscription_id,
+        );
+        if (orderInfo) {
+          const base = orderInfo.current_period_end
+            ? new Date(orderInfo.current_period_end)
+            : new Date(now);
+          if (orderInfo.billing_cycle === "yearly") {
+            base.setFullYear(base.getFullYear() + 1);
+          } else {
+            base.setMonth(base.getMonth() + 1);
+          }
+          newPeriodEnd = base.toISOString();
+        }
+      }
+
       await tx.run(
         `UPDATE subscriptions
          SET status = 'active',
              plan_id = CASE WHEN ? IS NOT NULL
                THEN (SELECT plan_id FROM subscription_orders WHERE id = ?)
                ELSE plan_id END,
-             starts_at = COALESCE(starts_at, ?)
-         WHERE tenant_id = ? AND status != 'active'`,
+             starts_at = COALESCE(starts_at, ?),
+             current_period_end = COALESCE(?, current_period_end)
+         WHERE tenant_id = ?`,
         payment.subscription_id ?? null,
         payment.subscription_id ?? null,
         now,
+        newPeriodEnd,
         payment.tenant_id,
       );
     }

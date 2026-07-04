@@ -94,7 +94,7 @@ export default function BulkMessageDialog({
       // 2. Sends WhatsApp messages via the admin's instance
       // 3. Logs the sends to reminder_logs
       
-      const { error } = await supabase.functions.invoke('send-bulk-reminder', {
+      const { data, error } = await supabase.functions.invoke('send-bulk-reminder', {
         body: {
           subscription_ids: selectedSubscriptions.map((s) => s.id),
           template_id: selectedTemplateId || null,
@@ -102,13 +102,12 @@ export default function BulkMessageDialog({
         },
       });
 
-      if (error) throw error;
+      if (error || data?.error) throw new Error(data?.error ?? error?.message ?? 'Send failed');
 
       toast.success(`Messages sent to ${selectedSubscriptions.length} tenants`);
       onOpenChange(false);
       onComplete?.();
     } catch (error) {
-      console.error('Bulk send error:', error);
       toast.error('Failed to send messages. Please try again.');
     } finally {
       setSending(false);

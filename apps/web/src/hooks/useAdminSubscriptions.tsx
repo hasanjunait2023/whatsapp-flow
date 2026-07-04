@@ -52,7 +52,6 @@ export function useAdminSubscriptions() {
       setSubscriptions(enriched);
     } catch (err) {
       setError(err as Error);
-      console.error('Error fetching subscriptions:', err);
     } finally {
       setLoading(false);
     }
@@ -122,24 +121,21 @@ export function useAdminSubscriptions() {
   };
 
   const bulkExtendSubscriptions = async (subscriptionIds: string[], days: number) => {
-    // Fetch all subscriptions to extend and update them one by one
-    // because each has a different current_period_end
     const toExtend = subscriptions.filter((s) => subscriptionIds.includes(s.id));
-    
-    for (const sub of toExtend) {
-      const currentEnd = new Date(sub.current_period_end);
-      currentEnd.setDate(currentEnd.getDate() + days);
-
-      await supabase
-        .from('subscriptions')
-        .update({
-          current_period_end: currentEnd.toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', sub.id);
-    }
-
+    const results = await Promise.allSettled(
+      toExtend.map((sub) => {
+        const currentEnd = new Date(sub.current_period_end);
+        currentEnd.setDate(currentEnd.getDate() + days);
+        return supabase
+          .from('subscriptions')
+          .update({ current_period_end: currentEnd.toISOString(), updated_at: new Date().toISOString() })
+          .eq('id', sub.id)
+          .then(({ error }) => { if (error) throw error; });
+      }),
+    );
     await fetchSubscriptions();
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (failed > 0) throw new Error(`${failed} of ${toExtend.length} extensions failed`);
   };
 
   return {

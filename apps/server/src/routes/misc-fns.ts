@@ -101,41 +101,45 @@ export async function forwardMessage(raw: Record<string, unknown>, ctx: FnContex
   );
   if (!ownsTarget) return ok({ error: "Forbidden target contact" });
 
-  const results: Array<{ message_id: string; success: boolean; error?: string }> = [];
-  for (const mid of messageIds) {
-    // SECURITY: scope the source-message read to the caller's tenant so a tenant
-    // cannot forward (and thus read) another tenant's message content/media.
-    // Admins may forward cross-tenant only when an explicit source_tenant_id is
-    // provided; otherwise admins are scoped to the resolving instance's tenant.
-    const sourceTenant =
-      ctx.isAdmin && typeof raw.source_tenant_id === "string"
-        ? (raw.source_tenant_id as string)
-        : instance.tenant_id;
-    const src = (await dbGet(
-      "SELECT content, content_type, media_url, media_filename FROM messages WHERE id = ? AND tenant_id = ? LIMIT 1",
-      mid,
-      sourceTenant,
-    )) as
-      | { content: string | null; content_type: string; media_url: string | null; media_filename: string | null }
-      | undefined;
-    if (!src) {
-      results.push({ message_id: mid, success: false, error: "Source message not found" });
-      continue;
-    }
-    const sendRes = await sendMessage(
-      {
-        contact_id: targetContactId,
-        instance_id: instance.id,
-        content: src.content ?? undefined,
-        content_type: src.content_type,
-        media_url: src.media_url ?? undefined,
-        media_filename: src.media_filename ?? undefined,
-      },
-      ctx,
-    );
-    const data = sendRes.data as { success?: boolean; error?: string; message_id?: string };
-    results.push({ message_id: mid, success: !!data?.success, error: data?.error });
-  }
+  // SECURITY: scope source-message reads to the caller's tenant so a tenant
+  // cannot forward (and thus read) another tenant's message content/media.
+  // Admins may forward cross-tenant only when an explicit source_tenant_id is
+  // provided; otherwise admins are scoped to the resolving instance's tenant.
+  const sourceTenant =
+    ctx.isAdmin && typeof raw.source_tenant_id === "string"
+      ? (raw.source_tenant_id as string)
+      : instance.tenant_id;
+
+  // Batch-fetch all source messages in one query (vs N sequential reads).
+  const srcPlaceholders = messageIds.map(() => "?").join(",");
+  const srcRows = (await dbAll(
+    `SELECT id, content, content_type, media_url, media_filename
+       FROM messages WHERE id IN (${srcPlaceholders}) AND tenant_id = ?`,
+    ...messageIds,
+    sourceTenant,
+  )) as Array<{ id: string; content: string | null; content_type: string; media_url: string | null; media_filename: string | null }>;
+  const srcMap = new Map(srcRows.map((r) => [r.id, r]));
+
+  // ponytail: parallel sends — each message is independent, no ordering guarantee needed
+  const results = await Promise.all(
+    messageIds.map(async (mid) => {
+      const src = srcMap.get(mid);
+      if (!src) return { message_id: mid, success: false, error: "Source message not found" };
+      const sendRes = await sendMessage(
+        {
+          contact_id: targetContactId!,
+          instance_id: instance.id,
+          content: src.content ?? undefined,
+          content_type: src.content_type,
+          media_url: src.media_url ?? undefined,
+          media_filename: src.media_filename ?? undefined,
+        },
+        ctx,
+      );
+      const data = sendRes.data as { success?: boolean; error?: string; message_id?: string };
+      return { message_id: mid, success: !!data?.success, error: data?.error };
+    }),
+  );
   return ok({ success: results.every((r) => r.success), results });
 }
 
@@ -180,6 +184,7 @@ export async function sendBulkReminder(raw: Record<string, unknown>, ctx: FnCont
   const body = raw as BulkReminderBody;
   const ids = body.contact_ids ?? [];
   if (ids.length === 0 || !body.content) return ok({ error: "contact_ids and content are required" });
+  if (ids.length > 5000) return ok({ error: "contact_ids exceeds maximum of 5000 per call" });
   if (!ctx.tenantId) return ok({ error: "No active tenant" });
 
   // Drip, don't blast: enqueue one job per recipient with a staggered run_at so
@@ -188,35 +193,77 @@ export async function sendBulkReminder(raw: Record<string, unknown>, ctx: FnCont
   // over time. Each job renders spintax + merge fields (unique per recipient),
   // and the opt-out gate + per-number rate limit are enforced per send inside
   // sendMessage. Tip: put {first_name} / {a|b} variants in `content`.
-  let offsetMs = 0;
-  for (const contactId of ids) {
-    offsetMs += proactiveSendDelayMs();
-    await enqueueJob({
-      kind: BULK_SEND_JOB,
-      tenantId: ctx.tenantId,
-      runAt: new Date(Date.now() + offsetMs).toISOString(),
-      payload: {
-        tenantId: ctx.tenantId,
-        userId: ctx.userId,
-        contactId,
-        content: body.content,
-        instanceId: body.instance_id,
-      } satisfies BulkSendPayload,
-    });
+  //
+  // Offsets are computed with a synchronous .map() (preserving order), then all
+  // INSERTs fire in parallel — avoids O(N) sequential DB round-trips on the
+  // request thread at large batch sizes.
+  const tenantId = ctx.tenantId; // string — guarded above
+  const content = body.content as string; // string — guarded above
+
+  // Validate all contact IDs belong to this tenant before enqueueing to prevent
+  // queue pollution and timing-oracle attacks via foreign contact IDs.
+  const validRows = await dbAll<{ id: string }>(
+    `SELECT id FROM contacts WHERE id IN (${ids.map(() => "?").join(",")}) AND tenant_id = ?`,
+    ...ids,
+    tenantId,
+  );
+  const validIds = new Set(validRows.map((r) => r.id));
+  const invalidIds = ids.filter((id) => !validIds.has(id));
+  if (invalidIds.length > 0) {
+    return ok({ error: "Some contact_ids do not belong to this tenant" });
   }
+
+  let offsetMs = 0;
+  const now = Date.now();
+  await Promise.all(
+    ids.map((contactId) => {
+      offsetMs += proactiveSendDelayMs();
+      return enqueueJob({
+        kind: BULK_SEND_JOB,
+        tenantId,
+        runAt: new Date(now + offsetMs).toISOString(),
+        payload: {
+          tenantId,
+          userId: ctx.userId,
+          contactId,
+          content,
+          instanceId: body.instance_id,
+        } satisfies BulkSendPayload,
+      });
+    }),
+  );
   return ok({ success: true, queued: ids.length, total: ids.length });
 }
 
 // --- number-health (per-number ban-risk metrics) -----------------------------
+// opted_out count is a full-table aggregate — cache 30s to avoid repeated scans.
+const OPTED_OUT_TTL = 30_000;
+const optedOutCache = new Map<string, { v: number; exp: number }>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, e] of optedOutCache) if (e.exp <= now) optedOutCache.delete(k);
+}, OPTED_OUT_TTL).unref();
+
 export async function numberHealth(raw: Record<string, unknown>, ctx: FnContext): Promise<FnResult> {
   if (!ctx.tenantId) return ok({ error: "No active tenant" });
   const instanceId = (raw.instance_id as string | undefined) ?? null;
   const instances = await computeNumberHealth(ctx.tenantId, instanceId);
-  const optedOut = (await dbGet(
-    "SELECT COUNT(*)::int AS n FROM contacts WHERE tenant_id = ? AND opted_out = true",
-    ctx.tenantId,
-  )) as { n: number };
-  return ok({ instances, opted_out_count: optedOut?.n ?? 0 });
+
+  const now = Date.now();
+  const cached = optedOutCache.get(ctx.tenantId);
+  let optedOutCount: number;
+  if (cached && cached.exp > now) {
+    optedOutCount = cached.v;
+  } else {
+    const row = (await dbGet(
+      "SELECT COUNT(*)::int AS n FROM contacts WHERE tenant_id = ? AND opted_out = true",
+      ctx.tenantId,
+    )) as { n: number } | undefined;
+    optedOutCount = row?.n ?? 0;
+    optedOutCache.set(ctx.tenantId, { v: optedOutCount, exp: now + OPTED_OUT_TTL });
+  }
+
+  return ok({ instances, opted_out_count: optedOutCount });
 }
 
 // --- create-admin-user (admin-only) ------------------------------------------

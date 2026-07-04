@@ -543,7 +543,7 @@ export default function AiAgent() {
                     </div>
                     <Slider
                       value={[config?.temperature || 0.7]}
-                      onValueChange={([value]) => config && saveConfig({ ...config, temperature: value })}
+                      onValueCommit={([value]) => config && saveConfig({ ...config, temperature: value })}
                       min={0}
                       max={1}
                       step={0.1}
@@ -560,7 +560,7 @@ export default function AiAgent() {
                     </div>
                     <Slider
                       value={[config?.max_response_tokens || 500]}
-                      onValueChange={([value]) => config && saveConfig({ ...config, max_response_tokens: value })}
+                      onValueCommit={([value]) => config && saveConfig({ ...config, max_response_tokens: value })}
                       min={100}
                       max={2000}
                       step={100}
@@ -651,7 +651,7 @@ export default function AiAgent() {
                   </div>
                   <Slider
                     value={[config?.handoff_after_failures || 3]}
-                    onValueChange={([value]) => config && saveConfig({ handoff_after_failures: value })}
+                    onValueCommit={([value]) => config && saveConfig({ handoff_after_failures: value })}
                     min={1}
                     max={10}
                     step={1}

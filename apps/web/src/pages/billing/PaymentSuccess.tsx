@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useUddoktaPay } from '@/hooks/useUddoktaPay';
 import { AppLogo } from '@/components/AppLogo';
 import { useTenant } from '@/hooks/useTenant';
+import { supabase } from '@/integrations/supabase/client';
 import confetti from 'canvas-confetti';
 
 export default function PaymentSuccess() {
@@ -43,6 +44,9 @@ export default function PaymentSuccess() {
           });
           triggerConfetti();
           refetchTenant();
+          // Trigger WhatsApp instance provisioning. Fire-and-forget — payment is
+          // already confirmed; admin can retry provisioning if this fails.
+          supabase.functions.invoke('payment-confirmed', { body: {} }).catch(() => {});
         } else {
           setStatus('pending');
         }

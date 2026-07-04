@@ -3,6 +3,20 @@ import { dbGet, dbAll, dbRun, dbTx, type TxQuery } from "../db/raw.js";
 import { getTenant } from "../middleware/tenant.js";
 import { emitChange } from "../realtime/emitter.js";
 
+// Sidebar unread badge — polled on every focus/mount. 5s TTL means at most one
+// DB aggregate per tenant per 5s; SSE events still cause the frontend to
+// re-request immediately, so perceived staleness is <5s under normal traffic.
+const UNREAD_TTL = 5_000;
+const unreadCache = new Map<string, { v: { wa_unread: number; fb_unread: number; total_unread: number }; exp: number }>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, e] of unreadCache) if (e.exp <= now) unreadCache.delete(k);
+}, UNREAD_TTL).unref();
+
+export function bustUnreadCache(tenantId: string): void {
+  unreadCache.delete(tenantId);
+}
+
 export const rpcRoute = new Hono();
 
 export interface RpcCtx {
@@ -22,15 +36,31 @@ const fail = (message: string) => ({ data: null, error: { message } });
 /** Upper bound on id arrays expanded into an IN(...) clause (DoS / variable cap). */
 const MAX_IN_IDS = 500;
 
+// contact_thread_state tenant membership is immutable — contacts don't move
+// between tenants. Cache confirmed memberships for 5 min to avoid one DB hit
+// per thread-message request at high concurrency. Only cache `true`; `false`
+// (access denied) is not cached so new contacts are picked up immediately.
+const contactTenantCache = new Map<string, { exp: number }>();
+const CONTACT_TENANT_TTL = 5 * 60_000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, e] of contactTenantCache) if (e.exp <= now) contactTenantCache.delete(k);
+}, CONTACT_TENANT_TTL).unref();
+
 /** Confirms a contact row belongs to the active tenant (or caller is admin). */
 async function assertContactInTenant(contactId: string, ctx: RpcCtx): Promise<boolean> {
   if (ctx.isAdmin) return true;
   if (!ctx.tenantId) return false;
+  const key = `${contactId}:${ctx.tenantId}`;
+  const now = Date.now();
+  const hit = contactTenantCache.get(key);
+  if (hit && hit.exp > now) return true;
   const row = await dbGet(
     "SELECT 1 FROM contact_thread_state WHERE contact_id = ? AND tenant_id = ? LIMIT 1",
     contactId,
     ctx.tenantId,
   );
+  if (row !== undefined) contactTenantCache.set(key, { exp: now + CONTACT_TENANT_TTL });
   return row !== undefined;
 }
 
@@ -55,24 +85,15 @@ const getLastMessagesForContacts: RpcHandler = async (args, ctx) => {
     params.push(ctx.tenantId);
   }
 
+  // DISTINCT ON with (contact_id, created_at) index: O(1) per contact.
+  // ROW_NUMBER() scanned all messages per contact then filtered rn=1; DISTINCT ON
+  // does a backwards index range scan and stops at the first (latest) row per contact.
   const rows = await dbAll(
-    `
-    SELECT contact_id, content, content_type, direction
-    FROM (
-      SELECT
-        m.contact_id AS contact_id,
-        m.content AS content,
-        m.content_type AS content_type,
-        m.direction AS direction,
-        ROW_NUMBER() OVER (
-          PARTITION BY m.contact_id
-          ORDER BY m.created_at DESC
-        ) AS rn
-      FROM messages m
-      WHERE m.contact_id IN (${placeholders}) ${tenantClause}
-    ) sub
-    WHERE rn = 1
-  `,
+    `SELECT DISTINCT ON (m.contact_id)
+       m.contact_id, m.content, m.content_type, m.direction
+     FROM messages m
+     WHERE m.contact_id IN (${placeholders}) ${tenantClause}
+     ORDER BY m.contact_id, m.created_at DESC`,
     ...params,
   );
   return ok(rows);
@@ -224,6 +245,7 @@ const markThreadAsRead: RpcHandler = async (args, ctx) => {
       contactId,
     );
   }
+  if (ctx.tenantId) unreadCache.delete(ctx.tenantId);
   emitChange("contact_thread_state", ctx.tenantId, { contact_id: contactId });
   return ok(null);
 };
@@ -233,6 +255,9 @@ const getSidebarUnreadCounts: RpcHandler = async (args, ctx) => {
   const tenantId = (args.p_tenant_id as string) ?? ctx.tenantId;
   if (!tenantId) return fail("No active tenant");
   if (!ctx.isAdmin && tenantId !== ctx.tenantId) return fail("Forbidden tenant");
+  const now = Date.now();
+  const cached = unreadCache.get(tenantId);
+  if (cached && cached.exp > now) return ok([cached.v]);
   const row = (await dbGet(
     `SELECT
          COALESCE(SUM(CASE WHEN contact_type = 'whatsapp' THEN unread_count ELSE 0 END), 0)::int AS wa_unread,
@@ -242,18 +267,14 @@ const getSidebarUnreadCounts: RpcHandler = async (args, ctx) => {
        WHERE tenant_id = ? AND is_archived = false AND unread_count > 0`,
     tenantId,
   )) as { wa_unread: number; fb_unread: number; total_unread: number };
+  unreadCache.set(tenantId, { v: row, exp: now + UNREAD_TTL });
   // Postgres returns a single-row table; the shim consumer reads data[0] OR data.
   return ok([row]);
 };
 
-/** is_system_admin() — admin role check for the active user. */
-const isSystemAdmin: RpcHandler = async (_args, ctx) => {
-  const row = await dbGet(
-    "SELECT 1 FROM system_roles WHERE user_id = ? AND role = 'admin' LIMIT 1",
-    ctx.userId,
-  );
-  return ok(row !== undefined);
-};
+/** is_system_admin() — admin role check for the active user.
+ * ctx.isAdmin is already resolved and cached by tenantMiddleware; no DB hit needed. */
+const isSystemAdmin: RpcHandler = async (_args, ctx) => ok(ctx.isAdmin);
 
 /** is_super_admin() — super-admin role check for the active user. */
 const isSuperAdmin: RpcHandler = async (_args, ctx) => {
@@ -368,16 +389,18 @@ const deductProductStock: RpcHandler = async (args, ctx) => {
   // new value in-DB so concurrent orders can't both read the same stock and
   // over-sell. Returns the true previous + new values for the movement log.
   const updated = (await dbGet(
-    `WITH prev AS (SELECT stock_quantity AS old_qty FROM products WHERE id = ? FOR UPDATE)
+    `WITH prev AS (SELECT stock_quantity AS old_qty FROM products WHERE id = ? AND tenant_id = ? FOR UPDATE)
        UPDATE products p
           SET stock_quantity = GREATEST(0, p.stock_quantity - ?), updated_at = ?
          FROM prev
-        WHERE p.id = ?
+        WHERE p.id = ? AND p.tenant_id = ?
        RETURNING prev.old_qty AS previous_quantity, p.stock_quantity AS new_quantity`,
     productId,
+    tenantId,
     quantity,
     new Date().toISOString(),
     productId,
+    tenantId,
   )) as { previous_quantity: number; new_quantity: number } | undefined;
   if (!updated) return fail("Product not found");
   const current = updated.previous_quantity ?? 0;

@@ -192,13 +192,15 @@ const MUTATION_OPS = new Set(["insert", "update", "upsert", "delete"]);
  * could insert/update their own role-bearing rows (user_roles, system_roles).
  */
 function assertMutable(cfg: TableConfig, op: string, ctx: TenantContext): void {
-  if (!MUTATION_OPS.has(op)) return;
   const mutability = cfg.mutability ?? "tenant";
-  if (mutability === "readonly") {
-    throw new QueryError("Table is read-only via this API", "readonly_table");
-  }
+  // Admin-only tables are blocked for non-admins on any operation (SELECT included),
+  // preventing authenticated non-admins from reading privilege-bearing or platform-wide tables.
   if (mutability === "admin" && !ctx.isAdmin) {
     throw new QueryError("Admin privileges required", "forbidden");
+  }
+  if (!MUTATION_OPS.has(op)) return;
+  if (mutability === "readonly") {
+    throw new QueryError("Table is read-only via this API", "readonly_table");
   }
 }
 
@@ -382,7 +384,9 @@ async function runSelect(
   if (hasRange) {
     q = q.limit(req.rangeTo! - req.rangeFrom! + 1).offset(req.rangeFrom!) as any;
   } else {
-    if (req.limit != null) q = q.limit(req.limit) as any;
+    // ponytail: 1000-row cap prevents full-table scans when caller omits limit
+    const limit = req.limit != null ? req.limit : 1000;
+    q = q.limit(limit) as any;
     if (req.offset != null) q = q.offset(req.offset) as any;
   }
 
@@ -489,10 +493,11 @@ async function runUpdate(
   if (cfg.tenantColumn && ctx.tenantId && patch[cfg.tenantColumn] != null) {
     patch[cfg.tenantColumn] = ctx.tenantId;
   }
+  if (!where) throw new QueryError("At least one filter is required for update", "no_filter");
   const updated = (await db
     .update(cfg.table as any)
     .set(patch)
-    .where(where ?? sql`1=1`)
+    .where(where)
     .returning()) as Record<string, unknown>[];
   return returnedResponse(req, updated, cfg);
 }
@@ -502,9 +507,10 @@ async function runDelete(
   cfg: TableConfig,
   where: SQL | undefined,
 ): Promise<QueryResponse> {
+  if (!where) throw new QueryError("At least one filter is required for delete", "no_filter");
   const deleted = (await db
     .delete(cfg.table as any)
-    .where(where ?? sql`1=1`)
+    .where(where)
     .returning()) as Record<string, unknown>[];
   return returnedResponse(req, deleted, cfg);
 }

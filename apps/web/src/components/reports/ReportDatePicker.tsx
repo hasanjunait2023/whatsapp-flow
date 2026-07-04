@@ -46,20 +46,32 @@ export function ReportDatePicker({ startDate, endDate, onDateChange }: ReportDat
     const today = new Date();
 
     switch (value) {
-      case 'this_month':
-        onDateChange(startOfMonth(today), endOfMonth(today));
+      case 'this_month': {
+        const from = startOfMonth(today);
+        const to = endOfMonth(today);
+        setDateRange({ from, to });
+        onDateChange(from, to);
         break;
-      case 'last_7_days':
-        onDateChange(subDays(today, 7), today);
+      }
+      case 'last_7_days': {
+        const from = subDays(today, 7);
+        setDateRange({ from, to: today });
+        onDateChange(from, today);
         break;
-      case 'last_30_days':
-        onDateChange(subDays(today, 30), today);
+      }
+      case 'last_30_days': {
+        const from = subDays(today, 30);
+        setDateRange({ from, to: today });
+        onDateChange(from, today);
         break;
-      case 'last_3_months':
-        onDateChange(subMonths(today, 3), today);
+      }
+      case 'last_3_months': {
+        const from = subMonths(today, 3);
+        setDateRange({ from, to: today });
+        onDateChange(from, today);
         break;
+      }
       case 'custom':
-        // Keep current range for custom
         break;
     }
   };

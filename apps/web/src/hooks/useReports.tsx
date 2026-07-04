@@ -664,7 +664,6 @@ export function useReports(startDate: Date, endDate: Date) {
         previousPeriod,
       });
     } catch (err) {
-      console.error('Error fetching reports:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch reports');
     } finally {
       setLoading(false);
