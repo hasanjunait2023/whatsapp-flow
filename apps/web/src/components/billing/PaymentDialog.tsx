@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { BKASH_NUMBER, NAGAD_NUMBER } from '@/config/branding';
 import { Button } from '@/components/ui/button';
 import {
   ResponsiveDialog,
@@ -42,8 +43,8 @@ export function PaymentDialog({ open, onOpenChange, plan, onSubmit, orderType = 
   const { initiateCheckout, redirectToPayment, loading: checkoutLoading } = useUddoktaPay();
 
   const paymentNumbers = {
-    bkash: '01712-345678',
-    nagad: '01812-345678',
+    bkash: BKASH_NUMBER,
+    nagad: NAGAD_NUMBER,
     bank_transfer: 'Account: 1234567890, Routing: 123456789',
   };
 

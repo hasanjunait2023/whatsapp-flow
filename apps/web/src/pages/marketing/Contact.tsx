@@ -5,6 +5,7 @@ import { Nav } from "@/components/landing/Nav";
 import { Footer } from "@/components/landing/Footer";
 import { LpButton } from "@/components/landing/ui/LpButton";
 import { LpThemeProvider } from "@/components/landing/LpThemeContext";
+import { SUPPORT_EMAIL, SUPPORT_WHATSAPP } from "@/config/branding";
 
 import "@/styles/landing.css";
 import "@/styles/marketing.css";
@@ -17,9 +18,18 @@ export default function ContactPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 700));
-    setSubmitting(false);
-    setSent(true);
+    try {
+      const res = await fetch("/api/public/contact-form", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (res.ok) {
+        setSent(true);
+      }
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -43,21 +53,21 @@ export default function ContactPage() {
                   <Mail size={20} />
                   <div>
                     <strong>Email</strong>
-                    <a href="mailto:hello@ecomex.cloud">hello@ecomex.cloud</a>
+                    <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
                   </div>
                 </div>
                 <div className="ecx-contact-item">
                   <Phone size={20} />
                   <div>
-                    <strong>Phone</strong>
-                    <a href="tel:+8801700000000">+880 1700-000000</a>
+                    <strong>Phone / WhatsApp</strong>
+                    <a href={`tel:+${SUPPORT_WHATSAPP}`}>+{SUPPORT_WHATSAPP}</a>
                   </div>
                 </div>
                 <div className="ecx-contact-item">
                   <MessageSquare size={20} />
                   <div>
                     <strong>WhatsApp</strong>
-                    <a href="https://wa.me/8801700000000">+880 1700-000000</a>
+                    <a href={`https://wa.me/${SUPPORT_WHATSAPP}`}>+{SUPPORT_WHATSAPP}</a>
                   </div>
                 </div>
                 <div className="ecx-contact-item">

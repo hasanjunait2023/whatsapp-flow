@@ -31,12 +31,14 @@ import { fbWebhookRoute, warnIfFbPagesUnverified } from "./routes/webhooks/fb.js
 import { fbOauthStartRoute, fbOauthCallbackRoute } from "./routes/fb-oauth.js";
 import { fbDataDeletionRoute } from "./routes/fb-data-deletion.js";
 import { woocommerceWebhookRoute } from "./routes/webhooks/woocommerce.js";
+import { salesWebhookRoute } from "./routes/webhooks/sales.js";
 import { startScheduler, stopScheduler } from "./jobs/scheduler.js";
 import { registerSoulJobs } from "./services/soul/index.js";
 import { registerHermesPipeline } from "./services/hermes/pipeline.js";
 import { registerCeoJobs } from "./services/ceo/index.js";
 import { registerGrowthJobs } from "./services/growth/index.js";
 import { enrollLeadInFunnel } from "./services/growth/funnel.js";
+import { sendEmail } from "./lib/email.js";
 import { registerOptOutHandler } from "./services/opt-out.js";
 import { registerBulkSend } from "./services/bulk-send.js";
 import { trackRequest, renderMetrics } from "./lib/metrics.js";
@@ -158,8 +160,19 @@ app.use("/api/*", async (c, next) => {
 // --- global error handler ----------------------------------------------------
 // Anything that throws out of a handler lands here: record it (DB + ops alert),
 // log it, and return a generic 500 — never leak internal error text/stack.
+//
+// Pool exhaustion (connectionTimeoutMillis exceeded) is a transient overload
+// condition, not a bug — return 503 so clients/CDNs know to retry.
 app.onError((err, c) => {
   const requestId = (c.get("requestId") as string | undefined) ?? null;
+  const msg = err instanceof Error ? err.message : String(err);
+  const isPoolTimeout = msg.includes("timeout exceeded when trying to connect");
+
+  if (isPoolTimeout) {
+    logger.warn("pool_exhausted", { request_id: requestId ?? undefined, path: c.req.path });
+    return c.json({ error: { message: "Service temporarily overloaded, please retry" } }, 503);
+  }
+
   void captureError(err, {
     source: "backend",
     url: c.req.path,
@@ -169,28 +182,45 @@ app.onError((err, c) => {
   logger.error("unhandled_error", {
     request_id: requestId ?? undefined,
     path: c.req.path,
-    msg_preview: err instanceof Error ? err.message : String(err),
+    msg_preview: msg,
   });
   return c.json({ error: { message: "Internal server error" } }, 500);
 });
 
 // --- health ----------------------------------------------------------------
+// HTTP status rules:
+//   200 — process is alive and DB is reachable (or pool is just busy)
+//   503 — DB is genuinely unreachable (disk failure, container crash)
+//
+// Pool exhaustion (connectionTimeoutMillis hit during a load spike) MUST NOT
+// return 503: docker would mark the container unhealthy, stop routing traffic
+// to it, and potentially restart — exactly the wrong response to overload.
 app.get("/healthz", async (c) => {
   let dbOk = false;
+  let dbNote: string | undefined;
   try {
     await dbGet("SELECT 1");
     dbOk = true;
-  } catch {
-    dbOk = false;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("timeout exceeded when trying to connect")) {
+      // Pool busy — process is healthy, just under load. Report degraded but
+      // return 200 so docker doesn't force-restart a healthy container.
+      dbOk = true;
+      dbNote = "pool_busy";
+    } else {
+      dbOk = false;
+    }
   }
   const mem = process.memoryUsage();
-  const body = {
-    status: dbOk ? "ok" : "degraded",
+  const body: Record<string, unknown> = {
+    status: dbOk ? (dbNote ? "degraded" : "ok") : "down",
     db: dbOk,
     rss: mem.rss,
     heapUsed: mem.heapUsed,
     uptime: process.uptime(),
   };
+  if (dbNote) body.dbNote = dbNote;
   return c.json(body, dbOk ? 200 : 503);
 });
 
@@ -228,6 +258,9 @@ app.route("/api/webhooks/fb", fbWebhookRoute);
 
 // --- WooCommerce order webhook (machine caller; tenant_id query + optional HMAC) ---
 app.route("/api/webhooks/woocommerce", woocommerceWebhookRoute);
+
+// --- External sales webhook (machine caller; X-Sales-Webhook-Secret header) ---
+app.route("/api/sales/webhook", salesWebhookRoute);
 
 // --- Facebook OAuth callback (browser redirect from Meta; signed-state auth) ---
 app.route("/api/fb/oauth/callback", fbOauthCallbackRoute);
@@ -314,6 +347,38 @@ app.post("/api/public/demo-lead", async (c) => {
   return c.json({ success: true });
 });
 
+app.post("/api/public/contact-form", async (c) => {
+  let body: Record<string, unknown> = {};
+  try {
+    const raw = await c.req.text();
+    body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+  } catch {
+    return c.json({ error: { message: "Invalid JSON body" } }, 400);
+  }
+
+  const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
+  const name = str(body.name);
+  const email = str(body.email).toLowerCase();
+  const subject = str(body.subject) || "general";
+  const message = str(body.message);
+
+  if (!name || name.length > 200) return c.json({ error: { message: "A valid name is required" } }, 400);
+  if (!email || email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return c.json({ error: { message: "A valid email is required" } }, 400);
+  }
+  if (!message || message.length < 10 || message.length > 4000) {
+    return c.json({ error: { message: "Message must be 10–4000 characters" } }, 400);
+  }
+
+  await sendEmail({
+    to: "support@ecomexautomation.com",
+    subject: `[Contact] ${subject} — ${name}`,
+    html: `<p><strong>From:</strong> ${name} &lt;${email}&gt;</p><p><strong>Topic:</strong> ${subject}</p><p>${message.replace(/\n/g, "<br>")}</p>`,
+  });
+
+  return c.json({ success: true });
+});
+
 // --- authed API --------------------------------------------------------------
 const api = new Hono();
 api.use("*", tenantMiddleware);
@@ -351,12 +416,14 @@ app.route("/api", api);
 if (IS_PRODUCTION && existsSync(WEB_DIST_DIR)) {
   const rootDir = path.relative(process.cwd(), WEB_DIST_DIR) || ".";
   app.use("/*", serveStatic({ root: rootDir }));
+
   // SPA fallback: serve index.html for non-file, non-api routes.
+  // Cache the file content once at startup — readFileSync on every request
+  // blocks the event loop, which compounds badly under 10k concurrent clients.
+  const indexPath = path.join(WEB_DIST_DIR, "index.html");
+  const indexHtml = existsSync(indexPath) ? readFileSync(indexPath, "utf8") : null;
   app.get("*", (c) => {
-    const indexPath = path.join(WEB_DIST_DIR, "index.html");
-    if (existsSync(indexPath)) {
-      return c.html(readFileSync(indexPath, "utf8"));
-    }
+    if (indexHtml) return c.html(indexHtml);
     return c.text("Not found", 404);
   });
 }
@@ -378,6 +445,15 @@ try {
 void initRedisBridge();
 
 const server = serve({ fetch: app.fetch, port: PORT });
+
+// Node.js 22 default keepAliveTimeout is 5 s but nginx's keepalive_timeout is
+// 75 s. If nginx tries to reuse a connection the Node server already closed,
+// it gets a TCP RST → nginx returns 502. Setting keepAliveTimeout above
+// nginx's timeout prevents this race. headersTimeout must exceed it so a
+// slow-starting request on a reused socket still gets time to send headers.
+(server as import("node:http").Server).keepAliveTimeout = 90_000;
+(server as import("node:http").Server).headersTimeout = 95_000;
+
 // Attach the WebSocket upgrade handler to the Node http server.
 injectWebSocket(server);
 
@@ -415,12 +491,29 @@ function shutdown(signal: string): void {
   logger.info("shutdown", { signal });
   stopScheduler();
   clearInterval(resourceTimer);
+  // Stop accepting new connections. The callback fires once every tracked
+  // connection (including WS/SSE) is fully closed and drained.
   server.close(() => {
-    // Drain the DB pool cleanly so in-flight queries finish and sockets close.
     void closePool().finally(() => process.exit(0));
   });
-  // Force-exit if close/drain hangs.
-  setTimeout(() => process.exit(1), 5000).unref();
+
+  // Immediately close IDLE keep-alive connections (no request in flight).
+  // Without this, nginx's persistent upstream conns hold server.close() open
+  // indefinitely and the hard-kill fires before in-flight requests drain.
+  (server as import("node:http").Server).closeIdleConnections();
+
+  // After 5 s, force-close any remaining live connections: in-flight requests
+  // that are taking too long, WebSocket sessions, and SSE streams. WS/SSE
+  // clients reconnect on the next attempt, routing to the new instance.
+  // This fires before the hard process.exit so server.close()'s callback still
+  // has a chance to run and drain the DB pool cleanly.
+  setTimeout(() => {
+    (server as import("node:http").Server).closeAllConnections();
+  }, 5_000).unref();
+
+  // Hard kill after 10 s if pool drain stalls. Must be < stop_grace_period in
+  // docker-compose.yml (15 s) so Docker does not SIGKILL before this runs.
+  setTimeout(() => process.exit(1), 10_000).unref();
 }
 
 process.on("SIGINT", () => shutdown("SIGINT"));
