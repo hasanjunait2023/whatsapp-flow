@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -83,7 +84,7 @@ export function AddRuleDialog({ onAdd, teamMembers = [] }: AddRuleDialogProps) {
       setOpen(false);
       resetForm();
     } catch (error) {
-      console.error('Error adding rule:', error);
+      toast.error('Error adding rule');
     } finally {
       setLoading(false);
     }

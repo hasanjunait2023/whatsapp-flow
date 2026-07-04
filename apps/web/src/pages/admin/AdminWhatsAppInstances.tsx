@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { useAdminOwnInstances, AdminWhatsAppInstance } from '@/hooks/useAdminOwnInstances';
 import AdminInstanceCard from '@/components/admin-instances/AdminInstanceCard';
@@ -64,7 +65,7 @@ export default function AdminWhatsAppInstances() {
     try {
       await deleteInstance(id);
     } catch (error) {
-      console.error('Failed to delete instance:', error);
+      toast.error('Failed to delete instance');
     }
   };
 
@@ -72,7 +73,7 @@ export default function AdminWhatsAppInstances() {
     try {
       await setDefaultInstance(id);
     } catch (error) {
-      console.error('Failed to set default:', error);
+      toast.error('Failed to set default instance');
     }
   };
 

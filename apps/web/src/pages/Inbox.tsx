@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import { toast } from 'sonner';
 
 import ContactList from '@/components/inbox/ContactList';
 import ChatView from '@/components/inbox/ChatView';
@@ -138,7 +139,7 @@ export default function Inbox() {
         setMobileView('list');
       }
     } catch (error) {
-      console.error('Failed to delete contact:', error);
+      toast.error('Failed to delete contact');
     }
   }, [deleteContact, isMobile]);
 

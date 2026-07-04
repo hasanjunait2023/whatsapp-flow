@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { ResponsiveDialog, ResponsiveDialogContent, ResponsiveDialogHeader, ResponsiveDialogTitle } from '@/components/ui/responsive-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -125,7 +126,7 @@ export function ProductDialog({ open, onOpenChange, product }: ProductDialogProp
         images: [...(prev.images || []), ...urls],
       }));
     } catch (error) {
-      console.error('Failed to upload images:', error);
+      toast.error('Failed to upload images');
     } finally {
       setIsUploading(false);
     }

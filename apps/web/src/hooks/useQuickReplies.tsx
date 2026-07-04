@@ -39,6 +39,7 @@ export function useQuickReplies() {
   const { currentTenant } = useTenant();
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchQuickReplies = useCallback(async () => {
     if (!currentTenant) {
@@ -63,7 +64,7 @@ export function useQuickReplies() {
       })) as QuickReply[];
       setQuickReplies(replies);
     } catch (err) {
-      console.error('Error fetching quick replies:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch quick replies');
     } finally {
       setLoading(false);
     }
@@ -145,6 +146,7 @@ export function useQuickReplies() {
   return {
     quickReplies,
     loading,
+    error,
     refetch: fetchQuickReplies,
     createQuickReply,
     updateQuickReply,

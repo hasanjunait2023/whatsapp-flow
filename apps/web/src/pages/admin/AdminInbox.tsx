@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import { toast } from 'sonner';
 import AdminLayout from '@/components/layout/AdminLayout';
 import AdminChatView from '@/components/inbox/AdminChatView';
 import AdminNewChatView from '@/components/admin-inbox/AdminNewChatView';
@@ -167,7 +168,7 @@ export default function AdminInbox() {
         setMobileView('list');
       }
     } catch (error) {
-      console.error('Failed to delete contact:', error);
+      toast.error('Failed to delete contact');
     }
   }, [deleteContact, isMobile]);
 

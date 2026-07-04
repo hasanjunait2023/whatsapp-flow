@@ -99,7 +99,7 @@ export function PaymentDialog({ open, onOpenChange, plan, onSubmit, orderType = 
       });
       handleClose();
     } catch (error) {
-      console.error('Payment submission error:', error);
+      toast.error(error instanceof Error ? error.message : 'Payment submission failed');
     } finally {
       setLoading(false);
     }
