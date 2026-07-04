@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Phone, MessageCircle, LogOut, RefreshCw, CreditCard, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useUddoktaPay } from '@/hooks/useUddoktaPay';
 import { AppLogo } from '@/components/AppLogo';
 import { InlinePlanSelector } from '@/components/onboarding/InlinePlanSelector';
-import { SUPPORT_WHATSAPP } from '@/config/branding';
+import { SUPPORT_WHATSAPP, BKASH_NUMBER, NAGAD_NUMBER } from '@/config/branding';
 import { toast } from 'sonner';
 
 export default function PendingActivation() {
@@ -30,27 +30,37 @@ export default function PendingActivation() {
     }
     
     setIsProcessing(true);
-    const result = await initiateCheckout({
-      planId: effectivePlan.id,
-      amount: effectivePlan.price_monthly,
-      billingCycle: 'monthly',
-      orderType: 'subscription',
-    });
+    try {
+      const result = await initiateCheckout({
+        planId: effectivePlan.id,
+        amount: effectivePlan.price_monthly,
+        billingCycle: 'monthly',
+        orderType: 'subscription',
+      });
 
-    if (result.success && result.paymentUrl) {
-      toast.success('Redirecting to payment gateway...');
-      redirectToPayment(result.paymentUrl);
-    } else {
-      toast.error(result.error || 'Failed to initiate payment');
+      if (result.success && result.paymentUrl) {
+        toast.success('Redirecting to payment gateway...');
+        redirectToPayment(result.paymentUrl);
+      } else {
+        toast.error(result.error || 'Failed to initiate payment');
+      }
+    } catch {
+      toast.error('Failed to initiate payment. Please try again.');
+    } finally {
       setIsProcessing(false);
     }
   };
 
+  // Auto-redirect when tenant becomes activated (admin action, webhook, etc.)
+  useEffect(() => {
+    if (currentTenant?.is_activated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [currentTenant?.is_activated, navigate]);
+
   const handleRefresh = async () => {
     await refetch();
-    if (currentTenant?.is_activated) {
-      navigate('/dashboard');
-    }
+    // Navigation handled by the useEffect above once refetch updates state
   };
 
   const handleLogout = async () => {
@@ -110,11 +120,11 @@ export default function PendingActivation() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">bKash Personal:</span>
-                    <span className="font-mono font-medium text-foreground">01XXXXXXXXX</span>
+                    <span className="font-mono font-medium text-foreground">{BKASH_NUMBER}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Nagad Personal:</span>
-                    <span className="font-mono font-medium text-foreground">01XXXXXXXXX</span>
+                    <span className="font-mono font-medium text-foreground">{NAGAD_NUMBER}</span>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">

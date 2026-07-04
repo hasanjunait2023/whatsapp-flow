@@ -145,8 +145,10 @@ export default function Communication() {
     return { total: instances.length, active, connecting, offline };
   }, [instances]);
 
-  const webhookUrl = (instanceId: string) =>
-    `https://cdkrvztqeuflxilrtnws.supabase.co/functions/v1/wasender-webhook/${instanceId}`;
+  const webhookUrl = (instanceId: string) => {
+    const base = import.meta.env.VITE_API_URL || window.location.origin;
+    return `${base}/api/waha/webhook/${instanceId}`;
+  };
 
   return (
     <AdminLayout>
@@ -336,7 +338,7 @@ export default function Communication() {
                           </Link>
                         </Button>
                         <Button variant="outline" size="sm" asChild>
-                          <Link to="/admin/inbox">
+                          <Link to="/contacts">
                             <Users className="mr-2 h-4 w-4" />
                             Contacts
                           </Link>

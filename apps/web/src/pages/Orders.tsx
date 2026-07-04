@@ -124,16 +124,19 @@ export default function Orders() {
   };
 
   const handleBulkDelete = async () => {
-    try {
-      for (const order of selection.selectedItems) {
-        await deleteOrder.mutateAsync(order.id);
-      }
-      toast.success(`${selection.selectedCount} orders deleted`);
-      selection.clearSelection();
-      setBulkDeleteOpen(false);
-    } catch (error) {
-      toast.error('Failed to delete some orders');
+    const items = [...selection.selectedItems];
+    const results = await Promise.allSettled(
+      items.map((order) => deleteOrder.mutateAsync(order.id))
+    );
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    const succeeded = results.length - failed;
+    if (failed === 0) {
+      toast.success(`${succeeded} orders deleted`);
+    } else {
+      toast.error(`${succeeded} deleted, ${failed} failed`);
     }
+    selection.clearSelection();
+    setBulkDeleteOpen(false);
   };
 
   const handleBulkGenerateInvoices = async () => {
@@ -203,7 +206,7 @@ export default function Orders() {
   const stats = {
     total: orders.length,
     pending: orders.filter(o => o.status === 'pending').length,
-    processing: orders.filter(o => o.status === 'processing' || o.status === 'confirmed').length,
+    processing: orders.filter(o => o.status === 'processing').length,
     shipped: orders.filter(o => o.status === 'shipped').length,
     delivered: orders.filter(o => o.status === 'delivered').length,
     totalRevenue: orders.filter(o => o.payment_status === 'paid').reduce((sum, o) => sum + o.total, 0),
