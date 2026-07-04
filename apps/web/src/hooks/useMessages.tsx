@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenant } from '@/hooks/useTenant';
 import { MediaPayload } from '@/components/inbox/ChatInput';
@@ -512,9 +513,12 @@ export function useMessages(contactId: string | null) {
       // last_message_at is now auto-updated by database trigger
       return data;
     } catch (err) {
-      // Silent failure - keep message as pending for backend retry
-      // Don't mark as failed, don't throw error
-      console.error('Message send error (will retry):', err);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === optimisticId ? { ...m, status: 'failed' as const } : m
+        )
+      );
+      toast.error('Failed to send message. Please try again.');
       return { success: false, error: (err as Error).message };
     } finally {
       setSending(false);

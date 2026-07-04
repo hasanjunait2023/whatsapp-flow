@@ -31,17 +31,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { 
-  MoreVertical, 
-  User, 
+import {
+  User,
   Tag,
   MessageCircle,
   AlertCircle,
   UserRound,
   Trash2,
-  Ban,
-  Download,
-  ShieldAlert,
 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -50,13 +46,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 interface ChatViewProps {
   contact: Contact;
@@ -460,51 +449,6 @@ export default function ChatView({ contact, onMarkAsRead, onResolveHandoff, onRe
               </AlertDialogContent>
             </AlertDialog>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-9 w-9">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem 
-                onClick={() => {
-                  toast({
-                    title: 'Contact blocked',
-                    description: `${displayName} has been blocked.`,
-                  });
-                }}
-                className="text-destructive focus:text-destructive"
-              >
-                <Ban className="h-4 w-4 mr-2" />
-                Block contact
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => {
-                  toast({
-                    title: 'Export started',
-                    description: 'Chat history is being exported...',
-                  });
-                }}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export chat
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => {
-                  toast({
-                    title: 'Marked as spam',
-                    description: `${displayName} has been marked as spam.`,
-                  });
-                }}
-                className="text-warning focus:text-warning"
-              >
-                <ShieldAlert className="h-4 w-4 mr-2" />
-                Mark as spam
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </div>
 

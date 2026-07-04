@@ -59,7 +59,7 @@ const SOCIALS = [
 ];
 
 function NewsletterForm() {
-  const [status, setStatus] = useState<"idle" | "ok" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "ok" | "error" | "server-error">("idle");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -81,7 +81,7 @@ function NewsletterForm() {
       setStatus("ok");
       form.reset();
     } catch {
-      setStatus("error");
+      setStatus("server-error");
     }
   };
 
@@ -120,6 +120,11 @@ function NewsletterForm() {
       {status === "error" && (
         <p className="mt-2 text-sm text-[color:var(--lp-danger)]" role="alert">
           Please enter a valid email address.
+        </p>
+      )}
+      {status === "server-error" && (
+        <p className="mt-2 text-sm text-[color:var(--lp-danger)]" role="alert">
+          Something went wrong. Please try again.
         </p>
       )}
     </form>

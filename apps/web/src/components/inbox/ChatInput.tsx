@@ -38,6 +38,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import MediaPreview from './MediaPreview';
 import VoiceRecorder from './VoiceRecorder';
 import ReplyPreview from './ReplyPreview';
@@ -236,7 +237,8 @@ export default function ChatInput({ onSendMessage, disabled, sending, replyingTo
       handleCancelMedia();
       onCancelReply?.();
     } catch (error) {
-      console.error('Failed to send media:', error);
+      toast.error('Failed to send media. Please try again.');
+      handleCancelMedia();
     }
   };
 
@@ -274,7 +276,8 @@ export default function ChatInput({ onSendMessage, disabled, sending, replyingTo
       setShowVoiceRecorder(false);
       onCancelReply?.();
     } catch (error) {
-      console.error('Failed to send voice message:', error);
+      toast.error('Failed to send voice message. Please try again.');
+      setShowVoiceRecorder(false);
     }
   };
 
@@ -294,8 +297,8 @@ export default function ChatInput({ onSendMessage, disabled, sending, replyingTo
         });
         onCancelReply?.();
       },
-      (error) => {
-        console.error('Failed to get location:', error);
+      () => {
+        toast.error('Could not get location. Please check permissions and try again.');
       }
     );
   };

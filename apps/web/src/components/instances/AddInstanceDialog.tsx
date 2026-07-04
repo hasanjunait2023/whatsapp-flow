@@ -263,17 +263,26 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
     };
   }, [open, autoInstanceId, autoStep, applyQrState, toast, onOpenChange, refetch]);
 
-  // Poll Wasender status during scanning
+  // Poll Wasender status during scanning (max 40 attempts = ~2 min)
   useEffect(() => {
     if (!open || !autoInstanceId) return;
     if (autoStep !== 'scanning') return;
 
     let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 40;
     const pollInterval = 3000;
 
     const checkStatus = async () => {
       if (cancelled) return;
-      
+      attempts += 1;
+
+      if (attempts > maxAttempts) {
+        setAutoStepSynced('error');
+        setErrorMessage('Connection timed out. Please refresh the QR code and try again.');
+        return;
+      }
+
       try {
         const { data, error } = await supabase.functions.invoke('wasender-check-status', {
           body: { instance_id: autoInstanceId }
@@ -289,14 +298,14 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
             title: 'Connected!',
             description: 'Your WhatsApp instance is now active.',
           });
-          
+
           setTimeout(() => {
             onOpenChange(false);
             refetch();
           }, 2000);
         }
       } catch {
-        // ignore
+        // ignore transient errors
       }
     };
 

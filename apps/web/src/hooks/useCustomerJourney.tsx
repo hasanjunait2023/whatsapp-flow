@@ -17,7 +17,7 @@ export interface JourneyEvent {
   created_at: string;
 }
 
-export type EventCategory = 'communication' | 'order' | 'payment' | 'system' | 'custom';
+export type EventCategory = 'communication' | 'order' | 'payment' | 'system' | 'support' | 'custom';
 
 // Customer Journey Events - Only customer-initiated milestones
 // Team actions (product_shared, message_sent, note_added) are NOT tracked here
@@ -57,6 +57,7 @@ export const CATEGORY_COLORS: Record<EventCategory, string> = {
   order: 'bg-violet-500/10',
   payment: 'bg-green-500/10',
   system: 'bg-amber-500/10',
+  support: 'bg-amber-500/10',
   custom: 'bg-muted',
 };
 
@@ -100,7 +101,7 @@ export function useCustomerJourney(contactId: string | null, explicitTenantId?: 
           filter: `contact_id=eq.${contactId}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['customer-journey', contactId] });
+          queryClient.invalidateQueries({ queryKey: ['customer-journey', tenantId, contactId] });
         }
       )
       .subscribe();

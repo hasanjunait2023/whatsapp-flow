@@ -6,6 +6,15 @@ import { sendMessage } from "../../routes/messaging.js";
 import { runHermesAgent } from "./agent.js";
 import { BudgetExceededError } from "../../llm/usage.js";
 
+// agent_configs rows are effectively static tenant settings. Cache per-tenant
+// for 30s to avoid one DB query per inbound message and one per job run.
+const hermesConfigCache = new Map<string, { v: HermesConfigRow | undefined; exp: number }>();
+const HERMES_CONFIG_TTL = 30_000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, e] of hermesConfigCache) if (e.exp <= now) hermesConfigCache.delete(k);
+}, HERMES_CONFIG_TTL).unref();
+
 /**
  * Hermes inbound pipeline. Subscribes to the webhook's persisted-message hook,
  * debounces bursts per contact via the durable job queue (the dedupe_key
@@ -34,11 +43,16 @@ interface ContactStateRow {
 }
 
 async function hermesConfig(tenantId: string): Promise<HermesConfigRow | undefined> {
-  return (await dbGet(
+  const now = Date.now();
+  const hit = hermesConfigCache.get(tenantId);
+  if (hit && hit.exp > now) return hit.v;
+  const v = (await dbGet(
     `SELECT enabled, channels, reply_delay_ms, escalation_keywords
        FROM agent_configs WHERE tenant_id = ? AND agent = 'hermes' LIMIT 1`,
     tenantId,
   )) as HermesConfigRow | undefined;
+  hermesConfigCache.set(tenantId, { v, exp: now + HERMES_CONFIG_TTL });
+  return v;
 }
 
 function channelEnabled(config: HermesConfigRow, channel: string): boolean {
@@ -149,9 +163,12 @@ async function runReplyJob(payload: unknown): Promise<void> {
   if (!contactPassesGuards(contact)) return;
   const tenantId = contact.tenant_id;
 
-  const config = await hermesConfig(tenantId);
+  const [config, isInbound] = await Promise.all([
+    hermesConfig(tenantId),
+    latestMessageIsInbound(contactId),
+  ]);
   if (!config || config.enabled !== true) return;
-  if (!(await latestMessageIsInbound(contactId))) return; // human already replied
+  if (!isInbound) return; // human already replied
 
   let outcome;
   try {
@@ -166,6 +183,10 @@ async function runReplyJob(payload: unknown): Promise<void> {
     return;
   }
   if (outcome.kind !== "reply" || !outcome.reply) return;
+
+  // Re-check guards — a human may have taken over during the LLM call
+  const freshContact = await contactState(contactId);
+  if (!contactPassesGuards(freshContact)) return;
 
   const sendResult = await sendMessage(
     { contact_id: contactId, content: outcome.reply, content_type: "text", instance_id: instanceId },

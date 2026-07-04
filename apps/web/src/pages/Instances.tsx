@@ -56,7 +56,7 @@ function ConnectedHighlightTile({ connected, total }: { connected: number; total
 
 export default function Instances() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const { instances, loading, setDefaultInstance, deleteInstance, refetch } = useInstances();
+  const { instances, loading, error: instancesError, setDefaultInstance, deleteInstance, refetch } = useInstances();
   const { currentTenant, isOwner, isManager } = useTenant();
   const { instances: instanceLimits, planName, isLoading: limitsLoading } = usePlanLimits();
   const { toast } = useToast();
@@ -213,8 +213,17 @@ export default function Instances() {
           </div>
         )}
 
+        {/* Error State */}
+        {!loading && instancesError && (
+          <Card className="rounded-card border-destructive/30 shadow-elevation-1">
+            <CardContent className="py-6 text-center text-sm text-destructive">
+              Failed to load instances. Please refresh the page.
+            </CardContent>
+          </Card>
+        )}
+
         {/* Empty State */}
-        {!loading && instances.length === 0 && (
+        {!loading && !instancesError && instances.length === 0 && (
           <Card className="rounded-card border-2 border-dashed shadow-elevation-1">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <div className="h-16 w-16 rounded-2xl bg-whatsapp/10 flex items-center justify-center mb-4">
