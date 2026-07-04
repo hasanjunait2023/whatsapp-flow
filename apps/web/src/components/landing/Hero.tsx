@@ -85,12 +85,11 @@ export function Hero({ ctaRef }: HeroProps) {
             কার্ড লাগবে না · ৫ দিন ফ্রি ট্রায়াল · কয়েক মিনিটেই সেটআপ
           </p>
 
-          {/* Stat chips — MARKED placeholders (confirm with marketing) */}
+          {/* Stat chips */}
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <StatChip value="X,000+" label="BD shops" placeholder />
-            <StatChip value="XM+" label="messages handled" placeholder />
-            <StatChip value="X hrs" label="saved / day" placeholder />
             <StatChip value="3-in-1" label="channels, one inbox" />
+            <StatChip value="AI" label="smart auto-reply" />
+            <StatChip value="৩-ক্লিক" label="অর্ডার তৈরি" />
           </div>
 
           {/* Hero product shot */}
