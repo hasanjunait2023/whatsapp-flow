@@ -26,6 +26,7 @@
     "automation": "অটোমেশন",
     "workflows": "ওয়ার্কফ্লো",
     "aiAgent": "AI এজেন্ট",
+    "ceoAgent": "CEO এজেন্ট",
     "analytics": "বিশ্লেষণ"
   },
   "teamWork": {
@@ -64,6 +65,36 @@
   },
   "actions": {
     "collapse": "সংকুচিত করুন",
-    "expand": "বিস্তৃত করুন"
+    "expand": "বিস্তৃত করুন",
+    "search": "অনুসন্ধান",
+    "more": "আরও"
+  },
+  "admin": {
+    "overview": "সারসংক্ষেপ",
+    "inbox": "ইনবক্স",
+    "communication": "যোগাযোগ",
+    "tenants": "টেন্যান্ট",
+    "users": "ব্যবহারকারী",
+    "billing": "বিলিং",
+    "payments": "পেমেন্ট",
+    "subscriptions": "সাবস্ক্রিপশন",
+    "plans": "প্ল্যান",
+    "externalSales": "এক্সটার্নাল সেলস",
+    "accounts": "হিসাব",
+    "operations": "অপারেশন",
+    "instances": "হোয়াটসঅ্যাপ",
+    "waInstances": "ইন্সট্যান্স",
+    "waFunctions": "WA ফাংশন",
+    "support": "সাপোর্ট",
+    "serviceBoards": "সার্ভিস বোর্ড",
+    "marketing": "মার্কেটিং",
+    "leads": "লিড",
+    "campaigns": "ক্যাম্পেইন",
+    "settings": "সেটিংস",
+    "adminManagement": "অ্যাডমিন ম্যানেজমেন্ট",
+    "auditLogs": "অডিট লগ",
+    "teamChat": "টিম চ্যাট",
+    "team": "টিম",
+    "reports": "রিপোর্ট"
   }
 }

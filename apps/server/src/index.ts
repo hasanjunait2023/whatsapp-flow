@@ -53,6 +53,7 @@ import {
   WAHA_WEBHOOK_HMAC_ENFORCED,
   TELEGRAM_WEBHOOK_SECRET,
   TELEGRAM_BOT_TOKEN,
+  RESEND_API_KEY,
 } from "./lib/env.js";
 
 // Fail fast at startup (production only) if the secret-encryption key is missing
@@ -61,6 +62,11 @@ import {
 // confusing mid-request 500 instead of a clean boot failure.
 if (IS_PRODUCTION) {
   getMasterKey();
+  if (!RESEND_API_KEY) {
+    throw new Error(
+      "RESEND_API_KEY is not set. Transactional email (password reset, notifications) will be silently dropped. Set RESEND_API_KEY before starting in production.",
+    );
+  }
   // Production runs WAHA Plus, which signs webhooks. Refuse to boot accepting
   // unauthenticated webhooks — a missing HMAC secret in prod is a hard error,
   // not a warning (an attacker who knows an instance id could inject events).

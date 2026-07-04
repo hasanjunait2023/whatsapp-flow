@@ -56,9 +56,13 @@ export default function Signup() {
     const { error } = await signUp(email, password, fullName);
 
     if (error) {
+      const isAlreadyRegistered =
+        /already registered|already exist|user_already_exists/i.test(error.message ?? '');
       toast({
         title: 'Signup failed',
-        description: error.message,
+        description: isAlreadyRegistered
+          ? 'An account with this email already exists. Try signing in instead.'
+          : 'Something went wrong. Please try again.',
         variant: 'destructive',
       });
     } else {
