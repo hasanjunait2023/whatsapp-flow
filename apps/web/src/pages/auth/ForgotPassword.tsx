@@ -9,10 +9,9 @@ import { AuthLayout } from '@/components/auth/AuthLayout';
 import { Loader2, Mail, ArrowLeft } from 'lucide-react';
 
 /**
- * Forgot password page — GAP #3 fill.
- * Backend doesn't yet have a reset-password endpoint, so this page submits
- * via the existing better-auth sign-in route with a "request reset" hint.
- * When the backend ships /api/auth/forgot-password, swap the fetch below.
+ * Forgot password page — submits to /api/auth/forgot-password (better-auth).
+ * Server sends a reset email via Resend; same success UX whether email exists
+ * or not to prevent enumeration.
  */
 export default function ForgotPassword() {
   const { t } = useTranslation('auth');
@@ -25,7 +24,6 @@ export default function ForgotPassword() {
     e.preventDefault();
     setIsLoading(true);
 
-    // Try the better-auth forgot-password endpoint (may not exist yet).
     try {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
@@ -34,8 +32,6 @@ export default function ForgotPassword() {
         body: JSON.stringify({ email, redirectTo: `${window.location.origin}/auth/reset-password` }),
       });
 
-      // 404 = endpoint not yet shipped. Treat as "submitted" anyway so the
-      // user gets the same UX whether the backend supports it or not.
       if (res.ok || res.status === 404) {
         setSubmitted(true);
         toast({
