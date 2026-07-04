@@ -3,6 +3,16 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -74,6 +84,7 @@ const STATUS_BADGES: Record<
 export default function MarketingCampaignCard({ campaign, onRefresh }: MarketingCampaignCardProps) {
   const { toggleStatus, deleteCampaign } = useMarketingCampaigns();
   const [loading, setLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const navigate = useNavigate();
 
   const typeConfig = TYPE_LABELS[campaign.type] || TYPE_LABELS.announcement;
@@ -95,8 +106,6 @@ export default function MarketingCampaignCard({ campaign, onRefresh }: Marketing
   };
 
   const handleDelete = async () => {
-    if (!confirm('আপনি কি নিশ্চিত? এই ক্যাম্পেইন মুছে ফেলা হবে।')) return;
-    
     setLoading(true);
     try {
       await deleteCampaign(campaign.id);
@@ -187,7 +196,7 @@ export default function MarketingCampaignCard({ campaign, onRefresh }: Marketing
                   <Edit className="h-4 w-4 mr-2" />
                   এডিট করুন
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleDelete} className="text-destructive">
+                <DropdownMenuItem onClick={() => setShowDeleteConfirm(true)} className="text-destructive">
                   <Trash2 className="h-4 w-4 mr-2" />
                   মুছে ফেলুন
                 </DropdownMenuItem>
@@ -196,6 +205,23 @@ export default function MarketingCampaignCard({ campaign, onRefresh }: Marketing
           </div>
         </div>
       </CardContent>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ক্যাম্পেইন মুছে ফেলবেন?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &quot;{campaign.name_bn || campaign.name}&quot; স্থায়ীভাবে মুছে যাবে।
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>বাতিল</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              মুছে ফেলুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

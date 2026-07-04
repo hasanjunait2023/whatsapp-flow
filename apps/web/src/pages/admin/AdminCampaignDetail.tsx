@@ -11,6 +11,16 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { EmptyState } from '@/components/ui/empty-state';
 import { KpiCard } from '@/components/dashboard/bento/KpiCard';
@@ -65,6 +75,7 @@ export default function AdminCampaignDetail() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingSequence, setEditingSequence] = useState<MarketingSequence | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<MarketingSequence | null>(null);
   const [formData, setFormData] = useState<Partial<MarketingSequenceInput>>({
     week_number: 1,
     step_order: 1,
@@ -156,14 +167,19 @@ export default function AdminCampaignDetail() {
   };
 
   const handleDelete = async (seq: MarketingSequence) => {
-    if (!confirm(`"${seq.name_bn || seq.name}" মুছে ফেলতে চান?`)) return;
-    
+    setDeleteTarget(seq);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await deleteSequence(seq.id);
+      await deleteSequence(deleteTarget.id);
       toast.success('সিকোয়েন্স মুছে ফেলা হয়েছে');
       refetch();
     } catch (error) {
       toast.error('মুছতে সমস্যা হয়েছে');
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -536,6 +552,23 @@ export default function AdminCampaignDetail() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>সিকোয়েন্স মুছে ফেলবেন?</AlertDialogTitle>
+              <AlertDialogDescription>
+                &quot;{deleteTarget?.name_bn || deleteTarget?.name}&quot; স্থায়ীভাবে মুছে যাবে।
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>বাতিল</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                মুছে ফেলুন
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </m.div>
     </AdminLayout>
   );
