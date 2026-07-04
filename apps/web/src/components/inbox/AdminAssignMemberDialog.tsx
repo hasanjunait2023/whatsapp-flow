@@ -62,9 +62,7 @@ export default function AdminAssignMemberDialog({
             metadata: { contact_name: contactName },
           });
 
-        if (notifError) {
-          console.warn('Failed to create assignment notification:', notifError);
-        }
+        // notifError is non-critical; assignment itself succeeded
       }
 
       onAssigned?.(userId);

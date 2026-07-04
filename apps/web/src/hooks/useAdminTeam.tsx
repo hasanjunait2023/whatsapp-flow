@@ -42,9 +42,7 @@ export function useAdminTeam() {
           .select('id, email, full_name, avatar_url')
           .in('id', memberIds);
         
-        if (profilesError) {
-          console.warn('Error fetching admin profiles:', profilesError);
-        } else {
+        if (!profilesError) {
           profilesData = data || [];
         }
       }

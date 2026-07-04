@@ -61,7 +61,6 @@ export function useAdminQuickReplies() {
       if (data) {
         setSystemTenantId(data.id);
       } else {
-        console.warn('No system tenant found');
         setLoading(false);
       }
     }

@@ -110,7 +110,6 @@ export function useAdminMessages(contactId: string | null) {
 
       if (stuckMessages.length > 0) {
         isProcessing = true;
-        console.log(`Found ${stuckMessages.length} stuck pending messages, triggering retry...`);
         
         try {
           await supabase.functions.invoke('send-message', {

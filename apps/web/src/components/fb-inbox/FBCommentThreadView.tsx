@@ -75,17 +75,16 @@ export function FBCommentThreadView({
     setReplyingTo(null);
   };
 
-  const handleLike = async (comment: FBPostComment) => {
-    // Note: Would need page access token from context
-    console.log('Like comment:', comment.id);
+  const handleLike = async (_comment: FBPostComment) => {
+    // TODO: Implement like via page access token
   };
 
-  const handleHide = async (comment: FBPostComment) => {
-    console.log('Hide comment:', comment.id);
+  const handleHide = async (_comment: FBPostComment) => {
+    // TODO: Implement hide
   };
 
-  const handleDelete = async (comment: FBPostComment) => {
-    console.log('Delete comment:', comment.id);
+  const handleDelete = async (_comment: FBPostComment) => {
+    // TODO: Implement delete
   };
 
   const postTime = post.created_time

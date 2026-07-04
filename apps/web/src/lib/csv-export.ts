@@ -9,10 +9,7 @@ export function exportToCSV<T>(
   columns: ExportColumn<T>[],
   filename: string
 ): void {
-  if (data.length === 0) {
-    console.warn('No data to export');
-    return;
-  }
+  if (data.length === 0) return;
 
   // Create header row
   const headers = columns.map((col) => `"${col.header}"`).join(',');

@@ -281,7 +281,6 @@ export function useOrders() {
             });
           } catch (stockError) {
             // Don't fail order creation if stock deduction fails
-            console.warn('Failed to deduct stock:', stockError);
           }
         }
       }
@@ -308,7 +307,6 @@ export function useOrders() {
           });
         } catch (checkError) {
           // Don't fail the order creation if behavior check fails
-          console.warn('Failed to check purchase behavior:', checkError);
         }
       }
 
@@ -361,7 +359,6 @@ export function useOrders() {
             p_user_id: userId,
           });
         } catch (stockError) {
-          console.warn('Failed to restore stock:', stockError);
         }
       }
 

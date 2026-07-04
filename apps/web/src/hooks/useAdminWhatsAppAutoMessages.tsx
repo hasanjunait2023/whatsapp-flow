@@ -85,7 +85,6 @@ export function useAdminWhatsAppAutoMessages() {
       if (data) {
         setSystemTenantId(data.id);
       } else {
-        console.warn('No system tenant found');
         setLoading(false);
       }
     }

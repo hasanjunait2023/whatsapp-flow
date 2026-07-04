@@ -45,10 +45,7 @@ export function useAuditLog() {
       entityId: string | null,
       details?: AuditLogDetails
     ) => {
-      if (!user) {
-        console.warn('Cannot log audit action: no user');
-        return;
-      }
+      if (!user) return;
 
       try {
         const { error } = await supabase.from('admin_audit_logs').insert({

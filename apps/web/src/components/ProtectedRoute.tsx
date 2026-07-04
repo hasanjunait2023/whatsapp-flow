@@ -59,13 +59,11 @@ export default function ProtectedRoute({
     // Regular users without a tenant go to onboarding so they can create
     // their first workspace instead of bouncing back to /auth/login.
     // (This fixes the new-user-infinite-redirect-loop gap.)
-    console.log('Redirecting to onboarding - no tenants found');
     return <Navigate to="/onboarding" replace />;
   }
 
   // Check if tenant is activated (only if requireActivation is true)
   if (requireTenant && requireActivation && currentTenant && !currentTenant.is_activated) {
-    console.log('Redirecting to pending-activation - tenant not activated');
     return <Navigate to="/pending-activation" replace />;
   }
 
