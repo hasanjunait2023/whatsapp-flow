@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,7 +40,7 @@ export function InvoiceSettings() {
       const url = await uploadLogo(file);
       setFormData({ ...formData, logo_url: url });
     } catch (error) {
-      console.error('Failed to upload logo:', error);
+      toast.error('Failed to upload logo');
     } finally {
       setUploading(false);
     }

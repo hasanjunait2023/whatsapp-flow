@@ -437,16 +437,18 @@ const restoreStockForOrder: RpcHandler = async (args, ctx) => {
       // lose an update. Only touches inventory-tracked products; returns the true
       // previous + new values for the movement log.
       const updated = (await tx.get(
-        `WITH prev AS (SELECT stock_quantity AS old_qty FROM products WHERE id = ? AND track_inventory = true FOR UPDATE)
+        `WITH prev AS (SELECT stock_quantity AS old_qty FROM products WHERE id = ? AND tenant_id = ? AND track_inventory = true FOR UPDATE)
            UPDATE products p
               SET stock_quantity = p.stock_quantity + ?, updated_at = ?
              FROM prev
-            WHERE p.id = ?
+            WHERE p.id = ? AND p.tenant_id = ?
            RETURNING prev.old_qty AS previous_quantity, p.stock_quantity AS new_quantity`,
         item.product_id,
+        tenantId,
         item.quantity,
         new Date().toISOString(),
         item.product_id,
+        tenantId,
       )) as { previous_quantity: number; new_quantity: number } | undefined;
       if (!updated) continue; // missing or non-tracked product
       const current = updated.previous_quantity ?? 0;
@@ -508,10 +510,11 @@ const adjustProductStock: RpcHandler = async (args, ctx) => {
     }
 
     await tx.run(
-      "UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ?",
+      "UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ? AND tenant_id = ?",
       next,
       new Date().toISOString(),
       productId,
+      tenantId,
     );
     return {
       ok: true as const,
