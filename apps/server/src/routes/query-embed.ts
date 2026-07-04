@@ -58,7 +58,7 @@ export function parseSelect(columns: string): ParsedSelect {
       }
       const head = token.trim();
       token = "";
-      const [aliasOrTable, maybeTable] = head.split(":").map((s) => s.trim());
+      const [aliasOrTable, maybeTable] = head.split(":").map((s) => s.trim().replace(/!.*$/, ""));
       const alias = maybeTable ? aliasOrTable : aliasOrTable;
       const table = maybeTable ?? aliasOrTable;
       const fkColumn = `${alias}_id`;
