@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useContacts, Contact } from '@/hooks/useContacts';
 import { useLabels, Label } from '@/hooks/useLabels';
+import { useTenant } from '@/hooks/useTenant';
+import { supabase } from '@/integrations/supabase/client';
 import { useCustomerJourney, JourneyEvent, EVENT_ICONS } from '@/hooks/useCustomerJourney';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -153,6 +155,7 @@ export default function Contacts() {
   const navigate = useNavigate();
   const { contacts, loading, refetch, updateContact } = useContacts();
   const { labels, createLabel, addLabelToContact, removeLabelFromContact, getContactLabels } = useLabels();
+  const { currentTenant } = useTenant();
 
   const [search, setSearch] = useState('');
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
@@ -160,6 +163,28 @@ export default function Contacts() {
   const [showArchived, setShowArchived] = useState(false);
   const [showBlocked, setShowBlocked] = useState(false);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
+
+  // contactId → Set of labelIds, populated on-demand when a label filter is active
+  const [contactLabelMap, setContactLabelMap] = useState<Record<string, Set<string>>>({});
+
+  useEffect(() => {
+    if (filterLabels.length === 0 || !currentTenant) {
+      setContactLabelMap({});
+      return;
+    }
+    supabase
+      .from('contact_labels')
+      .select('contact_id, label_id')
+      .in('label_id', filterLabels)
+      .then(({ data }) => {
+        const map: Record<string, Set<string>> = {};
+        (data || []).forEach(({ contact_id, label_id }: { contact_id: string; label_id: string }) => {
+          if (!map[contact_id]) map[contact_id] = new Set();
+          map[contact_id].add(label_id);
+        });
+        setContactLabelMap(map);
+      });
+  }, [filterLabels, currentTenant?.id]);
 
   // Contact detail sheet
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -175,6 +200,7 @@ export default function Contacts() {
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
   const [newLabelName, setNewLabelName] = useState('');
   const [newLabelColor, setNewLabelColor] = useState('#6366f1');
+
   // Filter contacts
   const filteredContacts = contacts.filter((contact) => {
     // Search filter
@@ -188,7 +214,12 @@ export default function Contacts() {
       (showArchived ? contact.is_archived : !contact.is_archived) &&
       (showBlocked ? contact.is_blocked : !contact.is_blocked);
 
-    return matchesSearch && matchesStatus;
+    // Label filter (no-op when no labels selected)
+    const matchesLabels =
+      filterLabels.length === 0 ||
+      filterLabels.some((labelId) => contactLabelMap[contact.id]?.has(labelId));
+
+    return matchesSearch && matchesStatus && matchesLabels;
   });
 
   // KPI metrics derived from existing data (no extra fetches)
@@ -510,7 +541,7 @@ export default function Contacts() {
                 </span>
                 <p className="mt-4 text-sm font-medium text-foreground">No contacts found</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {search || showArchived || showBlocked
+                  {search || showArchived || showBlocked || filterLabels.length > 0
                     ? 'Try adjusting your search or filters.'
                     : 'Contacts appear here once people message your number.'}
                 </p>

@@ -145,7 +145,7 @@ export function PaymentDialog({ open, onOpenChange, plan, onSubmit, orderType = 
               <Button variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button onClick={handleMethodSelect} className="gap-2">
+              <Button onClick={handleMethodSelect} disabled={checkoutLoading} className="gap-2">
                 {paymentType === 'online' ? (
                   <>
                     Pay Online

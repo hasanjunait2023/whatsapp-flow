@@ -199,16 +199,15 @@ export async function uddoktapayVerify(raw: Record<string, unknown>, ctx: FnCont
   const isCompleted = verifyData.status === "COMPLETED";
   const txId = verifyData.transaction_id ?? verifyData.sender_number ?? null;
 
-  // Both updates (payments + subscription_orders) must succeed atomically.
-  // A crash between them previously left the payment 'verified' but the
-  // subscription order 'pending'. Wrap in a single tx.
+  // All updates must succeed atomically: payment verified + order paid + tenant activated.
+  const now = new Date().toISOString();
   await dbTx(async (tx) => {
     await tx.run(
       `UPDATE payments
            SET status = ?, verified_at = ?, transaction_id = ?, gateway_response = ?, notes = ?
          WHERE id = ?`,
       isCompleted ? "verified" : "pending",
-      isCompleted ? new Date().toISOString() : null,
+      isCompleted ? now : null,
       txId,
       JSON.stringify(verifyData),
       `${payment.notes ?? ""} | Gateway: ${verifyData.payment_method ?? "unknown"} | Status: ${verifyData.status}`,
@@ -218,9 +217,32 @@ export async function uddoktapayVerify(raw: Record<string, unknown>, ctx: FnCont
     if (isCompleted && payment.subscription_id) {
       await tx.run(
         "UPDATE subscription_orders SET status = 'paid', verified_at = ?, transaction_id = ? WHERE id = ?",
-        new Date().toISOString(),
+        now,
         verifyData.transaction_id ?? null,
         payment.subscription_id,
+      );
+    }
+
+    if (isCompleted) {
+      // Activate the tenant so they can access the dashboard immediately.
+      await tx.run(
+        `UPDATE tenants SET is_activated = true, activated_at = ? WHERE id = ? AND (is_activated IS NOT TRUE)`,
+        now,
+        payment.tenant_id,
+      );
+      // Ensure the subscription is marked active and plan_id reflects the paid order.
+      await tx.run(
+        `UPDATE subscriptions
+         SET status = 'active',
+             plan_id = CASE WHEN ? IS NOT NULL
+               THEN (SELECT plan_id FROM subscription_orders WHERE id = ?)
+               ELSE plan_id END,
+             starts_at = COALESCE(starts_at, ?)
+         WHERE tenant_id = ? AND status != 'active'`,
+        payment.subscription_id ?? null,
+        payment.subscription_id ?? null,
+        now,
+        payment.tenant_id,
       );
     }
   });

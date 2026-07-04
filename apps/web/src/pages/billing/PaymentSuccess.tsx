@@ -27,10 +27,8 @@ export default function PaymentSuccess() {
   useEffect(() => {
     const verify = async () => {
       if (!invoiceId) {
-        // No invoice ID means redirect from gateway, try to get from URL
-        setStatus('success');
-        triggerConfetti();
-        refetchTenant();
+        setStatus('error');
+        setErrorMessage('Payment verification failed: missing invoice ID. Please contact support.');
         return;
       }
 
