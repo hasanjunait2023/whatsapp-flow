@@ -138,10 +138,7 @@ export class QueryBuilder<T = any> implements PromiseLike<ApiEnvelope<T>> {
     return this;
   }
   or(_expr: string): this {
-    // PostgREST `or` string filters are not supported server-side in Phase 1.
-    // Recorded as a no-op marker so callers still receive a response; the few
-    // call sites that use it are non-core modules ported later.
-    return this;
+    throw new Error('QueryBuilder.or() is not implemented — callers must use separate .eq()/.in() filters');
   }
   filter(column: string, operator: string, value: unknown): this {
     this.filters.push({ column, operator, value });

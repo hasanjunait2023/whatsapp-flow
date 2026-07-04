@@ -56,7 +56,6 @@ export default function InternalChat() {
 
   const handleLeaveGroup = async (roomId: string) => {
     // TODO: Implement leave group
-    console.log('Leave group:', roomId);
   };
 
   // Update mobile view when room is selected

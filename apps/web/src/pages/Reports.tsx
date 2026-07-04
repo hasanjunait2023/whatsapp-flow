@@ -136,7 +136,6 @@ export default function Reports() {
       }
       toast.success('PDF exported successfully');
     } catch (error) {
-      console.error('PDF export error:', error);
       toast.error('Failed to export PDF');
     }
   };

@@ -176,7 +176,6 @@ export function useMessages(contactId: string | null) {
 
       if (stuckMessages.length > 0) {
         isProcessing = true;
-        console.log(`Found ${stuckMessages.length} stuck pending messages, triggering retry...`);
         
         try {
           await supabase.functions.invoke('send-message', {
@@ -241,7 +240,6 @@ export function useMessages(contactId: string | null) {
               filter: `contact_id=eq.${contactId}`,
             },
             async (payload) => {
-              console.log('New message received:', payload.new);
               const newMessage = payload.new as Message;
               
               // Fetch sender name if sent_by_user_id exists and it's an outbound message
@@ -343,7 +341,6 @@ export function useMessages(contactId: string | null) {
               filter: `contact_id=eq.${contactId}`,
             },
             (payload) => {
-              console.log('Message status updated:', payload.new.id, 'new status:', (payload.new as any).status);
               setMessages((prev) =>
                 prev.map((m) => {
                   if (m.id === payload.new.id) {
@@ -367,29 +364,23 @@ export function useMessages(contactId: string | null) {
               filter: `contact_id=eq.${contactId}`,
             },
             (payload) => {
-              console.log('Message deleted:', payload.old);
               setMessages((prev) => prev.filter((m) => m.id !== payload.old.id));
             }
           )
-          .subscribe((status, err) => {
-            console.log('Messages subscription status:', status, err);
-            
+          .subscribe((status) => {
             if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-              console.warn('Realtime subscription error, will retry...');
               // Cleanup and retry after a delay
               if (channel) {
                 supabase.removeChannel(channel);
                 channel = null;
               }
               reconnectTimeout = setTimeout(() => {
-                console.log('Attempting realtime reconnection...');
                 setupSubscription();
               }, 3000);
-              
+
               // Start fallback polling when realtime fails (15s interval, reduced from 5s)
               if (!fallbackInterval) {
                 fallbackInterval = setInterval(() => {
-                  console.log('Fallback polling for messages...');
                   fetchMessagesSilent();
                 }, 15000);
               }

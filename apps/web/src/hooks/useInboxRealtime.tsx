@@ -52,13 +52,7 @@ export function useInboxRealtime(tenantId: string | null) {
           }, 500);
         }
       )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[InboxRealtime] Subscribed for tenant:', tenantId);
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.warn('[InboxRealtime] Connection issue, will retry...');
-        }
-      });
+      .subscribe();
 
     return () => {
       if (channelRef.current) {

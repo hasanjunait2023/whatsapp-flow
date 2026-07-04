@@ -99,8 +99,7 @@ export function useCustomerJourney(contactId: string | null, explicitTenantId?: 
           table: 'customer_journey_events',
           filter: `contact_id=eq.${contactId}`,
         },
-        (payload) => {
-          console.log('New journey event:', payload.new);
+        () => {
           queryClient.invalidateQueries({ queryKey: ['customer-journey', contactId] });
         }
       )

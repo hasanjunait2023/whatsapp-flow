@@ -364,7 +364,7 @@ export class RealtimeChannel {
       const flt = parseFilter(handler.config.filter);
       if (flt) {
         const actual = event.payload?.[flt.column];
-        if (actual != null && String(actual) !== flt.value) continue;
+        if (actual == null || String(actual) !== flt.value) continue;
       }
       handler.callback({
         eventType: (event.payload?.eventType as string) ?? "*",

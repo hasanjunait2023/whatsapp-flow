@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAiAgent, KnowledgeItem } from '@/hooks/useAiAgent';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -42,6 +42,17 @@ export default function AiAgent() {
   const [isAddKnowledgeOpen, setIsAddKnowledgeOpen] = useState(false);
   const [editingKnowledge, setEditingKnowledge] = useState<KnowledgeItem | null>(null);
   const [newKnowledge, setNewKnowledge] = useState({ title: '', content: '', category: 'general', is_active: true });
+  const [promptDraft, setPromptDraft] = useState({ system_prompt: '', welcome_message: '', fallback_message: '' });
+
+  useEffect(() => {
+    if (config) {
+      setPromptDraft({
+        system_prompt: config.system_prompt ?? '',
+        welcome_message: config.welcome_message ?? '',
+        fallback_message: config.fallback_message ?? '',
+      });
+    }
+  }, [config?.id]);
 
   const handleToggleEnabled = () => {
     if (config) {
@@ -52,9 +63,9 @@ export default function AiAgent() {
   const handleSavePrompt = () => {
     if (config) {
       saveConfig({
-        system_prompt: config.system_prompt,
-        welcome_message: config.welcome_message,
-        fallback_message: config.fallback_message,
+        system_prompt: promptDraft.system_prompt,
+        welcome_message: promptDraft.welcome_message,
+        fallback_message: promptDraft.fallback_message,
       });
     }
   };
@@ -194,8 +205,8 @@ export default function AiAgent() {
                     id="system-prompt"
                     placeholder="You are a helpful customer service assistant..."
                     className="min-h-[200px] font-mono text-sm"
-                    value={config?.system_prompt || ''}
-                    onChange={(e) => config && saveConfig({ ...config, system_prompt: e.target.value })}
+                    value={promptDraft.system_prompt}
+                    onChange={(e) => setPromptDraft(d => ({ ...d, system_prompt: e.target.value }))}
                   />
                   <p className="text-xs text-muted-foreground">
                     This prompt defines the AI's personality, knowledge boundaries, and response style.
@@ -216,8 +227,8 @@ export default function AiAgent() {
                   <Textarea
                     placeholder="Hello! How can I help you today?"
                     className="min-h-[100px]"
-                    value={config?.welcome_message || ''}
-                    onChange={(e) => config && saveConfig({ ...config, welcome_message: e.target.value })}
+                    value={promptDraft.welcome_message}
+                    onChange={(e) => setPromptDraft(d => ({ ...d, welcome_message: e.target.value }))}
                   />
                 </CardContent>
               </Card>
@@ -233,8 +244,8 @@ export default function AiAgent() {
                   <Textarea
                     placeholder="I'm sorry, I couldn't understand that..."
                     className="min-h-[100px]"
-                    value={config?.fallback_message || ''}
-                    onChange={(e) => config && saveConfig({ ...config, fallback_message: e.target.value })}
+                    value={promptDraft.fallback_message}
+                    onChange={(e) => setPromptDraft(d => ({ ...d, fallback_message: e.target.value }))}
                   />
                 </CardContent>
               </Card>

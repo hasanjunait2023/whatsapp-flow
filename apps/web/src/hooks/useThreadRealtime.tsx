@@ -78,13 +78,7 @@ export function useThreadRealtime(
           });
         }
       )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[ThreadRealtime] Subscribed to:', contactId);
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.warn('[ThreadRealtime] Connection issue, will retry...');
-        }
-      });
+      .subscribe();
 
     return () => {
       if (channelRef.current) {

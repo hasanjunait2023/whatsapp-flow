@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Products() {
+  const queryClient = useQueryClient();
   const { products, isLoading: productsLoading, deleteProduct } = useProducts();
   const { categories, isLoading: categoriesLoading, deleteCategory } = useCategories();
   
@@ -85,7 +87,7 @@ export default function Products() {
       
       toast.success(`${selection.selectedCount} products ${active ? 'activated' : 'deactivated'}`);
       selection.clearSelection();
-      window.location.reload();
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     } catch (error) {
       toast.error('Failed to update products');
     }

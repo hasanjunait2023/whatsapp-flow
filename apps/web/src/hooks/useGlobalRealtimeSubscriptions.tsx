@@ -98,13 +98,7 @@ export function useGlobalRealtimeSubscriptions() {
       }, () => {
         debouncedInvalidate([['team', currentTenant.id]]);
       })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[Global Realtime] Connected for tenant:', currentTenant.id);
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.warn('[Global Realtime] Connection issue, will retry...');
-        }
-      });
+      .subscribe();
 
     channelRef.current = channel;
 

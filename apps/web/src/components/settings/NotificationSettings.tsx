@@ -90,8 +90,8 @@ export function NotificationSettings() {
         .limit(5);
 
       setRecentLogs(logs || []);
-    } catch (error) {
-      console.error('Error loading settings:', error);
+    } catch {
+      toast.error('Failed to load notification settings. Please refresh and try again.');
     } finally {
       setLoading(false);
     }
