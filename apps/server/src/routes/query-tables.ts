@@ -186,7 +186,7 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
     mutability: "admin",
     privilegeColumns: ["role", "is_super_admin", "permissions", "user_id"],
   },
-  subscriptions: { table: subscriptions, tenantColumn: "tenant_id", mutability: "tenant" },
+  subscriptions: { table: subscriptions, tenantColumn: "tenant_id", mutability: "admin" },
   // whatsapp_instances must stay queryable (UI reads status/qr_code/phone_number/
   // name) but api_key_encrypted / webhook_secret are secrets — redact them.
   whatsapp_instances: {

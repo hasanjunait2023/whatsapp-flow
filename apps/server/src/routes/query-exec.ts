@@ -115,6 +115,7 @@ function tenantScope(
     if (!ctx.tenantId && !ctx.isAdmin) {
       throw new QueryError("No active tenant", "no_tenant");
     }
+    if (ctx.isAdmin) return conds;
     if (ctx.tenantId) {
       conds.push(eq(getColumn(cfg, cfg.tenantColumn), ctx.tenantId));
     }
@@ -223,29 +224,33 @@ function assertRowAllowed(
 
 /**
  * Defense in depth for junction tables scoped via a parent (tenantViaParent):
- * a non-admin may only insert/upsert a row whose FK points at a parent owned by
- * their tenant — closing the cross-tenant *write* path that read-side scoping
- * alone leaves open (e.g. tagging another tenant's contact via contact_labels).
+ * a non-admin may only insert/upsert rows whose FKs point at parents owned by
+ * their tenant. Batched: N rows → 1 DB query instead of N sequential queries.
  */
-async function assertViaParentAllowed(
+async function assertViaParentAllowedBatch(
   cfg: TableConfig,
   ctx: TenantContext,
-  row: Record<string, unknown>,
+  rows: Record<string, unknown>[],
 ): Promise<void> {
-  if (ctx.isAdmin || !cfg.tenantViaParent) return;
+  if (ctx.isAdmin || !cfg.tenantViaParent || rows.length === 0) return;
   if (!ctx.tenantId) throw new QueryError("No active tenant", "no_tenant");
   const { fkColumn, parentTable } = cfg.tenantViaParent;
-  const fk = row[fkColumn];
-  if (typeof fk !== "string" || !fk) {
-    throw new QueryError(`"${fkColumn}" is required`, "forbidden");
+  const fks: string[] = [];
+  for (const row of rows) {
+    const fk = row[fkColumn];
+    if (typeof fk !== "string" || !fk) {
+      throw new QueryError(`"${fkColumn}" is required`, "forbidden");
+    }
+    fks.push(fk);
   }
+  const uniqueFks = [...new Set(fks)];
   const parentCfg = QUERY_TABLES[parentTable];
   const parentCols = getTableColumns(parentCfg.table) as Record<string, any>;
   const found = (await db
     .select({ id: parentCols.id })
     .from(parentCfg.table as any)
-    .where(and(eq(parentCols.id, fk), eq(parentCols.tenant_id, ctx.tenantId)))) as unknown[];
-  if (found.length === 0) {
+    .where(and(inArray(parentCols.id, uniqueFks), eq(parentCols.tenant_id, ctx.tenantId)))) as { id: string }[];
+  if (found.length !== uniqueFks.length) {
     throw new QueryError("Forbidden parent row", "forbidden");
   }
 }
@@ -447,7 +452,7 @@ async function runInsert(
   if (rows.length === 0) {
     throw new QueryError("No values to insert", "no_values");
   }
-  for (const r of rows) await assertViaParentAllowed(cfg, ctx, r);
+  await assertViaParentAllowedBatch(cfg, ctx, rows);
   const inserted = (await db
     .insert(cfg.table as any)
     .values(rows)
@@ -462,8 +467,8 @@ async function runInsert(
       if (typeof tenantId === "string") {
         try {
           await provisionNewTenant(tenantId, ctx.userId);
-        } catch {
-          // non-fatal: tenant exists; ownership/trial can be back-filled if needed.
+        } catch (e) {
+          console.error("[provision] tenant provisioning failed for", tenantId, e);
         }
       }
     }
@@ -516,22 +521,26 @@ async function runUpsert(
   if (rows.length === 0) {
     throw new QueryError("No values to upsert", "no_values");
   }
-  for (const r of rows) await assertViaParentAllowed(cfg, ctx, r);
+  await assertViaParentAllowedBatch(cfg, ctx, rows);
   const conflictCols = (req.onConflict ?? "id")
     .split(",")
     .map((c) => c.trim())
     .map((c) => getColumn(cfg, c));
 
-  const results: Record<string, unknown>[] = [];
-  for (const row of rows) {
-    const setCols: Record<string, unknown> = { ...row };
-    const res = (await db
-      .insert(cfg.table as any)
-      .values(row)
-      .onConflictDoUpdate({ target: conflictCols, set: setCols })
-      .returning()) as Record<string, unknown>[];
-    results.push(...res);
-  }
+  // Batch all rows into one INSERT … ON CONFLICT DO UPDATE … RETURNING.
+  // EXCLUDED.* ensures each conflicting row is updated with its own payload,
+  // collapsing N serial round-trips into one DB query.
+  const setKeys = Object.keys(rows[0]);
+  const setCols = Object.fromEntries(
+    setKeys.map((k) => [k, sql.raw(`EXCLUDED.${k}`)]),
+  ) as Record<string, SQL>;
+
+  const results = (await db
+    .insert(cfg.table as any)
+    .values(rows)
+    .onConflictDoUpdate({ target: conflictCols, set: setCols as any })
+    .returning()) as Record<string, unknown>[];
+
   return returnedResponse(req, results, cfg);
 }
 

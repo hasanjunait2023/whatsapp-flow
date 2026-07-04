@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Building2, ArrowRight, ArrowLeft, Sparkles, Check, MessageSquare, CreditCard } from 'lucide-react';
+import { Loader2, Building2, ArrowRight, ArrowLeft, Sparkles, Check, MessageSquare } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AppLogo } from '@/components/AppLogo';
@@ -90,9 +90,12 @@ export default function Onboarding() {
       });
       navigate('/dashboard', { replace: true });
     } catch (error: any) {
+      const isNameTaken = /unique|already exist|duplicate/i.test(error?.message ?? '');
       toast({
         title: 'Failed to create workspace',
-        description: error.message,
+        description: isNameTaken
+          ? 'That workspace name is already taken. Please choose a different name.'
+          : 'Something went wrong. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -303,8 +306,8 @@ export default function Onboarding() {
                     </>
                   ) : (
                     <>
-                      <CreditCard className="mr-2 h-4 w-4" />
-                      Create & Pay
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Start Free Trial
                     </>
                   )}
                 </Button>

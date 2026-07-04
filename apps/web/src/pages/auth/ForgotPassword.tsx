@@ -49,14 +49,10 @@ export default function ForgotPassword() {
         });
       }
     } catch {
-      // Network failure — same UX as above so the user isn't stranded.
-      setSubmitted(true);
       toast({
-        title: t('forgotPassword.title', 'Check your email'),
-        description: t(
-          'forgotPassword.sent',
-          'If an account exists for that email, we sent a reset link.',
-        ),
+        title: t('errors.generic', 'Something went wrong'),
+        description: t('errors.tryAgain', 'Please try again in a moment.'),
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);

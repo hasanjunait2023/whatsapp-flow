@@ -145,24 +145,12 @@ export function useAdminTenants() {
 
   // Helper to call the admin delete tenant edge function
   const callDeleteTenantEndpoint = async (tenantIds: string[]) => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
-
-    if (!accessToken) {
-      throw new Error('Not authenticated');
-    }
-
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-delete-tenant`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ tenant_ids: tenantIds }),
-      }
-    );
+    const response = await fetch('/api/fn/admin-delete-tenant', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tenant_ids: tenantIds }),
+    });
 
     const result = await response.json();
 
@@ -278,7 +266,6 @@ export function useAdminTenants() {
       .update({
         is_activated: true,
         activated_at: new Date().toISOString(),
-        activated_by: user.id,
       })
       .eq('id', tenantId);
 
@@ -295,7 +282,7 @@ export function useAdminTenants() {
       })
       .eq('tenant_id', tenantId);
 
-    if (subError) console.error('Subscription update error:', subError);
+    if (subError) throw subError;
 
     await fetchTenants();
   };
