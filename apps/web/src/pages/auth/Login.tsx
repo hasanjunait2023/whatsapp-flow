@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { useSystemAdmin } from '@/hooks/useSystemAdmin';
@@ -28,6 +28,8 @@ export default function Login() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const redirectParam = searchParams.get('redirect');
 
   type LocationState = {
     from?: {
@@ -54,12 +56,14 @@ export default function Login() {
     if (tenants.length === 0) return;
 
     const target =
-      fromPath && fromPath !== '/auth/login'
+      redirectParam && redirectParam !== '/auth/login'
+        ? redirectParam
+        : fromPath && fromPath !== '/auth/login'
         ? fromPath
         : '/dashboard';
 
     navigate(target, { replace: true });
-  }, [authLoading, adminLoading, tenantLoading, user, fromPath, isAdmin, tenants.length, navigate]);
+  }, [authLoading, adminLoading, tenantLoading, user, redirectParam, fromPath, isAdmin, tenants.length, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +85,14 @@ export default function Login() {
       });
       // Navigate immediately — ProtectedRoute / RootRedirect will handle
       // the final destination (admin panel vs dashboard).
-      navigate(fromPath && fromPath !== '/auth/login' ? fromPath : '/dashboard', { replace: true });
+      navigate(
+        redirectParam && redirectParam !== '/auth/login'
+          ? redirectParam
+          : fromPath && fromPath !== '/auth/login'
+          ? fromPath
+          : '/dashboard',
+        { replace: true }
+      );
     }
   };
 
@@ -245,8 +256,8 @@ export default function Login() {
         {/* Sign Up Link */}
         <p className="text-center text-sm text-muted-foreground">
           {t('login.noAccount')}{' '}
-          <Link 
-            to="/auth/signup" 
+          <Link
+            to={redirectParam ? `/auth/signup?redirect=${encodeURIComponent(redirectParam)}` : "/auth/signup"}
             className="font-semibold text-primary hover:text-primary/80 hover:underline transition-colors"
           >
             {t('login.signUp')}

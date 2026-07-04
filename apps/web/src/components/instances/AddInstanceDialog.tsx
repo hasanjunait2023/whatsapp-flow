@@ -775,105 +775,13 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
 
           {/* BYOK Tab */}
           <TabsContent value="byok" className="mt-4">
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Instance Name</Label>
-                  <Input
-                    id="name"
-                    placeholder="e.g., Sales Team, Support"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phoneNumber">Phone Number (optional)</Label>
-                  <div className="relative">
-                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="phoneNumber"
-                      placeholder="+880 1712-345678"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      disabled={isLoading}
-                      className="pl-9"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="apiKey">API Key</Label>
-                  <div className="relative">
-                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="apiKey"
-                      type={showApiKey ? 'text' : 'password'}
-                      placeholder="Enter your API key"
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      disabled={isLoading}
-                      className="pl-9 pr-10"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                    >
-                      {showApiKey ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Your WhatsApp API key for authentication
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="sessionId">Session ID <span className="text-destructive">*</span></Label>
-                  <Input
-                    id="sessionId"
-                    placeholder="Enter your session ID"
-                    value={sessionId}
-                    onChange={(e) => setSessionId(e.target.value)}
-                    disabled={isLoading}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Find this in your API dashboard under "Sessions".
-                  </p>
-                </div>
-                <BanRiskNotice
-                  accepted={riskAccepted}
-                  onAcceptedChange={handleRiskAcceptedChange}
-                />
-              </div>
-              <DialogFooter className="mt-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isLoading || !riskAccepted}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {loadingMessage || 'Connecting...'}
-                    </>
-                  ) : (
-                    'Connect Instance'
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
+            <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+              <Key className="h-10 w-10 text-muted-foreground/50" />
+              <h3 className="font-semibold">API Key Setup — Coming Soon</h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Bring-your-own-key (BYOK) provisioning is not yet available. Use Quick Setup to connect your WhatsApp number.
+              </p>
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>

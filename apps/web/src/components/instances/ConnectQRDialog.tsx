@@ -68,7 +68,7 @@ export default function ConnectQRDialog({
   };
 
   // Calculate progress percentage for countdown
-  const maxTime = 60; // Assume 60 second QR validity
+  const maxTime = 20; // WAHA QR validity window
   const progressPercent = countdown > 0 ? (countdown / maxTime) * 100 : 0;
 
   // Handle QR refresh

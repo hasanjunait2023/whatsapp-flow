@@ -1,6 +1,8 @@
 import { dbGet, dbRun, dbTx } from "../db/raw.js";
 import { auth } from "../auth/index.js";
 import type { FnContext, FnResult } from "./waha/session.js";
+import { sendEmail } from "../lib/email.js";
+import { AUTH_BASE_URL } from "../lib/env.js";
 
 /**
  * Team module — create-team-member, reset-team-member-password,
@@ -257,6 +259,12 @@ export async function inviteMember(raw: Record<string, unknown>, ctx: FnContext)
     now,
     expiresAt,
   );
+  const inviteUrl = `${AUTH_BASE_URL}/invite/${token}`;
+  await sendEmail({
+    to: email,
+    subject: "You've been invited to join a workspace",
+    html: `<p>You have been invited to join as <strong>${role === "manager" ? "Manager" : "Agent"}</strong>.</p><p><a href="${inviteUrl}">Accept invitation</a></p><p>This invite link expires in 7 days.</p>`,
+  });
   // Never return the token (secret join credential).
   return ok({ id, tenant_id: ctx.tenantId, email, role, invited_by: ctx.userId, created_at: now, expires_at: expiresAt });
 }
