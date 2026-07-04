@@ -28,6 +28,7 @@ export default function Signup() {
   const [searchParams] = useSearchParams();
   const plan = searchParams.get('plan'); // carried from landing pricing CTA
   const redirect = searchParams.get('redirect');
+  const safeRedirect = redirect && /^\/(?![/\\])/.test(redirect) ? redirect : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +69,7 @@ export default function Signup() {
         title: 'Account created!',
         description: 'Let’s set up your workspace.',
       });
-      navigate(redirect ?? (plan ? `/onboarding?plan=${encodeURIComponent(plan)}` : '/onboarding'), { replace: true });
+      navigate(safeRedirect ?? (plan ? `/onboarding?plan=${encodeURIComponent(plan)}` : '/onboarding'), { replace: true });
     }
 
     setIsLoading(false);

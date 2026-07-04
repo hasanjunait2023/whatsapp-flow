@@ -32,40 +32,28 @@ export default function AcceptInvitation() {
     if (!token || !user) return;
 
     try {
-      const { data: session } = await supabase.auth.getSession();
-      
-      const response = await fetch(
-        `https://cdkrvztqeuflxilrtnws.supabase.co/functions/v1/accept-invitation`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.session?.access_token}`,
-          },
-          body: JSON.stringify({ token }),
-        }
-      );
+      const { data, error } = await supabase.functions.invoke<{ success: boolean; tenant_id?: string; role?: string; error?: string }>('accept-invitation', {
+        body: { token },
+      });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to accept invitation');
-      }
+      if (error) throw error;
+      if (!data) throw new Error('Failed to accept invitation');
+      if (data.error) throw new Error(data.error);
 
       setStatus('success');
-      setMessage(data.message);
-      setTenantId(data.tenant_id);
+      setMessage("You've been added to the workspace successfully.");
+      setTenantId(data.tenant_id ?? null);
 
       toast({
         title: 'Invitation accepted!',
-        description: data.message,
+        description: "You've been added to the workspace.",
       });
 
+      if (data.tenant_id) {
+        localStorage.setItem('currentTenantId', data.tenant_id);
+      }
       // Redirect to dashboard after a short delay
       setTimeout(() => {
-        if (data.tenant_id) {
-          localStorage.setItem('currentTenantId', data.tenant_id);
-        }
         navigate('/dashboard');
       }, 2000);
     } catch (error: any) {

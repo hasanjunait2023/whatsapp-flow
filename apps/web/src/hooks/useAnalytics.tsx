@@ -69,7 +69,7 @@ export function useAnalytics(days: number = 30) {
         .gte('sent_at', startDate.toISOString())
         .order('sent_at', { ascending: true });
 
-      const messages = waMessages || [];
+      const messages = [...(waMessages || []), ...(fbMessages || [])];
 
       // Fetch WhatsApp contacts count
       const { count: waContactsCount } = await supabase
@@ -238,7 +238,7 @@ export function useAnalytics(days: number = 30) {
       setTeamPerformance(teamPerf.filter((p) => p.conversationsHandled > 0 || p.messagesSent > 0));
 
       // Calculate summary
-      const totalMessagesCount = (messages?.length || 0) + (fbMessages?.length || 0);
+      const totalMessagesCount = messages.length;
       const allResponseTimes = Object.values(responseTimesByDate).flat();
       const avgResponseTime = allResponseTimes.length > 0
         ? Math.round(allResponseTimes.reduce((a, b) => a + b, 0) / allResponseTimes.length)

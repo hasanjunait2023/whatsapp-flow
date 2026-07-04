@@ -30,6 +30,7 @@ export default function Login() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const redirectParam = searchParams.get('redirect');
+  const safeRedirect = redirectParam && /^\/(?![/\\])/.test(redirectParam) ? redirectParam : null;
 
   type LocationState = {
     from?: {
@@ -56,8 +57,8 @@ export default function Login() {
     if (tenants.length === 0) return;
 
     const target =
-      redirectParam && redirectParam !== '/auth/login'
-        ? redirectParam
+      safeRedirect && safeRedirect !== '/auth/login'
+        ? safeRedirect
         : fromPath && fromPath !== '/auth/login'
         ? fromPath
         : '/dashboard';
@@ -86,8 +87,8 @@ export default function Login() {
       // Navigate immediately — ProtectedRoute / RootRedirect will handle
       // the final destination (admin panel vs dashboard).
       navigate(
-        redirectParam && redirectParam !== '/auth/login'
-          ? redirectParam
+        safeRedirect && safeRedirect !== '/auth/login'
+          ? safeRedirect
           : fromPath && fromPath !== '/auth/login'
           ? fromPath
           : '/dashboard',
@@ -257,7 +258,7 @@ export default function Login() {
         <p className="text-center text-sm text-muted-foreground">
           {t('login.noAccount')}{' '}
           <Link
-            to={redirectParam ? `/auth/signup?redirect=${encodeURIComponent(redirectParam)}` : "/auth/signup"}
+            to={safeRedirect ? `/auth/signup?redirect=${encodeURIComponent(safeRedirect)}` : "/auth/signup"}
             className="font-semibold text-primary hover:text-primary/80 hover:underline transition-colors"
           >
             {t('login.signUp')}
