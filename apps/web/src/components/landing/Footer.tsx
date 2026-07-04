@@ -61,10 +61,9 @@ const SOCIALS = [
 function NewsletterForm() {
   const [status, setStatus] = useState<"idle" | "ok" | "error">("idle");
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
-    // Honeypot: real users never fill this hidden field.
     const trap = (form.elements.namedItem("company") as HTMLInputElement)?.value;
     const email = (form.elements.namedItem("email") as HTMLInputElement)?.value;
     if (trap) return;
@@ -72,9 +71,18 @@ function NewsletterForm() {
       setStatus("error");
       return;
     }
-    // Wiring to a real subscribe endpoint is deferred; acknowledge locally.
-    setStatus("ok");
-    form.reset();
+    try {
+      const res = await fetch("/api/public/newsletter-subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error("subscribe failed");
+      setStatus("ok");
+      form.reset();
+    } catch {
+      setStatus("error");
+    }
   };
 
   return (

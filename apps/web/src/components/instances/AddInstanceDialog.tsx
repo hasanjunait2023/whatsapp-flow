@@ -99,8 +99,9 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
   const [countdown, setCountdown] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
   
-  // Timeout ref for cleanup
+  // Timeout ref for cleanup; autoStepRef mirrors autoStep to avoid stale closures in setTimeout
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autoStepRef = useRef<AutoProvisionStep>('idle');
   
   const { refetch } = useInstances();
   const { currentTenant } = useTenant();
@@ -123,9 +124,14 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
     [ackKey],
   );
 
+  const setAutoStepSynced = useCallback((step: AutoProvisionStep) => {
+    autoStepRef.current = step;
+    setAutoStep(step);
+  }, []);
+
   const applyQrState = useCallback((nextQrCode: string, nextExpiresAt?: string | null) => {
     setQrCode(nextQrCode);
-    setAutoStep('scanning');
+    setAutoStepSynced('scanning');
 
     if (nextExpiresAt) {
       const expiresAt = new Date(nextExpiresAt);
@@ -139,7 +145,7 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
   // Reset state when dialog closes
   useEffect(() => {
     if (!open) {
-      setAutoStep('idle');
+      setAutoStepSynced('idle');
       setAutoName('');
       setAutoPhoneNumber('');
       setAutoInstanceId(null);
@@ -174,10 +180,8 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
             status: string;
           };
 
-          console.log('Instance updated:', instance);
-
           if (instance.status === 'active') {
-            setAutoStep('connected');
+            setAutoStepSynced('connected');
             setQrCode(null);
             toast({
               title: 'Connected!',
@@ -222,7 +226,7 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
         if (error) return;
 
         if (data?.status === 'active') {
-          setAutoStep('connected');
+          setAutoStepSynced('connected');
           setQrCode(null);
           toast({
             title: 'Connected!',
@@ -242,7 +246,7 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
         
         // Timeout after max attempts
         if (attempts >= maxAttempts && autoStep === 'awaiting_qr') {
-          setAutoStep('error');
+          setAutoStepSynced('error');
           setErrorMessage('Timeout waiting for QR code. Please try again.');
         }
       } catch {
@@ -279,7 +283,7 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
         if (error) return;
 
         if (data?.status === 'active') {
-          setAutoStep('connected');
+          setAutoStepSynced('connected');
           setQrCode(null);
           toast({
             title: 'Connected!',
@@ -347,13 +351,13 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
       return;
     }
 
-    setAutoStep('creating');
+    setAutoStepSynced('creating');
     setErrorMessage('');
 
     // Set client-side timeout
     timeoutRef.current = setTimeout(() => {
-      if (autoStep === 'creating' || autoStep === 'connecting') {
-        setAutoStep('error');
+      if (autoStepRef.current === 'creating' || autoStepRef.current === 'connecting') {
+        setAutoStepSynced('error');
         setErrorMessage('Request timed out. Please try again.');
       }
     }, 30000);
@@ -373,7 +377,6 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
         throw { message: data.error, code: data.code };
       }
 
-      console.log('Create session response:', data);
       const instanceId = data.instance_id;
       setAutoInstanceId(instanceId);
 
@@ -387,7 +390,7 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
 
       // Check if already active
       if (data.status === 'active') {
-        setAutoStep('connected');
+        setAutoStepSynced('connected');
         toast({
           title: 'Connected!',
           description: 'Your WhatsApp instance is now active.',
@@ -401,7 +404,7 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
 
       // Step 2: Connect session (if needs_connect)
       if (data.needs_connect) {
-        setAutoStep('connecting');
+        setAutoStepSynced('connecting');
         
         const { data: connectData, error: connectError } = await supabase.functions.invoke('wasender-connect-session', {
           body: { instance_id: instanceId },
@@ -414,7 +417,7 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
 
         // Check if already connected
         if (connectData?.status === 'active') {
-          setAutoStep('connected');
+          setAutoStepSynced('connected');
           toast({
             title: 'Connected!',
             description: 'Your WhatsApp instance is now active.',
@@ -426,11 +429,11 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
           return;
         }
 
-        // Check for immediate QR
+        // Check for immediate QR (shim unwraps invoke data, so top-level qr_code first)
         const immediateQr =
+          connectData?.qr_code ||
           connectData?.qr_result?.qr_code ||
-          connectData?.qr_result?.qrCode ||
-          connectData?.qr_result?.data?.qrCode;
+          connectData?.qr_result?.qrCode;
 
         if (immediateQr) {
           applyQrState(immediateQr, connectData?.qr_result?.expires_at);
@@ -439,7 +442,7 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
       }
 
       // Move to awaiting QR
-      setAutoStep('awaiting_qr');
+      setAutoStepSynced('awaiting_qr');
 
       // Clear timeout since we're now waiting for QR
       if (timeoutRef.current) {
@@ -449,7 +452,7 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
 
     } catch (error: any) {
       console.error('Auto-provision error:', error);
-      setAutoStep('error');
+      setAutoStepSynced('error');
       setErrorMessage(getFriendlyError(error));
       toast({
         title: 'Failed to create session',
@@ -468,7 +471,7 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
   const handleRefreshQR = async () => {
     if (!autoInstanceId) return;
 
-    setAutoStep('awaiting_qr');
+    setAutoStepSynced('awaiting_qr');
     setQrCode(null);
 
     try {
@@ -479,7 +482,7 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
       if (error) throw error;
 
       if (data?.status === 'active') {
-        setAutoStep('connected');
+        setAutoStepSynced('connected');
         return;
       }
 
@@ -766,7 +769,7 @@ export default function AddInstanceDialog({ open, onOpenChange }: AddInstanceDia
                 <p className="text-sm text-muted-foreground text-center mb-4 max-w-[280px]">
                   {errorMessage || 'Unable to create session'}
                 </p>
-                <Button onClick={() => setAutoStep('idle')}>
+                <Button onClick={() => setAutoStepSynced('idle')}>
                   Try Again
                 </Button>
               </div>

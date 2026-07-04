@@ -383,6 +383,28 @@ app.post("/api/public/contact-form", async (c) => {
   return c.json({ success: true });
 });
 
+app.post("/api/public/newsletter-subscribe", async (c) => {
+  let body: Record<string, unknown> = {};
+  try {
+    const raw = await c.req.text();
+    body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+  } catch {
+    return c.json({ error: { message: "Invalid JSON body" } }, 400);
+  }
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  if (!email || email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return c.json({ error: { message: "A valid email is required" } }, 400);
+  }
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // Fire-and-forget — don't surface email send failure to the visitor.
+  sendEmail({
+    to: "support@ecomexautomation.com",
+    subject: "New newsletter subscriber",
+    html: `<p>New subscriber: <strong>${esc(email)}</strong></p>`,
+  }).catch(() => {});
+  return c.json({ ok: true });
+});
+
 // --- authed API --------------------------------------------------------------
 const api = new Hono();
 api.use("*", tenantMiddleware);
