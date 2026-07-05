@@ -53,7 +53,7 @@ export function useAdminCommunication() {
         .from('whatsapp_instances')
         .select('id, name, phone_number, status, is_default, webhook_secret, created_at, updated_at')
         .eq('tenant_id', tenantId)
-        .or('is_deleted.is.null,is_deleted.eq.false')
+        .not('is_deleted', 'eq', true)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

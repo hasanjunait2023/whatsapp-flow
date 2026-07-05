@@ -27,6 +27,7 @@ import { QUERY_TABLES, isAllowedTable, type TableConfig } from "./query-tables.j
 import { parseSelect, hasEmbeds, hydrateEmbeds } from "./query-embed.js";
 import { isVirtualView, executeView } from "./query-views.js";
 import { provisionNewTenant } from "../services/billing/trial.js";
+import { captureError } from "../lib/error-tracking.js";
 import type { TenantContext } from "../middleware/tenant.ts";
 
 class QueryError extends Error {
@@ -47,6 +48,15 @@ function getColumn(cfg: TableConfig, name: string) {
 }
 
 function buildFilter(cfg: TableConfig, f: QueryFilter): SQL {
+  // Support JSONB path access: "settings->>key" syntax (Supabase-style)
+  if (f.column.includes("->>")) {
+    const sep = f.column.indexOf("->>");
+    const baseCol = getColumn(cfg, f.column.substring(0, sep));
+    const jsonKey = f.column.substring(sep + 3);
+    if (f.operator === "eq") return sql`${baseCol}->>${jsonKey} = ${f.value}`;
+    if (f.operator === "neq") return sql`${baseCol}->>${jsonKey} != ${f.value}`;
+    return sql`${baseCol}->>${jsonKey} = ${f.value}`;
+  }
   const col = getColumn(cfg, f.column);
   switch (f.operator) {
     case "eq":
@@ -202,7 +212,8 @@ function assertMutable(cfg: TableConfig, op: string, ctx: TenantContext): void {
   if (mutability === "readonly") {
     throw new QueryError("Table is read-only via this API", "readonly_table");
   }
-  // "admin_write": SELECT ok for scoped membership tables; mutations admin-only.
+  // "admin_write": SELECT ok (scoped membership tables + global read-by-everyone
+  // reference catalogs); mutations admin-only.
   if (mutability === "admin_write" && !ctx.isAdmin) {
     throw new QueryError("Admin privileges required", "forbidden");
   }
@@ -476,6 +487,9 @@ async function runInsert(
         try {
           await provisionNewTenant(tenantId, ctx.userId);
         } catch (e) {
+          // Provisioning failure leaves the tenant with no owner role → "Forbidden tenant" on every
+          // subsequent request. Capture for alerting; the user will see a permission error on reload.
+          captureError(e instanceof Error ? e : new Error(String(e)), { tenantId, userId: ctx.userId });
           console.error("[provision] tenant provisioning failed for", tenantId, e);
         }
       }
