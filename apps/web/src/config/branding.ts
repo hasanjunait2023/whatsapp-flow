@@ -25,6 +25,10 @@ export const TERMS_URL = "https://ecomexautomation.com/terms";
 export const WHATSAPP_API_PROVIDER = "WasenderAPI";
 export const WHATSAPP_API_URL = "https://wasenderapi.com";
 
+// Payment numbers (Bangladesh mobile banking)
+export const BKASH_NUMBER = "01700-000000";
+export const NAGAD_NUMBER = "01700-000000";
+
 // SEO & Meta
 export const META_TITLE = `${APP_NAME} - ${APP_DESCRIPTION}`;
 export const META_DESCRIPTION = "Manage your WhatsApp business conversations, automate responses, and grow your business with What A App.";
