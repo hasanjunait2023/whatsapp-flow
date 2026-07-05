@@ -63,8 +63,8 @@ import {
 if (IS_PRODUCTION) {
   getMasterKey();
   if (!RESEND_API_KEY) {
-    throw new Error(
-      "RESEND_API_KEY is not set. Transactional email (password reset, notifications) will be silently dropped. Set RESEND_API_KEY before starting in production.",
+    console.warn(
+      "[WARN] RESEND_API_KEY is not set. Transactional email (password reset, notifications) will be silently dropped.",
     );
   }
   // Production runs WAHA Plus, which signs webhooks. Refuse to boot accepting
