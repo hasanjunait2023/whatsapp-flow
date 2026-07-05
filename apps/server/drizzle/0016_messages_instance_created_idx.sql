@@ -5,5 +5,5 @@
 -- Previous (tenant_id, created_at) index required a heap filter for instance_id.
 -- New composite covers the WHERE + GROUP BY without a heap fetch.
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "messages_tenant_instance_created_idx"
+CREATE INDEX IF NOT EXISTS "messages_tenant_instance_created_idx"
     ON "messages" ("tenant_id", "instance_id", "created_at");

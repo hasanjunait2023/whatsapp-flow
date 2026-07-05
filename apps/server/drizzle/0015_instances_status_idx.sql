@@ -15,9 +15,9 @@
 --    New:     partial index WHERE unread_count > 0 on (tenant_id, is_archived) cuts the
 --             index to only the fraction of contacts with unread messages.
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "whatsapp_instances_tenant_status_idx"
+CREATE INDEX IF NOT EXISTS "whatsapp_instances_tenant_status_idx"
     ON "whatsapp_instances" ("tenant_id", "status", "is_deleted", "is_default" DESC);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "contact_thread_state_unread_idx"
+CREATE INDEX IF NOT EXISTS "contact_thread_state_unread_idx"
     ON "contact_thread_state" ("tenant_id", "is_archived")
     WHERE unread_count > 0;
