@@ -14,6 +14,7 @@ import { AppLogo } from '@/components/AppLogo';
 import { APP_NAME } from '@/config/branding';
 import { BusinessTypeSelector } from '@/components/onboarding/BusinessTypeSelector';
 import { PlanSelectionStep } from '@/components/onboarding/PlanSelectionStep';
+import { PhoneOtpStep } from '@/components/onboarding/PhoneOtpStep';
 
 export default function Onboarding() {
   const [step, setStep] = useState(1);
@@ -138,7 +139,7 @@ export default function Onboarding() {
     );
   }
 
-  const totalSteps = 4;
+  const totalSteps = 5;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -150,7 +151,7 @@ export default function Onboarding() {
 
         {/* Progress indicator */}
         <div className="flex items-center justify-center gap-2 mb-8">
-          {[1, 2, 3, 4].map((s) => (
+          {[1, 2, 3, 4, 5].map((s) => (
             <div
               key={s}
               className={`h-2 w-12 rounded-full transition-colors ${step >= s ? 'bg-primary' : 'bg-muted'}`}
@@ -280,8 +281,17 @@ export default function Onboarding() {
           </Card>
         )}
 
-        {/* Step 4: Plan Selection */}
+        {/* Step 4: WhatsApp Verification */}
         {step === 4 && (
+          <PhoneOtpStep
+            onVerified={() => setStep(5)}
+            onSkip={() => setStep(5)}
+            onBack={() => setStep(3)}
+          />
+        )}
+
+        {/* Step 5: Plan Selection */}
+        {step === 5 && (
           <Card className="border-border/50 shadow-lg animate-fade-in">
             <CardContent className="pt-6">
               <PlanSelectionStep
@@ -290,7 +300,7 @@ export default function Onboarding() {
                 onSelect={setSelectedPlanId}
               />
               <div className="flex gap-3 mt-6">
-                <Button variant="outline" className="flex-1" onClick={() => setStep(3)}>
+                <Button variant="outline" className="flex-1" onClick={() => setStep(4)}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back
                 </Button>

@@ -20,6 +20,7 @@ import { ADMIN_HANDLERS } from "./admin-fns.js";
 import { GROWTH_HANDLERS } from "./growth-fns.js";
 import { WELCOME_HANDLERS } from "./welcome-fns.js";
 import { EXPORT_HANDLERS } from "./export-fns.js";
+import { PHONE_OTP_HANDLERS } from "./phone-otp-fns.js";
 import { uploadChatMediaJson, uploadChatMediaMultipart } from "./upload-fns.js";
 import { captureError } from "../lib/error-tracking.js";
 
@@ -55,6 +56,7 @@ const HANDLERS: Record<string, FnHandler> = {
   ...GROWTH_HANDLERS,
   ...WELCOME_HANDLERS,
   ...EXPORT_HANDLERS,
+  ...PHONE_OTP_HANDLERS,
   "send-message": sendMessage,
   "send-new-message": sendNewMessage,
   "upload-chat-media": uploadChatMediaJson,

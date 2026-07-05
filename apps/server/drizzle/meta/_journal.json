@@ -57,6 +57,139 @@
       "when": 1781500000000,
       "tag": "0007_instances_is_deleted_default",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781520000000,
+      "tag": "0008_indexes_and_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781540000000,
+      "tag": "0009_order_counter",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781560000000,
+      "tag": "0010_perf_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1781580000000,
+      "tag": "0011_contacts_phone_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1781600000000,
+      "tag": "0012_messages_sent_at_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1781620000000,
+      "tag": "0013_contact_thread_state_archived_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1781640000000,
+      "tag": "0014_internal_messages_room_created_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1781660000000,
+      "tag": "0015_instances_status_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1781680000000,
+      "tag": "0016_messages_instance_created_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1781700000000,
+      "tag": "0017_trigram_search_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1781720000000,
+      "tag": "0018_job_queue_dedupe_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1781740000000,
+      "tag": "0019_aftersales_marker_tid_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1781760000000,
+      "tag": "0020_missing_composite_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1781780000000,
+      "tag": "0021_messages_inbound_contact_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1781800000000,
+      "tag": "0022_funnel_socialpost_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1781820000000,
+      "tag": "0023_scheduler_cleanup_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1781840000000,
+      "tag": "0024_perf_followup_notification_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1781860000000,
+      "tag": "0025_waha_reactions_and_read_receipts",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1783400000000,
+      "tag": "0026_phone_otp_requests",
+      "breakpoints": true
     }
   ]
 }
