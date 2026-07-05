@@ -192,15 +192,15 @@ const MUTATION_OPS = new Set(["insert", "update", "upsert", "delete"]);
  * could insert/update their own role-bearing rows (user_roles, system_roles).
  */
 function assertMutable(cfg: TableConfig, op: string, ctx: TenantContext): void {
-  const mutability = cfg.mutability ?? "tenant";
-  // Admin-only tables are blocked for non-admins on any operation (SELECT included),
-  // preventing authenticated non-admins from reading privilege-bearing or platform-wide tables.
-  if (mutability === "admin" && !ctx.isAdmin) {
-    throw new QueryError("Admin privileges required", "forbidden");
-  }
+  // Selects are always allowed; isolation is enforced by tenantScope (membership/tenant scoping).
   if (!MUTATION_OPS.has(op)) return;
+  const mutability = cfg.mutability ?? "tenant";
   if (mutability === "readonly") {
     throw new QueryError("Table is read-only via this API", "readonly_table");
+  }
+  // Only admins may mutate privilege-bearing tables (user_roles, system_roles, etc.).
+  if (mutability === "admin" && !ctx.isAdmin) {
+    throw new QueryError("Admin privileges required", "forbidden");
   }
 }
 
