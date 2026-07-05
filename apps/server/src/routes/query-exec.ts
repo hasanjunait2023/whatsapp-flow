@@ -192,14 +192,18 @@ const MUTATION_OPS = new Set(["insert", "update", "upsert", "delete"]);
  * could insert/update their own role-bearing rows (user_roles, system_roles).
  */
 function assertMutable(cfg: TableConfig, op: string, ctx: TenantContext): void {
-  // Selects are always allowed; isolation is enforced by tenantScope (membership/tenant scoping).
-  if (!MUTATION_OPS.has(op)) return;
   const mutability = cfg.mutability ?? "tenant";
+  // "admin": only admins may access at all (SELECT included) — e.g. plans, subscriptions.
+  if (mutability === "admin" && !ctx.isAdmin) {
+    throw new QueryError("Admin privileges required", "forbidden");
+  }
+  // Past this point, non-mutation ops (SELECT) are allowed — isolation enforced by tenantScope.
+  if (!MUTATION_OPS.has(op)) return;
   if (mutability === "readonly") {
     throw new QueryError("Table is read-only via this API", "readonly_table");
   }
-  // Only admins may mutate privilege-bearing tables (user_roles, system_roles, etc.).
-  if (mutability === "admin" && !ctx.isAdmin) {
+  // "admin_write": SELECT ok for scoped membership tables; mutations admin-only.
+  if (mutability === "admin_write" && !ctx.isAdmin) {
     throw new QueryError("Admin privileges required", "forbidden");
   }
 }

@@ -120,7 +120,11 @@ import type { PgTable } from "drizzle-orm/pg-core";
  *  - "admin":    only ctx.isAdmin (privilege-bearing / role tables)
  *  - "readonly": never mutable via the generic API (SELECT only)
  */
-export type Mutability = "tenant" | "admin" | "readonly";
+export type Mutability =
+  | "tenant"
+  | "admin"
+  | "admin_write"
+  | "readonly";
 
 export interface TableConfig {
   table: PgTable;
@@ -176,14 +180,14 @@ export const QUERY_TABLES: Record<string, TableConfig> = {
     table: userRoles,
     tenantColumn: null,
     access: "membership",
-    mutability: "admin",
+    mutability: "admin_write",
     privilegeColumns: ["role", "user_id", "tenant_id"],
   },
   system_roles: {
     table: systemRoles,
     tenantColumn: null,
     access: "membership",
-    mutability: "admin",
+    mutability: "admin_write",
     privilegeColumns: ["role", "is_super_admin", "permissions", "user_id"],
   },
   subscriptions: { table: subscriptions, tenantColumn: "tenant_id", mutability: "admin" },
